@@ -1,0 +1,342 @@
+4a579875-13bc-4f62-973e-763217b94598 
+ALLUSERSPROFILE=C:\Documents and Settings\All Users
+APPDATA=C:\Documents and Settings\Jay\Application Data
+APPVER=5.01
+Basemake=C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Include\BKOffice.Mak
+Bkoffice=C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\
+CommonProgramFiles=C:\Program Files\Common Files
+COMPUTERNAME=JAY-DELL1
+ComSpec=C:\WINDOWS\system32\cmd.exe
+CPU=i386
+FP_NO_HOST_CHECK=NO
+HOMEDRIVE=C:
+HOMEPATH=\Documents and Settings\Jay
+INCLUDE=C:\msdev\80\VC\INCLUDE;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Include;C:\msdev\70\VC7\ATLMFC\INCLUDE;C:\msdev\70\VC7\INCLUDE;C:\msdev\70\VC7\PlatformSDK\include\prerelease;C:\msdev\70\VC7\PlatformSDK\include;C:\msdev\70\FrameworkSDK\include;
+INETSDK=C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
+LIB=C:\msdev\80\VC\LIB;C:\msdev\80\SDK\v2.0\lib;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Lib;C:\msdev\70\VC7\ATLMFC\LIB;C:\msdev\70\VC7\LIB;C:\msdev\70\VC7\PlatformSDK\lib\prerelease;C:\msdev\70\VC7\PlatformSDK\lib;C:\msdev\70\FrameworkSDK\lib;
+LOGONSERVER=\\JAY-DELL1
+MAKEDIR=C:\dev2\j\hardlink_identical_files
+MAKEFLAGS=                  
+MSSdk=C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
+Mstools=C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2
+MSVCVer=7.0
+NUMBER_OF_PROCESSORS=2
+OS=Windows_NT
+Path=C:\msdev\80\Common7\IDE;C:\msdev\80\VC\BIN;C:\msdev\80\Common7\Tools;C:\msdev\80\SDK\v2.0\bin;C:\WINDOWS\Microsoft.NET\Framework\v2.0.50727;C:\msdev\80\VC\VCPackages;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Bin;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Bin\WinNT;C:\msdev\70\Common7\IDE;C:\msdev\70\VC7\BIN;C:\msdev\70\Common7\Tools;C:\msdev\70\Common7\Tools\bin\prerelease;C:\msdev\70\Common7\Tools\bin;C:\msdev\70\FrameworkSDK\bin;C:\WINDOWS\Microsoft.NET\Framework\v1.0.3705;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;c:\bin;
+PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.RB;.RBW
+PROCESSOR_ARCHITECTURE=x86
+PROCESSOR_IDENTIFIER=x86 Family 15 Model 104 Stepping 1, AuthenticAMD
+PROCESSOR_LEVEL=15
+PROCESSOR_REVISION=6801
+ProgramFiles=C:\Program Files
+PROMPT=$P$G
+SESSIONNAME=Console
+SystemDrive=C:
+SystemRoot=C:\WINDOWS
+TARGETOS=WINNT
+TEMP=C:\DOCUME~1\Jay\LOCALS~1\Temp
+TMP=C:\DOCUME~1\Jay\LOCALS~1\Temp
+USERDOMAIN=JAY-DELL1
+USERNAME=Jay
+USERPROFILE=C:\Documents and Settings\Jay
+windir=C:\WINDOWS
+_NMAKE_VER=8.00.50727.42
+d685ccc7-6847-4f83-a33b-7485dfe4ef67 
+@call :environment_variable_must_contain_files path cl.exe link.exe fc.exe nmake.exe
+@if errorlevel 1 goto :Fail
+
+@call :IsConfigurationUpToDate %0
+@if errorlevel 1 goto :reconfigure
+
+@rem @echo configuration is up to date
+@del _configure.signature.new
+@goto :end
+
+:Fail
+	 @echo %0 failing
+	 @goto :end
+
+:ClearLastError
+    @dir . > nul
+	@goto :end
+
+:SetLastError
+	@dir _nonexistant.971ffd40-a946-475c-8d79-d2a4d7bb1325 > nul
+	goto :end
+
+:reconfigure
+    @del _configure.signature 2>nul
+    @nmake /nologo /f %~dp0configure.make3 > _configure.make2.new
+    @fc _configure.make2 _configure.make2.new >nul 2>nul
+    @if errorlevel 1 goto :reconfigure_2
+
+    @goto :reconfigure_2
+
+    @del _configure.make2.new
+    @del _configure.signature.new
+    @goto :end
+
+:reconfigure_2
+    @del _configure.make2      2>nul
+    @del _configure.signature  2>nul
+    @move _configure.signature.new _configure.signature
+    @move _configure.make2.new _configure.make2
+    @goto :end
+
+:IsConfigurationUpToDate
+
+    @rem
+    @rem If environment or configure itself has changed, out of date.
+    @rem
+    @rem Print each part of the configuration to .new, with guids between them.
+    @rem
+
+    @echo 4a579875-13bc-4f62-973e-763217b94598 > _configure.signature.new
+    @set >> _configure.signature.new
+    @echo d685ccc7-6847-4f83-a33b-7485dfe4ef67 >> _configure.signature.new
+    @type %~dp1configure.cmd >> _configure.signature.new
+    @echo 9a4023cb-194a-4895-8042-bcc2ac054b52 >> _configure.signature.new
+    @type %~dp1configure.make >> _configure.signature.new
+    @echo a35e935e-1581-499e-83d2-b8cdc515e25d >> _configure.signature.new
+    @type %~dp1configure.make3 >> _configure.signature.new
+    @echo 3f306058-0025-4a19-8b8d-545d7f64453a >> _configure.signature.new
+
+    @rem
+    @rem If the signature or the output does not exist, out of date.
+    @rem
+    @if not exist _configure.signature exit /b 1
+    @if not exist _configure.make2 exit /b 1
+
+    @fc _configure.signature.new _configure.signature >nul 2>nul
+
+    @goto :end
+
+:environment_variable_must_contain_files
+	@setlocal
+	@set a=%1
+	@for /f "tokens=*" %%i in ('echo %%%1%%') do @set b=%%i
+:environment_variable_must_contain_files_1
+	@shift
+	@if "%1" == "" (
+	  @endlocal
+	  @goto :eof
+	)
+	@if "%~$b:1" == "" (
+		@echo %a% does not contain %1
+		@endlocal
+		@exit /b 1
+	)
+	@goto :environment_variable_must_contain_files_1
+
+:end
+9a4023cb-194a-4895-8042-bcc2ac054b52 
+!if [configure.cmd]
+!endif
+!include .\_configure.make2
+a35e935e-1581-499e-83d2-b8cdc515e25d 
+###########################################################################
+
+#!message _NMAKE_VER=$(_NMAKE_VER)
+
+#!message LINK_IS_MSLINK16=1
+#!message LINK_IS_MSLINK32=0
+#!message LINK_IS_MSLINK64=0
+
+!if !defined(_NMAKE_VER)
+NMAKE_SUPPORTS_COLON_COLON=0
+!else
+NMAKE_SUPPORTS_COLON_COLON=1
+!endif
+
+!message NMAKE_SUPPORTS_COLON_COLON=$(NMAKE_SUPPORTS_COLON_COLON)
+
+###########################################################################
+
+!if [cl /c /nologo /EHs nul.c 2>&1 | find "/EHs" > nul]
+CL_SUPPORTS_EH=1
+!else
+CL_SUPPORTS_EH=0
+!endif
+
+!message CL_SUPPORTS_EH=$(CL_SUPPORTS_EH)
+
+###########################################################################
+
+!if [cl /c /nologo /GX nul.c 2>&1 | find "GX" > nul]
+CL_SUPPORTS_GX=1
+!else
+CL_SUPPORTS_GX=0
+!endif
+
+!message CL_SUPPORTS_GX=$(CL_SUPPORTS_GX)
+
+###########################################################################
+
+!if [cl /c /nologo /TP nul.c 2>&1 | find "/TP" > nul]
+CL_SUPPORTS_TP=1
+!else
+CL_SUPPORTS_TP=0
+!endif
+
+!message CL_SUPPORTS_TP=$(CL_SUPPORTS_TP)
+
+###########################################################################
+
+#
+# Disable particular warnings on the command line.
+#
+
+!if [cl /c /nologo /wd4996 nul.c 2>&1 | find "/wd4996" > nul]
+CL_SUPPORTS_WD=1
+!else
+CL_SUPPORTS_WD=0
+!endif
+
+!message CL_SUPPORTS_WD=$(CL_SUPPORTS_WD)
+
+###########################################################################
+
+!if [link /opt:icf 2>&1 | find "opt:icf" > nul]
+LINK_SUPPORTS_OPT_ICF=1
+!else
+LINK_SUPPORTS_OPT_ICF=0
+!endif
+
+!message LINK_SUPPORTS_OPT_ICF=$(LINK_SUPPORTS_OPT_ICF)
+
+###########################################################################
+
+!if [del .\none 2>nul]
+!endif
+!if [del .\_configure.pdb 2>nul]
+!endif
+
+!if [@echo. > .\_configure.c]
+!endif
+
+!if [cl /nologo /LD _configure.c /Z7 /link /nologo /debug /pdb:none >nul 2>&1]
+!endif
+
+!if exists(none) || exists(_configure.pdb)
+LINK_SUPPORTS_PDB_NONE=0
+!else
+LINK_SUPPORTS_PDB_NONE=1
+!endif
+
+!if [del .\none 2>nul]
+!endif
+!if [del .\_configure.pdb 2>nul]
+!endif
+!if [del .\_configure.dll]
+!endif
+!if [del .\_configure.c]
+!endif
+
+!message LINK_SUPPORTS_PDB_NONE=$(LINK_SUPPORTS_PDB_NONE)
+
+###########################################################################
+
+!if [del .\none 2>nul]
+!endif
+!if [del .\_configure.pdb 2>nul]
+!endif
+
+!if [@echo template ^<class T^> void F(T t) { } > .\_configure.cpp]
+!endif
+
+!if [cl /nologo /c _configure.cpp 2>&1 >nul]
+!endif
+
+!if exists(_configure.obj)
+CL_SUPPORTS_TEMPLATES=1
+!else
+CL_SUPPORTS_TEMPLATES=0
+!endif
+
+!if [del .\_configure.cpp]
+!endif
+
+!if [del .\_configure.obj]
+!endif
+
+!message CL_SUPPORTS_TEMPLATES=$(CL_SUPPORTS_TEMPLATES)
+
+###########################################################################
+
+!if [del .\_configure.mscver 2>nul]
+!endif
+
+!if [@echo x_MSC_VER=_MSC_VER > .\_configure.c]
+!endif
+!if [@echo x_MSC_FULL_VER=_MSC_FULL_VER >> .\_configure.c]
+!endif
+
+!if [cl /nologo /EP .\_configure.c 2>nul > .\_configure.mscver]
+!endif
+!include .\_configure.mscver
+
+!message _MSC_VER=$(x_MSC_VER)
+!if "$(x_MSC_FULL_VER)" != "_MSC_FULL_VER"
+!message _MSC_FULL_VER=$(x_MSC_FULL_VER)
+!endif
+
+!if [del .\_configure.c]
+!endif
+!if [del .\_configure.mscver]
+!endif
+
+###########################################################################
+
+!if [link /pdbpath:none 2>&1 | find "pdbpath:none" > nul]
+LINK_SUPPORTS_PDBPATH_NONE=1
+!else
+LINK_SUPPORTS_PDBPATH_NONE=0
+!endif
+
+!message LINK_SUPPORTS_PDBPATH_NONE=$(LINK_SUPPORTS_PDBPATH_NONE)
+
+###########################################################################
+
+#
+# /pdb:none is more useful than it sounds.
+# It means put the symbols in the .dll/.exe
+#
+!if $(LINK_SUPPORTS_PDB_NONE)
+LINK_PDB_NONE=/pdb:none
+!else
+LINK_PDB_NONE=
+!endif
+
+!message LINK_PDB_NONE=$(LINK_PDB_NONE)
+
+###########################################################################
+
+#
+# This controls whether the pdb path in the .exe/.dll is a full path or just a file name.
+#
+!if $(LINK_SUPPORTS_PDBPATH_NONE)
+LINK_PDBPATH_NONE=/pdbpath:none
+!else
+LINK_PDBPATH_NONE=
+!endif
+
+!message LINK_PDBPATH_NONE=$(LINK_PDBPATH_NONE)
+
+###########################################################################
+
+#
+# identical comdat foling
+#  -- identical function combining (sometimes data)
+#
+!if $(LINK_SUPPORTS_OPT_ICF)
+LINK_OPT_ICF=/opt:icf
+!else
+LINK_OPT_ICF=
+!endif
+
+!message LINK_OPT_ICF=$(LINK_OPT_ICF)
+
+###########################################################################
+
+###########################################################################
+3f306058-0025-4a19-8b8d-545d7f64453a 

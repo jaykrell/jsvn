@@ -1,0 +1,1 @@
+public class hello{final double double_one_point_one = 1.1;final float float_one_point_one = 1.1f;final double d [] = { 1.23456, 123456.0102030405 };final float f [] = { 1.23456f, 123456.0102030405f };	public static void main(String args[])	{		System.out.println("hello world.\n");	}}

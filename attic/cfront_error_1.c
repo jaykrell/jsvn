@@ -1,0 +1,1 @@
+inline int F(int i, int j){ if (i) return i; return j;}

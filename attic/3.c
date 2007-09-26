@@ -1,0 +1,1 @@
+typedef struct S { int i; } S;extern const S null;#define null (S)'1234'static S s = null;int main(){return 0;}

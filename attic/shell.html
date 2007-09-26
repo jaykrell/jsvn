@@ -1,0 +1,184 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd"><html lang="en-US"><head><title>Stow Lake Software's JavaScript Shell</title>
+				
+		<meta name="generator" content="BBEdit 5.1">	
+		<script language="JavaScript" type="text/javascript">
+		<!--HIDE
+		//
+		// There seems to be a bug in Netscape 4. It 
+		// doesn't correctly display an text area 
+		// whose contents is the empty string, "".
+		//
+		// The value of __clearFlag is true when
+		// the contents of the results field should be
+		// empty.
+		var __clearFlag = true;
+		
+		// Append the value of evaluating the source 
+		// field to the destination field.
+		function display()
+		{
+			var result = eval(document.mainForm.elements[0].value);
+			if ( __clearFlag )
+				document.mainForm.elements[1].value = result + '\r';
+			else
+				document.mainForm.elements[1].value += result + '\r';
+			__clearFlag = false;
+		}
+		
+		// Clear the results text area.
+		function ClearOutput ()
+		{
+			var aSpace = new String (" ");
+			document.mainForm.elements[1].value = aSpace;
+			__clearFlag = true;
+		}
+		
+		// Append text to the results text area.
+		function write ( inString )
+		{
+			document.mainForm.elements[1].value 
+				+= inString;
+			__clearFlag = false;
+			return "";
+		}
+		function writeln ( inString )
+		{
+			return write ( inString + '\r' );
+		}
+		
+		function writesource ( string )
+		{
+			document.mainForm.elements[0].value
+				+= string + "\r";
+		}
+		function Example1 ()
+		{
+			writesource ( "//Sample code" );
+			writesource ( "//Showing how an array works");
+			writesource ( "var simpleArray = [ 'tom', 'dick', 'harry']; ");
+			writesource ( "for ( guy in simpleArray )" );
+			writesource ( "  writeln ( 'number=' + guy + ' name=' + simpleArray[guy]  )" );
+			writesource ( "// To see the evaluation of this code" );
+			writesource ( "// click the Run button" );
+		}
+		function Example2 ()
+		{
+			writesource ( "//Sample try a recursive function" );
+			writesource ( "function factorial ( n )" );
+			writesource ( "{" );
+			writesource ( "  if ( n <= 0 )" );
+			writesource ( "    return 1;" );
+			writesource ( "  else" );
+			writesource ( "    return n * factorial ( n -1 );" );
+			writesource ( "}" );
+			writesource ( "factorial ( 5 )" );
+			writesource ( "// To see the evaluation of this code" );
+			writesource ( "// click the Run button" );
+		}		
+
+		//NOHIDE-->
+		</script></head>
+
+	<body onload="document.mainForm.elements[0].focus()" bgcolor="#d8ae9b" text="#6c2f16" link="#80452c" alink="#a4715c" vlink="#80452c">
+<div align="center">
+<table border="0" width="90%" cellspacing="0" cellpadding="5">
+	<tbody><tr>
+	
+		<td align="left">
+	<a href="http://www.stowlake.com/">
+		<font face="helvetica">To Stow Lake Software Home Page</font></a>
+		</td>
+		<td align="right">
+	<a href="mailto:shell@stowlake.com">
+		<font face="helvetica">Contact the author (Danny Swarzman)</font></a>
+		</td>
+	</tr>
+</tbody></table>
+	<h3 align="center"><font face="helvetica">
+		Stow Lake Software's JavaScript Shell</font></h3>
+	<form name="mainForm">
+	
+	<table border="0" width="90%" cellspacing="0" cellpadding="5">
+	<tbody><tr>
+		<td bgcolor="#fcd8c4" colspan="2">
+			To test a fragment of JavaScript code, type or paste it into
+			the Code text area. Click the "Run the Code" button to see the results 
+			displayed in the Results text area.
+		</td>
+	</tr>	
+	<tr>
+		<td bgcolor="#fcd8c4">
+			<font face="helvetica"><strong>
+			Code:</strong></font>
+		</td>			
+		<td bgcolor="#fcd8c4">	
+			<font face="helvetica"><strong>
+			Results:</strong></font>
+		</td>
+	</tr>	
+	<tr>
+		<td bgcolor="#fcd8c4" align="center"><!--Prompt for Code-->
+			<textarea cols="45" name="getThis" rows="20"></textarea></td>
+			
+		<td bgcolor="#fcd8c4" align="center"><!--Display Evaluation Results-->	
+			<textarea cols="45" name="putHere" rows="20"></textarea></td>
+	</tr>
+<!--Buttons-->
+	<tr>
+		<td colspan="2" align="center" bgcolor="#fcd8c4">
+		
+			<input type="button" value="Run the Code" onclick="display()">
+			</td>
+	</tr>
+	<tr>
+		<td bgcolor="#fcd8c4" align="center">
+			<input type="reset" value="Clear Code" onclick="display()">
+		</td>
+
+		<td bgcolor="#fcd8c4" align="center">
+			<input type="button" value="Clear Results" onclick="ClearOutput(),true"><br>
+		</td>
+	</tr>
+	<tr>
+		<td bgcolor="#fcd8c4" colspan="2">
+			Try these examples:
+			&nbsp;&nbsp;&nbsp;&nbsp;
+			<a href="javascript:Example1()"><font face="helvetica">Example 1</font></a>
+			&nbsp;&nbsp;&nbsp;&nbsp;
+			<a href="javascript:Example2()"><font face="helvetica">Example 2</font></a>
+
+		</td>
+	</tr>
+	<tr>
+		<td bgcolor="#fcd8c4" colspan="2">
+
+		The script that is started by the Run button
+		 uses the JavaScript eval() function to interpret
+		 the code that is entered.
+		 The code may include calls to write() and writeln().
+		 Those functions append text to the results.
+			 The value of the script, is placed in the results 
+		 text area after all the write() and writeln() 
+		 calls have run.
+		 
+		</td>
+	</tr>
+	</tbody></table>
+	
+	</form>
+<table border="0" width="90%" cellspacing="0" cellpadding="5">
+	<tbody><tr>
+	
+		<td align="left">
+	<a href="http://www.stowlake.com/">
+		<font face="helvetica">To Stow Lake Software Home Page</font></a>
+		</td>
+		<td align="right">
+	<a href="mailto:shell@stowlake.com">
+		<font face="helvetica">Contact the author (Danny Swarzman)</font></a>
+		</td>
+	</tr>
+</tbody></table>
+	</div>
+		 
+</body></html>

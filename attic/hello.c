@@ -1,0 +1,1 @@
+#include <stdio.h>#include "Debugging.h"int main(){SafeDebugStr("\px");printf("hello world\n");return 0;}

@@ -1,0 +1,1 @@
+typedef struct s { int i; } s;const s t = { 1 };

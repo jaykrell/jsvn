@@ -1,0 +1,435 @@
+? 1
+? 1.c
+? NT386
+? a
+? b
+? backup-may15
+? backup1
+? backups
+? boot-cm3-with-m3.cmd
+? clearenv.cmd
+? cmd
+? comctl32.bat
+? def-std-pkgs.cmd
+? do-cm3-min.cmd
+? err
+? install-cm3-compiler.cmd
+? out
+? t
+? upgrade.cmd
+Index: do-cm3-base.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/do-cm3-base.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 do-cm3-base.cmd
+--- do-cm3-base.cmd	27 Apr 2004 15:00:23 -0000	1.1
++++ do-cm3-base.cmd	15 May 2004 09:59:24 -0000
+@@ -1,11 +1,11 @@
+ @REM #!cmd.exe
+-@REM $Id: do-cm3-base.cmd,v 1.1 2004/04/27 15:00:23 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+ call %~dp0clearenv.cmd
+ setlocal
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ call %~dp0pkginfo.cmd
+ call %~dp0pkgcmds.cmd
+ 
+@@ -42,7 +42,17 @@
+ call %~dp0pkgcmds map_action %* || goto :eof
+ call %~dp0pkgcmds add_action_opts %*
+ 
+-echo %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
+-call %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
++call :echo_and_run call %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
+ 
+ endlocal
++goto :eof
++
++:echo_and_run
++setlocal
++set x=%*
++set x=%x:  = %
++set x=%x:  = %
++echo %x%
++%x%
++endlocal
++goto :eof
+Index: do-cm3-core.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/do-cm3-core.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 do-cm3-core.cmd
+--- do-cm3-core.cmd	27 Apr 2004 15:01:53 -0000	1.1
++++ do-cm3-core.cmd	15 May 2004 09:59:24 -0000
+@@ -1,11 +1,11 @@
+ @REM #!cmd.exe
+-@REM $Id: do-cm3-core.cmd,v 1.1 2004/04/27 15:01:53 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+ call %~dp0clearenv.cmd
+ setlocal
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ call %~dp0pkginfo.cmd
+ call %~dp0pkgcmds.cmd
+ 
+@@ -47,7 +47,17 @@
+ call %~dp0pkgcmds map_action %* || goto :eof
+ call %~dp0pkgcmds add_action_opts %*
+ 
+-echo %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
+-call %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
++call :echo_and_run call %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
+ 
+ endlocal
++goto :eof
++
++:echo_and_run
++setlocal
++set x=%*
++set x=%x:  = %
++set x=%x:  = %
++echo %x%
++%x%
++endlocal
++goto :eof
+Index: do-cm3-std.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/do-cm3-std.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 do-cm3-std.cmd
+--- do-cm3-std.cmd	8 Apr 2001 14:20:12 -0000	1.1
++++ do-cm3-std.cmd	15 May 2004 09:59:24 -0000
+@@ -1,121 +1,37 @@
+-cd ..\m3-libs\m3core
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\libm3
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\m3middle
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\m3quake
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\m3scanner
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\m3tools
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\m3cgcat
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\m3cggen
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\m3bundle
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\mklib
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\dll2lib
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\fix_nl
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-sys\libdump
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\bitvector
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\digraph
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\parseparams
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\realgeometry
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\set
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\slisp
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\sortedtableextras
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\table-list
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-libs\tempfiles
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-comm\tcp
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-comm\tapi
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-comm\serial
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\m3tk
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\mtex
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\m3totex
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\m3tohtml
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\cmpdir
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\cmpfp
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\dirfp
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\uniq
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-comm\netobj
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-comm\netobjd
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-comm\stubgen
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-db\odbc
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-db\postgres95
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-db\db
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-db\smalldb
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-db\stable
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-db\stablegen
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\ui
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\vbtkit
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\cmvbt
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\jvideo
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\videovbt
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-www\web
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\formsvbtpixmaps
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\formsvbt
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\formsview
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\formsedit
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\codeview
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\mg
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-ui\mgkit
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\recordheap
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\rehearsecode
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\replayheap
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\showheap
+-cm3 -build && cm3 -ship
+-cd ..\..\m3-tools\shownew
+-cm3 -build && cm3 -ship
+-cd ..\..\scripts
++@REM #!cmd.exe
++@REM $Id$
++
++@if "%_echo%" == "" @echo off
++
++call %~dp0clearenv.cmd
++setlocal
++call %~dp0sysinfo.cmd || goto :eof
++call %~dp0pkginfo.cmd
++call %~dp0pkgcmds.cmd
++
++call %~dp0def-std-pkgs.cmd
++
++REM
++REM UNDONE
++REM
++REM type m3bundle >/dev/null 2>/dev/null || \
++REM   . "$ROOT/scripts/do-pkg.sh" buildship m3bundle
++
++call %~dp0pkgcmds extract_options %*
++call %~dp0pkgcmds map_action %* || goto :eof
++call %~dp0pkgcmds add_action_opts %*
++
++call :echo_and_run call %~dp0pkgmap.cmd %OPTIONS% %ADDARGS% -c "%ACTION%" %P%
++
++endlocal
++goto :eof
++
++:echo_and_run
++setlocal
++set x=%*
++set x=%x:  = %
++set x=%x:  = %
++echo %x%
++%x%
++endlocal
++goto :eof
+Index: do-pkg.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/do-pkg.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 do-pkg.cmd
+--- do-pkg.cmd	27 Apr 2004 15:02:41 -0000	1.1
++++ do-pkg.cmd	15 May 2004 09:59:24 -0000
+@@ -1,11 +1,11 @@
+ @REM #!cmd.exe
+-@REM $Id: do-pkg.cmd,v 1.1 2004/04/27 15:02:41 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+ setlocal
+ 
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ call %~dp0pkginfo.cmd
+ call %~dp0pkgcmds.cmd
+ 
+Index: find-packages.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/find-packages.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 find-packages.cmd
+--- find-packages.cmd	27 Apr 2004 15:03:37 -0000	1.1
++++ find-packages.cmd	15 May 2004 09:59:24 -0000
+@@ -1,11 +1,11 @@
+ @REM #!cmd.exe
+-@REM $Id: find-packages.cmd,v 1.1 2004/04/27 15:03:37 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+ setlocal
+ 
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ 
+ dir /s/b %ROOT%\m3makefile > %PKGSDB%.1
+ findstr /e /i src\m3makefile %PKGSDB%.1 > %PKGSDB%.2
+Index: pkgcmds.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/pkgcmds.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 pkgcmds.cmd
+--- pkgcmds.cmd	27 Apr 2004 15:04:04 -0000	1.1
++++ pkgcmds.cmd	15 May 2004 09:59:24 -0000
+@@ -1,11 +1,11 @@
+ @REM #!cmd.exe
+-@REM $Id: pkgcmds.cmd,v 1.1 2004/04/27 15:04:04 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+ if not "%1" == "" (shift & goto :%1)
+ 
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ 
+ @REM
+ @REM To be done -- support DEC SRC Modula-3 and PM3 like the .sh version does.
+@@ -149,9 +149,9 @@
+ ) else if "%1" == "buildlocal" (
+   set ACTION=%BUILDLOCAL%
+ ) else if "%1" == "buildglobal" (
+-  set ACTION=%BUIDLGLOBAL% && %SHIP%
++  set ACTION=%BUIDLGLOBAL% ^^^&^^^& %SHIP%
+ ) else if "%1" == "buildship" (
+-  set ACTION=%BUIDLGLOBAL% && %SHIP%
++  set ACTION=%BUILDGLOBAL% ^^^&^^^& %SHIP%
+ ) else if "%1" == "ship" (
+   set ACTION=%SHIP%
+ ) else if "%1" == "clean" (
+Index: pkginfo.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/pkginfo.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 pkginfo.cmd
+--- pkginfo.cmd	27 Apr 2004 15:04:39 -0000	1.1
++++ pkginfo.cmd	15 May 2004 09:59:24 -0000
+@@ -1,9 +1,9 @@
+ @REM #!cmd.exe
+-@REM $Id: pkginfo.cmd,v 1.1 2004/04/27 15:04:39 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ 
+ if not exist %PKGSDB% (
+   echo making %PKGSDB% with %~dp0find-packages.cmd
+@@ -26,3 +26,4 @@
+   error 2>nul
+ )
+ goto :eof
++
+Index: pkgmap.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/pkgmap.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 pkgmap.cmd
+--- pkgmap.cmd	27 Apr 2004 15:05:05 -0000	1.1
++++ pkgmap.cmd	15 May 2004 09:59:24 -0000
+@@ -1,11 +1,11 @@
+ @REM #!cmd.exe
+-@REM $Id: pkgmap.cmd,v 1.1 2004/04/27 15:05:05 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+ setlocal
+ 
+-call %~dp0sysinfo.cmd
++call %~dp0sysinfo.cmd || goto :eof
+ call %~dp0pkginfo.cmd
+ 
+ set p=
+Index: sysinfo.cmd
+===================================================================
+RCS file: /usr/cvs/cm3/scripts/sysinfo.cmd,v
+retrieving revision 1.1
+diff -u -r1.1 sysinfo.cmd
+--- sysinfo.cmd	27 Apr 2004 15:05:26 -0000	1.1
++++ sysinfo.cmd	15 May 2004 09:59:24 -0000
+@@ -1,5 +1,5 @@
+ @REM #!cmd.exe
+-@REM $Id: sysinfo.cmd,v 1.1 2004/04/27 15:05:26 sk Exp $
++@REM $Id$
+ 
+ @if "%_echo%" == "" @echo off
+ 
+@@ -10,7 +10,8 @@
+ if "%ROOT%" == "" call :set_full_path ROOT %~dp0..
+ 
+ call :environment_variables_must_be_set temp lib path include || goto :eof
+-call :environment_variable_must_contain_files lib  kernel32.lib user32.lib gdi32.lib msvcrt.lib || goto :eof
++rem call :environment_variable_must_contain_files lib kernel32.lib user32.lib gdi32.lib msvcrt.lib || goto :eof
++call :environment_variable_must_contain_files lib kernel32.lib libcmt.lib || goto :eof
+ call :environment_variable_must_contain_files path cl.exe link.exe lib.exe || goto :eof
+ call :environment_variable_must_contain_files include errno.h || goto :eof
+ 
+@@ -41,6 +42,14 @@
+ set TAR=tar
+ set TMPDIR=%TEMP%
+ 
++if exist %ROOT%\m3-libs\m3core\src\runtime\%TARGET%\RTHeapDepC.c (
++  set CM3_SYSCALL_WRAPPERS_EXIST=1
++) else if exist %ROOT%\m3-libs\m3gc-enhanced\src\runtime\%TARGET%\RTHeapDepC.c (
++  set CM3_SYSCALL_WRAPPERS_EXIST=1
++) else (
++  set CM3_SYSCALL_WRAPPERS_EXIST=0
++)
++
+ set SYSINFO_DONE=yes
+ 
+ goto :eof
+@@ -62,7 +71,7 @@
+ :environment_variable_must_contain_files
+ setlocal
+ set a=%1
+-for /f %%i in ('echo %%%1%%') do set b=%%i
++for /f "delims=" %%i in ('echo %%%1%%') do set b=%%i
+ :environment_variable_must_contain_files_1
+ shift
+ if "%1" == "" (

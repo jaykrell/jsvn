@@ -1,0 +1,1 @@
+#define offsetof(a,b) ((unsigned long)(&((a*)0)->b))typedef struct s { unsigned long i;} s;s t = { offsetof(s,i) }; /* apparently not considered const */void f(void){	s u = { offsetof(s,i) }; /* ok here */}

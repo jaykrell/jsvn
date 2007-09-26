@@ -1,0 +1,1 @@
+void f(void) { int i = +1; }

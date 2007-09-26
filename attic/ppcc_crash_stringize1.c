@@ -1,0 +1,1 @@
+#define STRINGIZE2(x) #x#define STRINGIZE(x) STRINGIZE2(x)typedef struct D { unsigned long length; } D;#define SIZEOF(s) sizeof(s)#define E(s) { SIZEOF(s) }#if 0#define A(x) D b = E(STRINGIZE(x))#else#define A(x) D b = E(#x)#endifvoid F(void){	A(c);}
