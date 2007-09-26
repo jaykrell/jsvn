@@ -1,0 +1,1 @@
+@call ..\configure.cmd

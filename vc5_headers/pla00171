@@ -1,0 +1,1 @@
+s/\bPVOID\b/void*/g

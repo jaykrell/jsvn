@@ -1,0 +1,1 @@
+#include <stdio.h>int main(){printf("%p\n", (void*)&main);return 0;}

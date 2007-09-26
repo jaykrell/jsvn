@@ -1,0 +1,205 @@
+###########################################################################
+
+#!message _NMAKE_VER=$(_NMAKE_VER)
+
+#!message LINK_IS_MSLINK16=1
+#!message LINK_IS_MSLINK32=0
+#!message LINK_IS_MSLINK64=0
+
+!if !defined(_NMAKE_VER)
+NMAKE_SUPPORTS_COLON_COLON=0
+!else
+NMAKE_SUPPORTS_COLON_COLON=1
+!endif
+
+!message NMAKE_SUPPORTS_COLON_COLON=$(NMAKE_SUPPORTS_COLON_COLON)
+
+###########################################################################
+
+!if [cl /c /nologo /EHs nul.c 2>&1 | find "/EHs" > nul]
+CL_SUPPORTS_EH=1
+!else
+CL_SUPPORTS_EH=0
+!endif
+
+!message CL_SUPPORTS_EH=$(CL_SUPPORTS_EH)
+
+###########################################################################
+
+!if [cl /c /nologo /GX nul.c 2>&1 | find "GX" > nul]
+CL_SUPPORTS_GX=1
+!else
+CL_SUPPORTS_GX=0
+!endif
+
+!message CL_SUPPORTS_GX=$(CL_SUPPORTS_GX)
+
+###########################################################################
+
+!if [cl /c /nologo /TP nul.c 2>&1 | find "/TP" > nul]
+CL_SUPPORTS_TP=1
+!else
+CL_SUPPORTS_TP=0
+!endif
+
+!message CL_SUPPORTS_TP=$(CL_SUPPORTS_TP)
+
+###########################################################################
+
+#
+# Disable particular warnings on the command line.
+#
+
+!if [cl /c /nologo /wd4996 nul.c 2>&1 | find "/wd4996" > nul]
+CL_SUPPORTS_WD=1
+!else
+CL_SUPPORTS_WD=0
+!endif
+
+!message CL_SUPPORTS_WD=$(CL_SUPPORTS_WD)
+
+###########################################################################
+
+!if [link /opt:icf 2>&1 | find "opt:icf" > nul]
+LINK_SUPPORTS_OPT_ICF=1
+!else
+LINK_SUPPORTS_OPT_ICF=0
+!endif
+
+!message LINK_SUPPORTS_OPT_ICF=$(LINK_SUPPORTS_OPT_ICF)
+
+###########################################################################
+
+!if [del .\none 2>nul]
+!endif
+!if [del .\_configure.pdb 2>nul]
+!endif
+
+!if [@echo. > .\_configure.c]
+!endif
+
+!if [cl /nologo /LD _configure.c /Z7 /link /nologo /debug /pdb:none >nul 2>&1]
+!endif
+
+!if exists(none) || exists(_configure.pdb)
+LINK_SUPPORTS_PDB_NONE=0
+!else
+LINK_SUPPORTS_PDB_NONE=1
+!endif
+
+!if [del .\none 2>nul]
+!endif
+!if [del .\_configure.pdb 2>nul]
+!endif
+!if [del .\_configure.dll]
+!endif
+!if [del .\_configure.c]
+!endif
+
+!message LINK_SUPPORTS_PDB_NONE=$(LINK_SUPPORTS_PDB_NONE)
+
+###########################################################################
+
+!if [del .\none 2>nul]
+!endif
+!if [del .\_configure.pdb 2>nul]
+!endif
+
+!if [@echo template ^<class T^> void F(T t) { } > .\_configure.cpp]
+!endif
+
+!if [cl /nologo /c _configure.cpp 2>&1 >nul]
+!endif
+
+!if exists(_configure.obj)
+CL_SUPPORTS_TEMPLATES=1
+!else
+CL_SUPPORTS_TEMPLATES=0
+!endif
+
+!if [del .\_configure.cpp]
+!endif
+
+!if [del .\_configure.obj]
+!endif
+
+!message CL_SUPPORTS_TEMPLATES=$(CL_SUPPORTS_TEMPLATES)
+
+###########################################################################
+
+!if [del .\_configure.mscver 2>nul]
+!endif
+
+!if [@echo x_MSC_VER=_MSC_VER > .\_configure.c]
+!endif
+!if [@echo x_MSC_FULL_VER=_MSC_FULL_VER >> .\_configure.c]
+!endif
+
+!if [cl /nologo /EP .\_configure.c 2>nul > .\_configure.mscver]
+!endif
+!include .\_configure.mscver
+
+!message _MSC_VER=$(x_MSC_VER)
+!if "$(x_MSC_FULL_VER)" != "_MSC_FULL_VER"
+!message _MSC_FULL_VER=$(x_MSC_FULL_VER)
+!endif
+
+!if [del .\_configure.c]
+!endif
+!if [del .\_configure.mscver]
+!endif
+
+###########################################################################
+
+!if [link /pdbpath:none 2>&1 | find "pdbpath:none" > nul]
+LINK_SUPPORTS_PDBPATH_NONE=1
+!else
+LINK_SUPPORTS_PDBPATH_NONE=0
+!endif
+
+!message LINK_SUPPORTS_PDBPATH_NONE=$(LINK_SUPPORTS_PDBPATH_NONE)
+
+###########################################################################
+
+#
+# /pdb:none is more useful than it sounds.
+# It means put the symbols in the .dll/.exe
+#
+!if $(LINK_SUPPORTS_PDB_NONE)
+LINK_PDB_NONE=/pdb:none
+!else
+LINK_PDB_NONE=
+!endif
+
+!message LINK_PDB_NONE=$(LINK_PDB_NONE)
+
+###########################################################################
+
+#
+# This controls whether the pdb path in the .exe/.dll is a full path or just a file name.
+#
+!if $(LINK_SUPPORTS_PDBPATH_NONE)
+LINK_PDBPATH_NONE=/pdbpath:none
+!else
+LINK_PDBPATH_NONE=
+!endif
+
+!message LINK_PDBPATH_NONE=$(LINK_PDBPATH_NONE)
+
+###########################################################################
+
+#
+# identical comdat foling
+#  -- identical function combining (sometimes data)
+#
+!if $(LINK_SUPPORTS_OPT_ICF)
+LINK_OPT_ICF=/opt:icf
+!else
+LINK_OPT_ICF=
+!endif
+
+!message LINK_OPT_ICF=$(LINK_OPT_ICF)
+
+###########################################################################
+
+###########################################################################

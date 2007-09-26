@@ -1,0 +1,1 @@
+typedef struct a {const char * b; int c,cc;} a;typedef struct d {const char * e; int f;} d;typedef struct g {a h; d i;} g;void f(void){	g m = {{"",1},{""}};}g mm = {{"",1},{""}}; /* ok here */

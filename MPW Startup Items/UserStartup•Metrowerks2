@@ -1,0 +1,1 @@
+Set CWCIncludes "{HeadersAndLibs}Interfaces:CWCIncludes:"Export CWCIncludesSet CWANSIIncludes "{HeadersAndLibs}Interfaces:CWANSIIncludes:"Export CWANSIIncludesSet MWCIncludes "{CWCIncludes}","{CWANSIIncludes}","{CIncludes}"Export MWCIncludesSet MWCHeaders "'{CWCIncludes}' '{CWANSIIncludes}' '{CIncludes}'"Export MWCHeaders

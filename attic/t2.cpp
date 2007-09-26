@@ -1,0 +1,1 @@
+extern "C"{	struct A { void F(); };inline void A::F()  { }}
