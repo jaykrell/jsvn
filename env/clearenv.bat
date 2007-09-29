@@ -254,4 +254,4 @@ set _NT_SYMBOL_PATH=SRV*c:\symbols*\\jay-drive1\public\symbols*http://msdl.micro
 @set WPCEmulDir=
 @set WPP_CONFIG_PATH=
 
-@Title %COMSPEC%
+@Title %COMSPEC% >nul
