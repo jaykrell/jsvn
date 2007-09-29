@@ -172,7 +172,6 @@ typedef unsigned int DWORD;
 typedef __int64 INT64;
 typedef unsigned __int64 UINT64;
 #endif
-#endif
 
 #pragma warning(disable:4100) /* unreferenced formal parameter -- in our own code */
 #pragma warning(disable:4127) /* conditional expression is constant: do { } while(0) in macros, or while(TRUE) { ... break } in regular code */
@@ -188,8 +187,6 @@ typedef unsigned __int64 UINT64;
 
 #if _MSC_VER < 1200
 #pragma warning(disable:4057) /* unsigned short* vs. const unsigned short* on any use of wprintf */
-#endif
-
 #endif
 
 #if defined(__cplusplus)
@@ -274,10 +271,11 @@ using namespace std;
 #define VECTOR1(t) vector<t>
 #define SET1(t) set<t>
 
-#endif /* Microsoft */
+#endif /* Microsoft version */
 
 #endif /* __cplusplus */
 
+#endif /* Microsoft defined */
 
 /* somewhat portable 64bit integer */
 #if 0
