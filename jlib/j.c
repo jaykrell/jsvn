@@ -146,13 +146,13 @@ jk_compare_strings_case_insensitive(
 	const jk_string_t* b
 	)
 {
-	const unsigned char* a_buffer = (const unsigned char *)a->chars;
-	const unsigned char* a_buffer_end = (const unsigned char *)(a_buffer + a->length);
+	unsigned char const * a_buffer = (unsigned char const *) a->chars;
+	unsigned char const * const a_buffer_end = (unsigned char const *) (a_buffer + a->length);
 
-	const unsigned char* b_buffer = (const unsigned char *)b->chars;
-	const unsigned char* b_buffer_end = (const unsigned char *)(b_buffer + b->length);
+	unsigned char const * b_buffer = (unsigned char const *) b->chars;
+	unsigned char const * const b_buffer_end = (unsigned char const *) (b_buffer + b->length);
 
-	for ( ; a_buffer != a_buffer_end && b_buffer != b_buffer_end ; (++a_buffer), (b_buffer))
+	for ( ; ((a_buffer != a_buffer_end) && (b_buffer != b_buffer_end)) ; (++a_buffer), (++b_buffer))
 	{
 		unsigned char a_char = *a_buffer;
 		unsigned char b_char = *b_buffer;
@@ -161,7 +161,7 @@ jk_compare_strings_case_insensitive(
 			a_char = jk_lowercase_ascii_char(a_char);
 			b_char = jk_lowercase_ascii_char(b_char);
 			if (a_char != b_char)
-				return (a_char < b_char) ? -1 : +1;
+				return ((a_char < b_char) ? -1 : +1);
 		}
 	}
 	if (b_buffer != b_buffer_end)
@@ -196,13 +196,13 @@ jk_stricmp(
 	const char* b
 	)
 {	
-	jk_string_t c;
-	jk_string_t d;
+	jk_string_t c = { 0 };
+	jk_string_t d = { 0 };
 
-	c.chars = (char *)a;
+	c.chars = (char *) a;
 	c.length = jk_get_null_terminated_string_length_a(a);
 
-	d.chars = (char *)b;
+	d.chars = (char *) b;
 	d.length = jk_get_null_terminated_string_length_a(b);
 	
 	return jk_compare_strings_case_insensitive(&c, &d);
@@ -302,14 +302,14 @@ jk_profile_dump_function_call_counts(
 {
 	jk_spin_lock_holder_t holder = { 0 };
 	jk_function(jk_profile_dump_function_call_counts);
-	jk_profile_record_t* p;
-	size_t longest_name_length = 0;
+	jk_profile_record_t* p = { 0 };
+	size_t longest_name_length = { 0 };
 
 	jk_profile_count_function_call();
 
 	jk_acquire_spin_lock(&jk_profile_record_list_lock, &holder);
 
-    for ( p = jk_profile_record_list ; p != (void*)&jk_profile_record_list ; p = p->next )
+    for ( p = jk_profile_record_list ; p != (void*) &jk_profile_record_list ; p = p->next )
     {
         size_t name_length = p->function_name->length;
         if (name_length > longest_name_length)
@@ -318,7 +318,7 @@ jk_profile_dump_function_call_counts(
         }
     }
 
-    for ( p = jk_profile_record_list ; p != (void*)&jk_profile_record_list ; p = p->next )
+    for ( p = jk_profile_record_list ; p != (void*) &jk_profile_record_list ; p = p->next )
     {
 		jk_printf("%-*s %lu\n", (int) longest_name_length, p->function_name->chars, p->call_count);
     }
@@ -603,15 +603,15 @@ jk_reverse_memory_range_exclusive(
     void * void_end
     )
 {
-    unsigned char * start = (unsigned char *)void_start;
-    unsigned char * end = (unsigned char *)void_end;
+    unsigned char * start = (unsigned char *) void_start;
+    unsigned char * end = (unsigned char *) void_end;
 
     jk_function(jk_reverse_memory_range_exclusive);
 	jk_profile_count_function_call();
 
     while (start < end)
     {
-        unsigned char t = *start;
+        unsigned char const t = *start;
         --end;
         *start = *end;
         *end = t;
@@ -643,7 +643,7 @@ jk_reverse_memory_range_inclusive(
 {
 	jk_function(jk_reverse_memory_range_inclusive);
 
-	void_end = 1 + (unsigned char*)void_end;
+	void_end = 1 + (unsigned char*) void_end;
 	
 	jk_profile_count_function_call();
 
@@ -7448,6 +7448,8 @@ typedef struct jk_iigs_instruction
 	unsigned new65816 : 1;
 } jk_iigs_instruction;
 
+#if 0 /* unreferenced */
+
 const static
 jk_iigs_instruction
 iigs_decode[256] =
@@ -7469,6 +7471,8 @@ iigs_decode[256] =
 	{ iigs_asl }, /* 0E */
 	{ iigs_ora }, /* 0F */
 };
+
+#endif
 
 unsigned short
 jk_appleiigs_fetch_code_bytes_2(
