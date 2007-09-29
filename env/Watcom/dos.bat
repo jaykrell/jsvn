@@ -7,6 +7,8 @@ call \dev2\j\env\clearenv
 
 @if exist c:\watcom\nul goto :c
 @if exist d:\watcom\nul goto :d
+@if exist c:\watcom goto :c
+@if exist d:\watcom goto :d
 @echo \watcom not found
 @goto :end
 
@@ -26,6 +28,6 @@ call \dev2\j\env\clearenv
 @rem reset errorlevel
 @dir > nul
 
-@Title Watcom/DOS
+@Title Watcom/DOS >nul
 
 :end
