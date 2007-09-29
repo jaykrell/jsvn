@@ -26,6 +26,7 @@ const  struct
     { "Windows 95. [Version 4.00.1111]", "95B", },
     { "Windows 98 [Version 4.10.2222]", "98B", },
     { "DOSBox version 0.70. Reported DOS version 5.0.", "DOSBOX", },
+    { "DOSBox version 0.72. Reported DOS version 5.0.", "DOSBOX", },
     { "Microsoft Windows XP [Version 5.1.2600]", "XP", },
 
 
