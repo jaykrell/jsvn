@@ -15,20 +15,66 @@ const PCSTR types[] = { "short", "int", "float", "double" };
 
 PCSTR defines[] =
 {
-	"__APPLE_CC__",               "__APPLE_CPP__",              "applec",                     "_BOOL",                      
-	"CALL_NOT_IN_CARBON",         "__CFM68K__",                 "__cplusplus",                
-	"_DLL",                       "__GNUC__",                   "i386",                       "__i386__",                   
-	"intel",                      "__linux__",                  "m68k",                       "_M_ALPHA",                   
-	"_M_IX86",                    "_M_M68K",                    "_M_MPPC",                    "_M_MRX000",                  
-	"_M_PPC",
-	"__MACH__",                   "macos",                      "_MIPS_ISA",                  "__MOTO__",                   
-	"MPW_C",                      "MPW_CPLUS",                  "__MRC__",                    "_MSC_VER",                   
-	"_MT",                        "__MWERKS__",                 "__NEXT_CPP__",               "powerc",                     
-	"__powerc",                   "ppc",                        "__ppc__",                    "__PPCC__",                   
-	"__SC__",                     "__sparc",                    "__spillargs",                "__STDC__",                   
-	"SYMANTEC_C",                 "THINK_C",                    "__VEC__",                    "_WIN32",                     
-	"_WIN64",                     "__xlC",                      "__xlc",                      "__XLC121__",
-	"__useAppleExts__", "_MAC", "macintosh"
+	"__APPLE_CC__",
+    "__APPLE_CPP__",
+    "applec",
+	"__useAppleExts__",
+
+    "_BOOL",
+	"CALL_NOT_IN_CARBON",
+    "__CFM68K__", /* Macintosh Code Fragment Manager for 68K -- CFM is a more "normal" runtime architecture than previously. */
+    "__cplusplus",
+	"_DLL",     /* Microsoft targeting C runtime in a .dll */
+	"_MT",      /* Microsoft targeting multithreaded C runtime (thread safe) */
+    "__GNUC__",
+    "i386",
+    "__i386__",
+    "__386__",
+    "__86__",
+	"intel",
+    "__linux__",
+    "m68k",
+    "_MSC_VER", /* Microsoft C, various versions, including 16 bit, 32 bit, 64 bit */
+    "_M_ALPHA", /* Microsoft C, 32 bit int, 32 bit long, 32 bit size_t, NT, Alpha */
+	"_M_IX86",  /* Microsoft C, 32 bit int, 32 bit long, 32 bit size_t, NT/Win9x, x86, Win3.1?, (386 or newer)? */
+    "_M_M68K",  /* Microsoft C, 32 bit int, 32 bit long, 32 bit size_t, Macintosh, 68k */
+    "_M_MPPC",  /* Microsoft C, 32 bit int, 32 bit long, 32 bit size_t, Macintosh, PowerPC, NT Xbox? */
+	"_M_PPC",   /* Microsoft C, 32 bit int, 32 bit long, 32 bit size_t, NT, PowerPC, NT Xbox? */
+    "_M_MRX000",  /* Microsoft C, 32 bit int, 32 bit long, 32 bit size_t, NT, Mips */
+	"__MACH__",
+    "macos",
+    "_MAC",
+    "macintosh",
+    "_MIPS_ISA",
+    "__MOTO__",
+	"MPW_C",
+    "MPW_CPLUS",
+    "__MRC__",
+    "__MWERKS__",
+    "__NEXT_CPP__",
+    "powerc",
+	"__powerc",
+    "ppc",
+    "__ppc__",
+    "__PPCC__",
+    "__sparc",
+    "__spillargs",
+    "__STDC__",
+	"SYMANTEC_C",
+    "THINK_C",
+    "__VEC__",
+    "_WIN32",
+	"_WIN64",
+    "_WINDOWS",
+    "__xlC",
+    "__xlc",
+    "__XLC121__",
+    "__ORCAC__", /* ORCA/C ANSI C for Apple IIGS 65816 16 bit int, 32 bit size_t?, optional 32 bit int */
+    "__SC__", /* Symantec C -- always for 68k Macintosh? */
+    "__DOS__",
+
+    /* Watcom defines */
+
 };
 
 const PCSTR envvar_names[] = {
@@ -38,6 +84,28 @@ const PCSTR envvar_names[] = {
 "WINDIR", /* Windows (3x, 9x, NT) */
 "OS", "SYSTEMDRIVE", "SYSTEMROOT", "PROCESSOR_ARCHITECTURE", /* Windows NT/2000/XP/2003 */
 "PROCESSOR_ARCHITEW6432", /* 32bit on 64bit Windows */
+
+/* environment variables that affect Watcom */
+"LIBOS2",  /* not recommended */
+"LIB",     /* not recommended */
+"LIBWIN",  /* not recommended */
+"LIBDOS",  /* not recommended */
+"LIBPHAR", /* not recommended */
+"INCLUDE",
+"FORCE",
+"NO87",
+"TMP",
+"WATCOM",  /* e.g. c:\watcom */
+"WCC",
+"WCC386",
+"WCL",
+"WCL386",
+"WCGMEMORY",
+"WD",     /* debugger options */
+"WDW",    /* Windows debugger options */
+"WLANG",  /* what language to issue warnings/errors in -- English, Japaense, 0 (English), or 1 (Japanese) */
+"WPP",    /* options for 16 bit C++ compiler */
+"WPP386", /* options for 32 bit C++ compiler */
 };
 
 const char* strings[] = {
@@ -48,12 +116,11 @@ const char* strings[] = {
 "typedef const char *PCSTR;\n"
 "void print_string(PCSTR s) { printf(\"%s\", s); }\n"
 "void print_format(PCSTR s, ... ) { va_list args; va_start(args, s); vprintf(s, args); va_end(args); }\n"
-"char* jk_configure_string_duplicate(const char* s)"
+"void* alloc(size_t n) { void* p = malloc(n); if (p == NULL) { printf("out of memory\n"); abort(); } return p; }\n"
+"char* string_duplicate(const char* s)"
 "{"
 "	size_t n = strlen(s);"
-"	char* t = (char*)malloc(n + 1);"
-"	if (t == 0)"
-"		abort();"
+"	char* t = (char*) alloc(n + 1);"
 "	memcpy(t, s, n);"
 "	t[n] = 0;"
 "	return t;"
@@ -114,7 +181,7 @@ const char* strings[] = {
 "{\n"
 "  if ((s = getenv(t = envvar_names[i])) != 0)\n"
 "{\n"
-"    envvar_values.array[i] = s = jk_configure_string_duplicate(t);\n"
+"    envvar_values.array[i] = s = string_duplicate(t);\n"
 "    print_format(\"$%s=%s \", t, s);\n"
 "}\n"
 "}\n",
