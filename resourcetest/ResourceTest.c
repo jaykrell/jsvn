@@ -1,3 +1,6 @@
+/*
+cl /W4 /WX /Zi resourcetest.c
+*/
 #include <windows.h>
 #include <stdio.h>
 
@@ -55,6 +58,15 @@ CombineDriverWithLoader(
         goto Exit;
     }
 #if 1
+    Success = UpdateResourceW(UpdateRes, L"DEBUGDRIVER", L"BINARY", 1033, MappedFile, FileSize.LowPart);
+    if (!Success) 
+    { 
+        Error = GetLastError();
+        wprintf(L"UpdateResource fails with error: %x", Error);
+        goto Exit;
+    } 
+#endif
+#if 0
     Success = UpdateResourceW(UpdateRes, L"DebugDriver", L"BINARY", 1033, MappedFile, FileSize.LowPart);
     if (!Success) 
     { 
