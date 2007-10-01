@@ -1,5 +1,5 @@
 /*
-cl /W4 /WX /Zi enum.c imagehlp.lib
+cl /W4 /WX /Zi enum.c
 */
 struct _CRYPT_PROVIDER_DATA;
 struct _CRYPT_PROVIDER_DEFUSAGE;
@@ -232,7 +232,7 @@ DumpResourceDirectory(
 
     if (Directory->Characteristics
         | Directory->TimeDateStamp
-        | Directory->MajorVersion
+        | (Directory->MajorVersion & ~4)
         | Directory->MinorVersion)
     { // more verbose
         wprintf(
