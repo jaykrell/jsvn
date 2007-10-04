@@ -4825,18 +4825,18 @@ typedef struct {
     DWORD Flags;
     DWORD MaximumComponentLength;
     DWORD Error;
-} WinVolumeInformation_t;
+} JWinVolumeInformation_t;
 
 void
-JGetWinGetVolumeInformation(
+JWinGetVolumeInformation(
     PCWSTR RootPath,
-    WinVolumeInformation_t* Info
+    JWinVolumeInformation_t* Info
     );
 
 BOOL
-JVolumeInformationEqual(
-    const WinVolumeInformation_t* a,
-    const WinVolumeInformation_t* b
+JWinVolumeInformationEqual(
+    const JWinVolumeInformation_t* a,
+    const JWinVolumeInformation_t* b
     );
 
 JK_EXTERN_C_END
