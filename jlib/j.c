@@ -8026,6 +8026,41 @@ jk_trace(
 	jk_printf("%s\n", s);
 }
 
+#ifdef _WIN32
+
+#include <windows.h>
+
+void
+JWinGetVolumeInformation(
+    PCWSTR RootPath,
+    JWinVolumeInformation_t* Info
+    )
+{
+    BOOL Success;
+    Success = GetVolumeInformationW(RootPath, Info->Name, JK_NUMBER_OF(Info->Name), &Info->SerialNumber,
+        &Info->MaximumComponentLength, &Info->Flags, Info->FileSystemName, JK_NUMBER_OF(Info->FileSystemName));
+    Info->Success = Success;
+    if (Success)
+        Info->Error = NO_ERROR;
+    else
+        Info->Error = GetLastError();
+}
+
+BOOL
+JWinVolumeInformationEqual(
+    const JWinVolumeInformation_t* a,
+    const JWinVolumeInformation_t* b
+    )
+{
+    return ((a->Flags == b->Flags)
+        && (a->SerialNumber == b->SerialNumber)
+        && (a->MaximumComponentLength == b->MaximumComponentLength)
+        && (_wcsicmp(a->Name, b->Name) == 0)
+        && (_wcsicmp(a->FileSystemName, b->FileSystemName) == 0));
+}
+
+#endif
+
 #if 0 /* This code is in other files. */
 
 long
