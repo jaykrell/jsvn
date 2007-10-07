@@ -681,8 +681,6 @@ typedef struct jk_pointer_or_offset_t {
 	size_t offset;
 } jk_pointer_or_offset_t;
 
-/* j47.h */
-
 void*
 jk_get_pointer_or_offset(
 	const jk_pointer_or_offset_t* pointer_or_offset,
