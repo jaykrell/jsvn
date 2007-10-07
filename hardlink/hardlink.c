@@ -79,35 +79,6 @@ PWSTR Quote(PWSTR a)
     return a;
 }
 
-void
-JWinGetVolumeInformation(
-    PCWSTR RootPath,
-    JWinVolumeInformation_t* Info
-    )
-{
-    BOOL Success;
-    Success = GetVolumeInformationW(RootPath, Info->Name, JK_NUMBER_OF(Info->Name), &Info->SerialNumber,
-        &Info->MaximumComponentLength, &Info->Flags, Info->FileSystemName, JK_NUMBER_OF(Info->FileSystemName));
-    Info->Success = Success;
-    if (Success)
-        Info->Error = NO_ERROR;
-    else
-        Info->Error = GetLastError();
-}
-
-BOOL
-JWinVolumeInformationEqual(
-    const JWinVolumeInformation_t* a,
-    const JWinVolumeInformation_t* b
-    )
-{
-    return ((a->Flags == b->Flags)
-        && (a->SerialNumber == b->SerialNumber)
-        && (a->MaximumComponentLength == b->MaximumComponentLength)
-        && (wcscmp(a->Name, b->Name) == 0)
-        && (wcscmp(a->FileSystemName, b->FileSystemName) == 0));
-}
-
 int Main(int argc, wchar_t** argv)
 {
     DWORD Win32Error;
@@ -198,7 +169,6 @@ int Main(int argc, wchar_t** argv)
             Exists2 = TRUE;
         }
     }
-
     if ((!Exists1) && (!Exists2))
     {
         wprintf(L"ERROR: neither %ls nor %ls exists\n", Qargv1, Qargv2);
@@ -232,6 +202,7 @@ int Main(int argc, wchar_t** argv)
         }
     }
 
+#if 0
     JWinGetVolumeInformation(argv[1], &VolumeInfo1);
     JWinGetVolumeInformation(argv[2], &VolumeInfo2);
 
@@ -246,6 +217,7 @@ int Main(int argc, wchar_t** argv)
         wprintf(L"ERROR: GetVolumeInformation(%ls) failed with %lu\n", Qargv2, VolumeInfo2.Error);
         return 1;
     }
+#endif
 
     if ((!Exists1) && Exists2)
     {
