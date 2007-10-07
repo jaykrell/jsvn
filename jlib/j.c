@@ -5347,15 +5347,23 @@ jk_executable_file_format_t exe_xcoff;
 jk_executable_file_format_t exe_aout;
 jk_executable_file_format_t exe_bout;
 
-typedef struct jk_object_file_format_t {
-	jk_constant_string_t name;
-	long (*read_file)(struct jk_object_file_format_t* format, const char* file, struct jk_object_file_t** out_objfile);
-	long (*write_file)(struct jk_object_file_format_t* format, struct jk_object_file_t* objfile, const char* filepath);
-} jk_object_file_format_t;
+struct jk_object_file_format_t;
+typedef struct jk_object_file_format_t jk_object_file_format_t;
 
-typedef struct jk_object_file_t {
-	struct jk_object_file_format_t * format;
-} jk_object_file_t;
+struct jk_object_file_t;
+typedef struct jk_object_file_t jk_object_file_t;
+
+struct jk_object_file_format_t
+{
+	jk_constant_string_t name;
+	long (*read_file)(jk_object_file_format_t* format, const char* file, jk_object_file_t** out_objfile);
+	long (*write_file)(jk_object_file_format_t* format, jk_object_file_t* objfile, const char* filepath);
+};
+
+struct jk_object_file_t
+{
+	jk_object_file_format_t * format;
+};
 
 jk_object_file_format_t obj_elf32le;
 jk_object_file_format_t obj_elf32be;
