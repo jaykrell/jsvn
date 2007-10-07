@@ -5771,7 +5771,8 @@ base[sy * stride + sx / 2 + 1] |=    x[sx % 2][1][cx][cy];
 base[sy * stride + sx / 2 + 2] &= mask[sx % 2][2];
 base[sy * stride + sx / 2 + 2] |=    x[sx % 2][2][cx][cy];
 
-mask[1] is always 0xff:
+mask[*][1] is always 0xff, because the middle byte of the three is always
+exclusively occupied by this character.
 
 base[sy * stride + sx / 2 + 0] &= mask[sx % 2][0];
 base[sy * stride + sx / 2 + 0] |=    x[sx % 2][0][cx][cy];
