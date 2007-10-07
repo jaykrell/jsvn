@@ -5413,24 +5413,32 @@ jk_get_pointer_in_position_independent_one_shot_heap(
 a static library is primarily an indexed collection of object files
 */
 
-typedef struct jk_static_library_file_format_t {
+struct jk_static_library_file_t;
+typedef struct jk_static_library_file_t jk_static_library_file_t;
+
+struct jk_static_library_file_format_t;
+typedef struct jk_static_library_file_format_t jk_static_library_file_format_t;
+
+struct jk_static_library_file_format_t
+{
 	jk_constant_string_t name;
-	long (*read_file)(struct jk_static_library_file_format_t* format, const char*, struct jk_static_library_file_t** out_libfile);
-	long (*write_file)(struct jk_static_library_file_format_t* format, struct jk_static_library_file_t* libfile, const char* filepath);
-} jk_static_library_file_format_t;
+	long (*read_file)(jk_static_library_file_format_t* format, const char*, jk_static_library_file_t** out_libfile);
+	long (*write_file)(jk_static_library_file_format_t* format, jk_static_library_file_t* libfile, const char* filepath);
+};
 
 typedef struct jk_static_library_file_symbol_t {
 	unsigned long name_offset;
 	unsigned long object_index;
 } jk_static_library_file_symbol_t;
 
-typedef struct jk_static_library_file_t {
-	struct jk_static_library_file_format_t * format;
+struct jk_static_library_file_t
+{
+	jk_static_library_file_format_t * format;
 	unsigned long number_of_objects;
 	unsigned long number_of_symbols;
 	jk_static_library_file_symbol_t * symbols;
 	jk_object_file_t ** objects;
-} jk_static_library_file_t;
+};
 
 jk_static_library_file_format_t lib_elf32le = { jk_constant_string("lib_elf32le") };
 jk_static_library_file_format_t lib_elf32be = { jk_constant_string("lib_elf32be") };
