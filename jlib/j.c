@@ -6934,12 +6934,6 @@ exit:
 }
 
 long
-jk_append_string_to_string(
-	jk_string_t* a,
-	const jk_string_t* b
-	);
-
-long
 jk_append_constant_string_to_string(
 	jk_string_t* a,
 	const jk_string_constant_t* b
