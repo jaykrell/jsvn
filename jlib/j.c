@@ -6885,10 +6885,6 @@ jk_display_plot_character(
 	const jk_character_bitmap_5x9_t* bitmap;
 	unsigned end_access = 0;
 
-	jk_unused(&ch);
-	jk_unused(&x);
-	jk_unused(&y);
-
 	er = 0;	
 	if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')))
 		goto exit;
@@ -6901,8 +6897,11 @@ jk_display_plot_character(
 	if (er < 0) goto exit;
 
 	er = 0;	
-	if (x >= xsize) goto exit;
-	if (y >= ysize) goto exit;
+	if (x >= xsize)
+		goto exit;
+
+	if (y >= ysize)
+		goto exit;
 	
 	bitmap = &jk_character_bitmaps[ch];
 	
