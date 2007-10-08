@@ -6912,8 +6912,8 @@ jk_display_plot_character(
 		{
 			jkp_display_plot_bit(
 				display,
-				x * c_width1 + cx,
-				y * c_height + cy,
+				((x * c_width1) + cx),
+				((y * c_height) + cy),
 				jk_character_bitmap_5x9_get_bit(bitmap, ((cy * c_width) + cx)));
 		}
 		jkp_display_plot_bit(
