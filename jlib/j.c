@@ -4225,7 +4225,8 @@ jk_java_read_classfile(
 
     err = 0;
 exit:
-	if (err < 0) {
+	if (err < 0)
+	{
 		jk_printf("%s existing with %ld\n", function.chars, err);
 	}
 	jk_java_free_classfile(&classfile);
@@ -5577,16 +5578,19 @@ exception handling
 #undef X
     size_t i;
     jk_zero_memory(&t, sizeof(t));
-    for (i = 0 ; i != jk_number_of(strings) ; ++i) {
+    for (i = 0 ; i != jk_number_of(strings) ; ++i)
+	{
         jk_constant_string_t * p = jk_offset_to_pointer(jk_constant_string_t, &t, strings[i].t_offset);
         *p = strings[i].name;
     }   
-    for (i = 0 ; i != jk_number_of(sizes) ; ++i) {
+    for (i = 0 ; i != jk_number_of(sizes) ; ++i)
+	{
         jk_type_t * p = jk_offset_to_pointer(jk_type_t, &t, sizes[i].t_offset);
         p->size = sizes[i].size;
         p->aligned_size = sizes[i].size;
     }
-    for (i = 0 ; i != jk_number_of(signedness) ; ++i) {
+    for (i = 0 ; i != jk_number_of(signedness) ; ++i)
+	{
         jk_type_t * p = jk_offset_to_pointer(jk_type_t, &t, signedness[i].t_offset);
         p->u.integer.ets = signedness[i].is_signed ? ets_signed : ets_unsigned;
     }
@@ -7311,10 +7315,11 @@ jk_appleiigs_fetch_code_bytes_1(
 	)
 {
 	unsigned long kpc = iigs->kpc;
+	unsigned long kpc_ff = (kpc & 0xff);
 	unsigned char* kpc_pointer;
 	
 	/* if we hit a new page, refetch the native pointer, only 256 bytes at a time are contiguous */
-	if ((kpc & 0xff) == 0)
+	if ((kpc_ff == 0) || (iigs->kpc_pointer == 0))
 	{
 		kpc_pointer = &iigs->memory_ppp[iigs->k][iigs->pc >> 8][iigs->pc & 0xff];
 		iigs->kpc_pointer = kpc_pointer;
@@ -7323,7 +7328,14 @@ jk_appleiigs_fetch_code_bytes_1(
 	{
 		kpc_pointer = iigs->kpc_pointer;
 	}
-	iigs->kpc_pointer = (kpc_pointer + 1);
+	if (kpc_ff == 0xff)
+	{
+		iigs->kpc_pointer = 0;
+	}
+	else
+	{
+		iigs->kpc_pointer = (kpc_pointer + 1);
+	}
 	iigs->kpc = (kpc + 1);
 	iigs->pc += 1;
 	return *kpc_pointer;
@@ -7501,7 +7513,7 @@ jk_appleiigs_fetch_code_bytes_2(
 	unsigned short i;
 	unsigned short j;
 
-	if ((kpc & 0xff) < 0xfd)
+	if ((kpc & 0xff) < 0xfe)
 	{
 		/* fast path if not about to cross a page */
 		unsigned char* kpc_pointer = iigs->kpc_pointer;
