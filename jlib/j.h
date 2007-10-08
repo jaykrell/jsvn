@@ -2144,7 +2144,8 @@ jkp_initialize_profile_record(
 #define jk_profile_count_function_call() \
 do { static jk_profile_record_t profile_record = { 0, 0, &function }; \
 		profile_record.call_count += 1; \
-		if (!profile_record.next) { \
+		if (!profile_record.next) \
+		{ \
 			jkp_initialize_profile_record(&profile_record); \
 		} \
 	} while(0)

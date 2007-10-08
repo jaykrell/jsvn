@@ -1353,7 +1353,7 @@ jk_make_character_set_from_counted_string_a(
 	size_t length
 	)
 {
-	memset(set, 0, sizeof(*set));
+	jk_zero_memory(set, sizeof(*set));
 	jk_add_to_zeroed_character_set_from_counted_string_a(set, s, length);
 }
 
@@ -2088,7 +2088,7 @@ jk_multiprecision_integer_ensure_precision(
 		memmove(m->built_in_value_array, current_data, (current_precision * sizeof(unsigned long)));
 		jk_free((void**)&m->malloced_value_array);
 		m->malloced_value_array = 0;
-		memset(&m->built_in_value_array[current_precision], 0, ((new_precision - current_precision) * sizeof(unsigned long));
+		jk_zero_memory(&m->built_in_value_array[current_precision], ((new_precision - current_precision) * sizeof(unsigned long));
 		m->in_use = jk_multipleprecision_integer_in_use_built_in;
 	}
 	else
@@ -2320,7 +2320,7 @@ jk_multiprecision_integer_set_precision(
 
     oldp = jk_multiprecision_integer_get_value_array(m);
     memcpy(newp, oldp, old_precision * sizeof(unsigned long));
-    memset(newp + old_precision, 0, (new_precision - old_precision) * sizeof(unsigned long));
+    jk_zero_memory((newp + old_precision), ((new_precision - old_precision) * sizeof(unsigned long)));
     jk_free((void**)&m->malloced_value_array);
     m->malloced_value_array = newp;
     m->precision = new_precision;
@@ -6427,7 +6427,7 @@ jk_convert_character_bitmap_579_to_59array(
 {
 	unsigned i = 0;
 
-	memset(y, 0, sizeof(*y) * 9);
+	jk_zero_memory(y, sizeof(*y) * 9);
 	
 	for (; i != 9 ; ++i)
 	{
@@ -6456,7 +6456,7 @@ jk_convert_character_bitmap_589_to_59array(
 {
 	unsigned i = 0;
 
-	memset(y, 0, sizeof(*y) * 9);
+	jk_zero_memory(y, sizeof(*y) * 9);
 	
 	for (; i != 9 ; ++i)
 	{
@@ -6485,7 +6485,7 @@ jk_convert_character_bitmap_578_to_59array(
 {
 	unsigned i = 0;
 
-	memset(y, 0, sizeof(*y) * 9);
+	jk_zero_memory(y, (sizeof(*y) * 9));
 	
 	for (; i != 8 ; ++i)
 	{
@@ -6514,7 +6514,7 @@ jk_convert_character_bitmap_599_to_59array(
 {
 	unsigned i = 0;
 
-	memset(y, 0, sizeof(*y) * 9);
+	jk_zero_memory(y, (sizeof(*y) * 9));
 	
 	for (; i != 9 ; ++i)
 	{
@@ -6543,7 +6543,7 @@ jk_convert_character_bitmap_598_to_59array(
 {
 	unsigned i = 0;
 
-	memset(y, 0, sizeof(*y) * 9);
+	jk_zero_memory(y, (sizeof(*y) * 9));
 	
 	for (; i != 8 ; ++i)
 	{
@@ -6849,7 +6849,7 @@ jkp_display_plot_bit(
 		return;
 
 	d_bits_per_pixel_even_div_8 = d->bits_per_pixel_even_rounded_up_div_8;
-	p = (x * d_bits_per_pixel_even_div_8 + y * d->bytes_per_row + d->base_address);
+	p = ((x * d_bits_per_pixel_even_div_8) + (y * d->bytes_per_row + d->base_address));
 		
 	if (d->bits_per_pixel < 8)
 	{
