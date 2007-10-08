@@ -12,6 +12,7 @@ clean:
  -del *.pdb *.obj *.exe *.manifest *.res *.idb *.ilk *.temp *.lib *.pch
 
 j.lib: \
+ j_win.obj \
  j.obj \
  j_errno.obj \
  j_malloc.obj \

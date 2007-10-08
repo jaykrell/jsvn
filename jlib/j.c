@@ -755,12 +755,12 @@ jk_unpack(
     unsigned sign_byte_index = 0;
     void (*copy)(unsigned char *, const unsigned char *, size_t) = 0;
 
-    const unsigned offset_to_first_field = typeinfo->offset_to_first_field;
-    const unsigned offset_to_last_field = typeinfo->offset_to_last_field;
+    const size_t offset_to_first_field = typeinfo->offset_to_first_field;
+    const size_t offset_to_last_field = typeinfo->offset_to_last_field;
     char* fields_base = (char*)globals->fields;
     char* types_base = (char*)globals->types;
     /*char* field_unpackers_base = (char*)globals->field_unpackers;*/
-    unsigned offset = 0;
+    size_t offset = 0;
     jk_field_t field;
     const jk_field_t * field_pointer = 0;
     unsigned char const * packed_field = 0;
@@ -942,12 +942,12 @@ jk_compute_packed_or_unpacked_size(
     return err;
 }
 
-unsigned
+size_t
 jk_align_integer(
-    unsigned n
+    size_t n
     )
 {
-    unsigned m = (2 * sizeof(void*)) - 1;
+    size_t m = ((2 * sizeof(void*)) - 1);
     
     return (n + m) & ~m;
 }
@@ -1608,7 +1608,7 @@ jk_dump_struct(
     const size_t offset_to_last_field = typeinfo->offset_to_last_field;
     char* fields_base = (char*)globals->fields;
     char* types_base = (char*)globals->types;
-    unsigned offset = 0;
+    size_t offset = 0;
 	char stack_buffer[64];
 	jk_buffer_t buffer = { {{{ 0 }}}, 0, 0, 0, 0, 0, 0 };
 
@@ -7890,8 +7890,8 @@ int main1(int argc, char ** argv, char **env)
 	/*unsigned b = 0;*/
 	unsigned i;
 	
-    u = (unsigned)p;
-    v = (unsigned long)p;
+    u = (unsigned) (size_t) p;
+    v = (unsigned long) (size_t) p;
 
     globals->argc = argc;
     globals->argv = argv;

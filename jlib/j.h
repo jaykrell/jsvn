@@ -167,7 +167,7 @@ typedef unsigned int DWORD;
 #endif
 
 #ifdef _WIN32
-#include <windows.h>
+/*#include <windows.h>*/
 #endif
 
 #ifdef _MSC_VER
@@ -1378,7 +1378,10 @@ jk_compute_unpacked_size(
     jk_struct_t* p
     );
 
-unsigned jk_align_integer(unsigned n);
+size_t
+jk_align_integer(
+	size_t n
+	);
 
 long
 jk_file_open_for_read(
@@ -3591,9 +3594,18 @@ struct jk_display_t {
 		unsigned char pad;
 	} os2;
 	struct {
-		void
-		unsigned char pad;
-	} win;
+		void* DciProvider;
+#ifdef _X86_
+		size_t DciSurface[0x12];
+#else
+		size_t DciSurface[0xB];
+#endif
+		struct
+		{
+			unsigned DciSurface : 1;
+			unsigned DciProvider : 1;
+		} Valid;
+	} Win;
 	struct {
 		unsigned pixmap_version;
 		unsigned packing_format;
@@ -3665,10 +3677,10 @@ long jk_macos_get_main_display(jk_display_t* d);
 #define jk_error_uninitialized (~2)
 #define jk_error_unreachable   (~3)
 typedef void (*jk_pfn_vv_t)(void);
-#define jk_pointer_to_function_uninitialized ((jk_pfn_vv_t*)~4)
+#define jk_pointer_to_function_uninitialized ((jk_pfn_vv_t*)~(size_t)4)
 #define jk_sizet_uninitialized   (~(size_t)5)
-#define jk_pointer_uninitialized ((void*)~6)
-#define jk_function_pointer_uninitialized ((void(*)())~7)
+#define jk_pointer_uninitialized ((void*)~(size_t)6)
+#define jk_function_pointer_uninitialized ((void(*)())~(size_t)7)
 #define jk_integer_overflow_error (~8)
 #define jk_bad_parameter (~9)
 
