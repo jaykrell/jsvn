@@ -166,6 +166,10 @@ typedef unsigned long DWORD;
 typedef unsigned int DWORD;
 #endif
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifdef _MSC_VER
 
 #if (_MSC_VER > 800)
@@ -276,22 +280,6 @@ using namespace std;
 #endif /* __cplusplus */
 
 #endif /* Microsoft defined */
-
-/* somewhat portable 64bit integer */
-#if 0
-#if defined(_MSC_VER)
-typedef __int64 LONGLONG;
-typedef unsigned __int64 ULONGLONG;
-#else
-typedef long long LONGLONG;
-typedef unsigned long long ULONGLONG;
-#endif
-#endif
-
-/* explicit sizes */
-/*typedef unsigned short INT16;*/
-typedef int LONG32; /* remove this */
-typedef unsigned ULONG32; /* remove this */
 
 /* byte */
 typedef UCHAR BYTE; /* remove this */
@@ -3597,6 +3585,16 @@ struct jk_display_t {
 	unsigned is_full_screen : 1;
 	unsigned is_buffer_available : 1;
 	struct {
+		unsigned char pad;
+	} msdos;
+	struct {
+		unsigned char pad;
+	} os2;
+	struct {
+		void
+		unsigned char pad;
+	} win;
+	struct {
 		unsigned pixmap_version;
 		unsigned packing_format;
 		unsigned packing_size;
@@ -3645,6 +3643,7 @@ typedef struct jk_display_buffer {
 long jk_get_main_display(jk_display_t*);
 long jk_release_display(jk_display_t*);
 
+long jk_win_get_main_display(jk_display_t* d);
 long jk_macosx_get_main_display(jk_display_t* d);
 long jk_macos_get_main_display(jk_display_t* d);
 
@@ -3998,6 +3997,15 @@ jkp_common_multiply_signed(
 	long max
 	);
 
+/* print information about display, not printf to the display */
+void
+jk_printf_win_display(
+	unsigned flags,
+	const char* prefix,
+	const jk_display_t* d
+	);
+
+/* print information about display, not printf to the display */
 void
 jk_printf_macos_display(
 	unsigned flags,
@@ -4005,6 +4013,7 @@ jk_printf_macos_display(
 	const jk_display_t* d
 	);
 
+/* print information about display, not printf to the display */
 void
 jk_printf_macosx_display(
 	unsigned flags,
