@@ -57,9 +57,9 @@
 
 // requires relatively high alignment to work
 // Can we get this to work?
-#define OMIT_TRAILING_ZEROS
+//#define OMIT_TRAILING_ZEROS
 
-#define LINK_DUMP_COMPATIBLE
+//#define LINK_DUMP_COMPATIBLE
 
 #ifdef LINK_DUMP_COMPATIBLE
 #undef OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
