@@ -3,7 +3,19 @@
 #include <windows.h>
 #include <stddef.h>
 
+/* every option works, but not every option in combination or
+ every value for every option */
+
+#define TARGET_PAGE_SIZE 0x1000
+
 #define BASE 0x4000000
+
+#define MAKE_DLL
+
+//#define ZERO_HINTS 1
+
+//#define USE_TERMINATE_PROCESS 1
+#define USE_EXIT 1
 
 // This works often.
 // Saves 52 bytes.
@@ -19,28 +31,41 @@
 //#define FILE_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x1000 /* popular values are 0x1000 and 0x200 */
+//#define FILE_ALIGN TARGET_PAGE_SIZE
 
 // section align cannot be less than file align and will be increased to match */
 #define SECTION_ALIGN 0x1 /* can be any power of two but usually page size */
+//#define SECTION_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
+//#define SECTION_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
+//#define SECTION_ALIGN TARGET_PAGE_SIZE
 
 // if section_align < pagesize, then section_align must equal file_align
 // That is not enforced here currently.
 
 // causes link /dump to fail but ok
 // saves 20 or 22 bytes but not compatible with all options
-//#define OMIT_TRAILING_NULL_IMPORT_DESCRIPTOR
+// not compatible with many file/section align settings
+#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
-//#define LINK_DUMP_COMATIBLE
+// requires relatively high alignment to work
+//#define OMIT_TRAILING_ZEROS
 
-#ifdef LINK_DUMP_COMATIBLE
-#undef OMIT_TRAILING_NULL_IMPORT_DESCRIPTOR
+//#define LINK_DUMP_COMPATIBLE
+
+#ifdef LINK_DUMP_COMPATIBLE
+#undef OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 #endif
 
-// much potential here, not yet implemented
 #define REUSE_HEADERS 1
 
-//#define OMIT_TRAILING_NULL_IMPORT_DESCRIPTOR
+//#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
+
+#ifdef OVERLAY_PE_AND_DOS_HEADER
+#define DOS_HEADER_SIZE 0xC
+#else
+#define DOS_HEADER_SIZE sizeof(IMAGE_DOS_HEADER)
+#endif
 
 void __stdcall RemoveTrailingCharacters(PWSTR s, PCWSTR CharsToRemove)
 {
@@ -75,6 +100,7 @@ int
 __cdecl
 wmain()
 {
+#pragma pack(1) // TBD get the same size but without this; where is the padding?
     struct
     {
         IMAGE_DOS_HEADER Dos;
@@ -92,77 +118,133 @@ wmain()
         BYTE Hello[4];
         BYTE Call_puts[2];
         BYTE puts[4];
-#if 0 // not necessary since we don't return
-        BYTE AddEsp4[3];
-#endif
+#if defined(USE_TERMINATE_PROCESS) || defined(USE_EXIT)
         BYTE PushExitCode;
         BYTE ExitCode;
+#ifdef USE_TERMINATE_PROCESS
         BYTE CallGetCurrentProcess[2];
         BYTE GetCurrentProcess[4];
         BYTE PushEax;
         BYTE CallTerminateProcess[2];
         BYTE TerminateProcess[4];
-#if 0 // not reached
-        BYTE RetC[3];
 #endif
+#ifdef USE_EXIT
+        BYTE Call_exit[2];
+        BYTE exit[4];
+#endif
+#endif
+#if !defined(USE_TERMINATE_PROCESS) && !defined(USE_EXIT)
+        BYTE PopEax; // strip stack and for .dll return non-zero
+#ifdef MAKE_DLL
+        BYTE RetC[3];
+#else
+        BYTE Ret;
+#endif
+#endif
+
+#if !defined(REUSE_HEADERS) || defined(USE_TERMINATE_PROCESS)
         struct
         {
+            BYTE Msvcrt[sizeof("msvcrt")];
+            BYTE Kernel32[sizeof("Kernel32")];
+            BYTE Hello[sizeof("Hello")];
 #ifndef REUSE_HEADERS
+#ifdef ZERO_HINTS
+            BYTE hint_puts[2];
+#endif
             BYTE puts[sizeof("puts")];
+
+#ifdef USE_EXIT
+#ifdef ZERO_HINTS
+            BYTE hint_exit[2];
+#endif
+            BYTE exit[sizeof("exit")];
+#endif
+
+#endif
+
+#ifdef USE_TERMINATE_PROCESS
+#ifdef ZERO_HINTS
+            BYTE hint_TerminateProcess[2];
 #endif
             BYTE TerminateProcess[sizeof("TerminateProcess")];
+#ifdef ZERO_HINTS
+            BYTE hint_GetCurrentProcess[2];
+#endif
             BYTE GetCurrentProcess[sizeof("GetCurrentProcess")];
-            BYTE Msvcrt[sizeof("Msvcrt.dll")];
-#ifndef REUSE_HEADERS
-            BYTE Kernel32[sizeof("Kernel32.dll")];
-            BYTE Hello[sizeof("Hello")];
 #endif
         } String;
+#else
+#endif
+
 #ifdef RELOCATABLE
         struct
         {
             IMAGE_BASE_RELOCATION Header;
             USHORT Hello;
             USHORT puts;
+#ifdef USE_TERMINATE_PROCESS
             USHORT GetCurrentProcess;
             USHORT TerminateProcess;
+#endif
+#ifdef USE_EXIT
+            USHORT exit;
+#endif
         } Relocs;
+#endif
+
+#if !defined(REUSE_HEADERS) || defined(USE_TERMINATE_PROCESS)        
+        struct
+        {
+#ifndef REUSE_HEADERS
+            struct
+            {
+                ULONG puts;
+#ifdef USE_EXIT
+                ULONG exit;
+#endif
+                ULONG Null;
+            } Msvcrt;
+#else
+/* section header: PointerToRelocations, PointerToLinenumbers, NumberOfRelocations, NumberOfLinenumbers */
+#endif
+
+#ifdef USE_TERMINATE_PROCESS
+            struct
+            {
+                ULONG TerminateProcess;
+                ULONG GetCurrentProcess;
+                ULONG Null;
+            } Kernel32;
+#endif
+        }
+#ifdef OPTIMIZE_NOT_BINDABLE
+        ImportAddresses;
+#else
+        ImportNames, ImportAddresses;
+#endif
 #endif
         struct
         {
-            struct
-            {
-                struct
-                {
-                    ULONG puts;
-                    ULONG Null;
-                } Msvcrt;
-                struct
-                {
-                    ULONG TerminateProcess;
-                    ULONG GetCurrentProcess;
-                    ULONG Null;
-                } Kernel32;
-            }
-#ifdef OPTIMIZE_NOT_BINDABLE
-            Address;
-#else
-            Name, Address;
+            IMAGE_IMPORT_DESCRIPTOR Msvcrt;
+#ifdef USE_TERMINATE_PROCESS
+            IMAGE_IMPORT_DESCRIPTOR Kernel32;
 #endif
-            struct
-            {
-                IMAGE_IMPORT_DESCRIPTOR Msvcrt;
-                IMAGE_IMPORT_DESCRIPTOR Kernel32;
-#if 1 // save 20 bytes
-                IMAGE_IMPORT_DESCRIPTOR Null; // this is at the very end of the image so we can optimize it off disk,
-                                              // it seems perhaps optional anyway
+#ifndef OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR // save 20 bytes
+            IMAGE_IMPORT_DESCRIPTOR Null; // this is at the very end of the image so we can optimize it off disk,
+                                          // it seems perhaps optional anyway
 #endif
-            } Descriptor;
-        } Imports;
+        } ImportDescriptors;
+
     } Data;
 /* This is for the first section specifically. */
 #ifdef OVERLAY_PE_AND_DOS_HEADER
+#if 0 // SECTION_ALIGN != TARGET_PAGE_SIZE
+/* This isn't completely understood. */
 #define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Data) + Section->VirtualAddress - 0x34)
+#else
+#define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Data) + Section->VirtualAddress)
+#endif
 #else
 #define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Data) + Section->VirtualAddress)
 #endif
@@ -193,43 +275,49 @@ wmain()
     OptionalHeader->ImageBase = BASE;
 
 #ifndef RELOCATABLE
+#ifdef MAKE_DLL
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 1);
+#else
+    // otherwise crash in the loader..
+    // this number depends, on something and sometimes 2 works
+    //OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 2);
+    OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 3);
+#endif
 #else
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_BASERELOC + 1);
 #endif
-#ifdef LINK_DUMP_COMATIBLE
+#ifdef LINK_DUMP_COMPATIBLE
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 3);
     //OptionalHeader->NumberOfRvaAndSizes = IMAGE_NUMBEROF_DIRECTORY_ENTRIES;
 #endif
 
     Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes];
-    OptionalHeader->SizeOfHeaders = (ULONG) (((size_t) (Section + 1)) - (size_t) &Header);
+    FileHeader->SizeOfOptionalHeader = (ULONG) (((size_t) Section) - (size_t) OptionalHeader);
+    OptionalHeader->SizeOfHeaders = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + FileHeader->SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
 
-#ifdef REUSE_HEADERS
-    strcpy(Section->Name, "Hello");
-#endif
     Section->Misc.VirtualSize = sizeof(Data);
+    //Section->Misc.VirtualSize = 0x2000;
     Section->SizeOfRawData = sizeof(Data);
-    // not needed, nets us more space to reuse maybe (a terminal nul for a string)
-    //Section->Characteristics = (IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_INITIALIZED_DATA);
+    // not always needed, nets us more space to reuse maybe (a terminal nul for a string)
+#if 0
+    Section->Characteristics = (IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_INITIALIZED_DATA);
+#endif
     // sometimes needed (not)
     //Section->Characteristics |= IMAGE_SCN_CNT_UNINITIALIZED_DATA;
     Section->VirtualAddress = RoundUp(OptionalHeader->SizeOfHeaders, OptionalHeader->SectionAlignment);
     Section->PointerToRawData = RoundUp(OptionalHeader->SizeOfHeaders, OptionalHeader->FileAlignment);
 
     Dos->e_magic = IMAGE_DOS_SIGNATURE;
-    Dos->e_lfanew = sizeof(*Dos);
-#ifdef OVERLAY_PE_AND_DOS_HEADER
-    Dos->e_lfanew = 0xC;
-#endif
+    Dos->e_lfanew = DOS_HEADER_SIZE;
     FileHeader->Machine = IMAGE_FILE_MACHINE_I386;
     FileHeader->NumberOfSections = 1;
 
     LastSection = (Section + FileHeader->NumberOfSections - 1);
 
-    FileHeader->SizeOfOptionalHeader = (ULONG) (((size_t) Section) - (size_t) OptionalHeader);
-
-    FileHeader->Characteristics = (IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_32BIT_MACHINE | IMAGE_FILE_DLL);
+    FileHeader->Characteristics = (IMAGE_FILE_EXECUTABLE_IMAGE | IMAGE_FILE_32BIT_MACHINE);
+#ifdef MAKE_DLL
+    FileHeader->Characteristics |= IMAGE_FILE_DLL;
+#endif
 #ifndef RELOCATABLE
     FileHeader->Characteristics |= IMAGE_FILE_RELOCS_STRIPPED;
 #endif
@@ -239,17 +327,20 @@ wmain()
     OptionalHeader->AddressOfEntryPoint = RVA(Data);
     OptionalHeader->MajorOperatingSystemVersion = 4;
     OptionalHeader->MajorSubsystemVersion = 4;
+    //OptionalHeader->DllCharacteristics = 0x400;
     OptionalHeader->Subsystem = IMAGE_SUBSYSTEM_WINDOWS_CUI;
-    // not needed
-    //OptionalHeader->BaseOfCode = OptionalHeader->SectionAlignment;
-    //OptionalHeader->BaseOfData = OptionalHeader->BaseOfCode;
-    //OptionalHeader->SizeOfCode = sizeof(Data);
-    //OptionalHeader->SizeOfInitializedData = sizeof(Data);
+    // not always/ever needed
+#if 0
+    OptionalHeader->BaseOfCode = OptionalHeader->SectionAlignment;
+    OptionalHeader->BaseOfData = OptionalHeader->BaseOfCode;
+    OptionalHeader->SizeOfCode = sizeof(Data);
+    OptionalHeader->SizeOfInitializedData = sizeof(Data);
+#endif
     OptionalHeader->SizeOfImage = RoundUp(LastSection->VirtualAddress + LastSection->Misc.VirtualSize, OptionalHeader->SectionAlignment);
 
-    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = RVA(Data.Imports.Descriptor);
+    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = RVA(Data.ImportDescriptors);
     // size is redundant with the terminal null
-    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(Data.Imports.Descriptor);
+    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(Data.ImportDescriptors);
     //OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = 1;
 
 #ifdef RELOCATABLE
@@ -263,107 +354,161 @@ wmain()
     memcpy(Data.Hello, VA(Data.String.Hello), sizeof(ULONG));
 #else
     // hello is the section name
-    va = (OptionalHeader->ImageBase + (4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader));
-#ifdef OVERLAY_PE_AND_DOS_HEADER
-    va += 0xC;
-#else
-    va += sizeof(IMAGE_DOS_HEADER);
-#endif
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader);
     memcpy(Data.Hello, &va, sizeof(ULONG));
 #endif
     Data.Call_puts[0] = 0xFF;
     Data.Call_puts[1] = 0x15;
-    memcpy(Data.puts, VA(Data.Imports.Address.Msvcrt.puts), sizeof(ULONG));
-#if 0 // not necessary since we don't return
-    Data.AddEsp4[0] = 0x83;
-    Data.AddEsp4[1] = 0xC4;
-    Data.AddEsp4[2] = 0x04;
+#ifndef REUSE_HEADERS
+    memcpy(Data.puts, VA(Data.ImportAddresses.Msvcrt.puts), sizeof(ULONG));
+#else
+    // in section header
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
+    memcpy(Data.puts, &va, sizeof(ULONG));
 #endif
+#if defined(USE_TERMINATE_PROCESS) || defined(USE_EXIT)
     Data.PushExitCode = 0x6A;
     Data.ExitCode = 42;
+#ifdef USE_TERMINATE_PROCESS
     Data.CallGetCurrentProcess[0] = 0xFF;
     Data.CallGetCurrentProcess[1] = 0x15;
-#if 1 // ndef REUSE_HEADERS
-    memcpy(Data.GetCurrentProcess, VA(Data.Imports.Address.Kernel32.GetCurrentProcess), sizeof(ULONG));
-#else
-    rva = (4 + offsetof(IMAGE_FILE_HEADER, TimeDateStamp));
-#ifdef OVERLAY_PE_AND_DOS_HEADER
-    rva += 0xC;
-#else
-    rva += sizeof(IMAGE_DOS_HEADER);
-#endif
-    va = (rva + OptionalHeader->ImageBase);
-    memcpy(Data.GetCurrentProcess, &va, sizeof(ULONG));
-#endif
+    memcpy(Data.GetCurrentProcess, VA(Data.ImportAddresses.Kernel32.GetCurrentProcess), sizeof(ULONG));
     Data.PushEax = 0x50;
     Data.CallTerminateProcess[0] = 0xFF;
     Data.CallTerminateProcess[1] = 0x15;
-    memcpy(Data.TerminateProcess, VA(Data.Imports.Address.Kernel32.TerminateProcess), sizeof(ULONG));
+    memcpy(Data.TerminateProcess, VA(Data.ImportAddresses.Kernel32.TerminateProcess), sizeof(ULONG));
+#endif
+#ifdef USE_EXIT
+    Data.Call_exit[0] = 0xFF;
+    Data.Call_exit[1] = 0x15;
+#ifndef REUSE_HEADERS
+    memcpy(Data.exit, VA(Data.ImportAddresses.Msvcrt.exit), sizeof(ULONG));
+#else
+    // address in section header
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToLinenumbers));
+    memcpy(Data.exit, &va, sizeof(ULONG));
+#endif
+#endif
+#endif
 
-#if 0 // not reached
+#if !defined(USE_TERMINATE_PROCESS) && !defined(USE_EXIT)
+    Data.PopEax = 0x58; // strip stack and for .dll return non-zero
+#ifdef MAKE_DLL
     Data.RetC[0] = 0xc2;
     Data.RetC[1] = 0xc;
     Data.RetC[2] = 0;
-#endif
-
-    // import descriptors
-
-    Data.Imports.Descriptor.Msvcrt.FirstThunk = RVA(Data.Imports.Address.Msvcrt);
-    Data.Imports.Descriptor.Msvcrt.Name = RVA(Data.String.Msvcrt);
-
-    Data.Imports.Descriptor.Kernel32.FirstThunk = RVA(Data.Imports.Address.Kernel32);
-#ifndef REUSE_HEADERS
-    Data.Imports.Descriptor.Kernel32.Name = RVA(Data.String.Kernel32);
 #else
-    rva = (4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfStackReserve));
-#ifdef OVERLAY_PE_AND_DOS_HEADER
-    rva += 0xC;
-#else
-    rva += sizeof(IMAGE_DOS_HEADER);
+    Data.Ret = 0xc3;
 #endif
-    Data.Imports.Descriptor.Kernel32.Name = rva;
 #endif
 
-    // addresses, subtract 2 to leave room for an arbitrary and not necessarily aligned hint
+    // import ImportDescriptorss
 
 #ifndef REUSE_HEADERS
-    Data.Imports.Address.Msvcrt.puts = (RVA(Data.String.puts) - 2);
+    Data.ImportDescriptors.Msvcrt.Name = RVA(Data.String.Msvcrt);
 #else
-    Data.Imports.Address.Msvcrt.puts = 1;
+    Data.ImportDescriptors.Msvcrt.Name = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfCode));
 #endif
-    Data.Imports.Address.Kernel32.TerminateProcess = (RVA(Data.String.TerminateProcess) - 2);
-    Data.Imports.Address.Kernel32.GetCurrentProcess = (RVA(Data.String.GetCurrentProcess) - 2);
+
+#ifndef REUSE_HEADERS
+    Data.ImportDescriptors.Msvcrt.FirstThunk = RVA(Data.ImportAddresses.Msvcrt);
+#else
+    Data.ImportDescriptors.Msvcrt.FirstThunk = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
+#endif
+
+#ifdef USE_TERMINATE_PROCESS
+    Data.ImportDescriptors.Kernel32.FirstThunk = RVA(Data.ImportAddresses.Kernel32);
+
+#ifndef REUSE_HEADERS
+    Data.ImportDescriptors.Kernel32.ImportNames = RVA(Data.String.Kernel32);
+#else
+    Data.ImportDescriptors.Kernel32.ImportNames = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfStackReserve));
+#endif
+
+#endif
+
+    // ImportAddresseses, subtract 2 to leave room for an arbitrary and not necessarily aligned hint
+
+#ifdef USE_EXIT
+#ifndef REUSE_HEADERS
+    Data.ImportAddresses.Msvcrt.exit = (RVA(Data.String.exit) - 2);
+    Data.ImportAddresses.Msvcrt.puts = (RVA(Data.String.puts) - 2);
+#else
+#if 0
+    Data.ImportAddresses.Msvcrt.exit = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfStackReserve) - 2);
+    // puts is at the start of the image, after mz, allowing two garbage bytes for the into, and avoid being 0
+    Data.ImportAddresses.Msvcrt.puts = 1;
+#else
+    Section->PointerToLinenumbers = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfStackReserve) - 2);
+    // puts is at the start of the image, after mz, allowing two garbage bytes for the into, and avoid being 0
+    Section->PointerToRelocations = 1;
+#endif
+#endif
+#endif
+
+#ifdef USE_TERMINATE_PROCESS
+    Data.ImportAddresses.Kernel32.TerminateProcess = (RVA(Data.String.TerminateProcess) - 2);
+    Data.ImportAddresses.Kernel32.GetCurrentProcess = (RVA(Data.String.GetCurrentProcess) - 2);
+#endif
 
     // names
 
 #ifdef OPTIMIZE_NOT_BINDABLE
-    Data.Imports.Descriptor.Msvcrt.OriginalFirstThunk = RVA(Data.Imports.Address.Msvcrt);
-    Data.Imports.Descriptor.Kernel32.OriginalFirstThunk = RVA(Data.Imports.Address.Kernel32);
+    Data.ImportDescriptors.Msvcrt.OriginalFirstThunk = Data.ImportDescriptors.Msvcrt.FirstThunk;
+#ifdef USE_TERMINATE_PROCESS
+    Data.ImportDescriptors.Kernel32.OriginalFirstThunk = Data.ImportDescriptors.Kernel32.FirstThunk;
+#endif
 #else
-    Data.Imports.Descriptor.Msvcrt.OriginalFirstThunk = RVA(Data.Imports.Name.Msvcrt);
-    Data.Imports.Descriptor.Kernel32.OriginalFirstThunk = RVA(Data.Imports.Name.Kernel32);
-    Data.Imports.Name = Data.Imports.Address;
+    Data.ImportDescriptors.Msvcrt.OriginalFirstThunk = RVA(Data.ImportNames.Msvcrt);
+#ifdef USE_TERMINATE_PROCESS
+    Data.ImportDescriptors.Kernel32.OriginalFirstThunk = RVA(Data.ImportNames.Kernel32);
+#endif
+    Data.ImportNames = Data.ImportAddresses;
 #endif
 
     // strings
 
+#ifdef USE_EXIT
 #ifndef REUSE_HEADERS
-    memcpy(Data.String.puts, "puts", sizeof("puts")); // 5 bytes
+    memcpy(Data.String.exit, "exit", sizeof("exit")); // 5 bytes
 #else
+    memcpy(&OptionalHeader->SizeOfStackReserve, "exit", sizeof("exit")); // 5 bytes
+#endif
+#endif
+
+#ifndef REUSE_HEADERS
+    memcpy(Data.String.Msvcrt, "msvcrt", sizeof("msvcrt")); // 7 bytes
+#else
+    memcpy(&OptionalHeader->SizeOfCode, "msvcrt", sizeof("msvcrt")); // 7 bytes
+#endif
+
+#ifdef USE_TERMINATE_PROCESS
+    memcpy(Data.String.GetCurrentProcess, "GetCurrentProcess", sizeof("GetCurrentProcess")); // 18 bytes (plus 2 byte hint)
+    memcpy(Data.String.TerminateProcess, "TerminateProcess", sizeof("TerminateProcess")); // 17 bytes (plus 2 byte hint)
+#endif
+
+#ifndef REUSE_HEADERS
+
+    memcpy(Data.String.puts, "puts", sizeof("puts")); // 5 bytes
+#ifdef USE_TERMINATE_PROCESS
+    memcpy(Data.String.Kernel32, "Kernel32", sizeof("Kernel32")); // 9 bytes
+#endif
+    memcpy(Data.String.Hello, "Hello", sizeof("Hello"));
+ 
+#else
+
+    strcpy(Section->Name, "Hello");
     // puts is in the dos header (preceded by 2 byte hint, and not zero
     // budget here is 10 bytes, puts + hint + null is 7.
     memcpy((((PBYTE) Dos) + 3), "puts", sizeof("puts"));
+#ifdef USE_TERMINATE_PROCESS
+    memcpy(&OptionalHeader->SizeOfStackReserve, "Kernel32", sizeof("Kernel32")); // 9 bytes, 16 available
 #endif
-    memcpy(Data.String.TerminateProcess, "TerminateProcess", sizeof("TerminateProcess")); // 17 bytes (plus 2 byte hint)
+#endif
+
+#ifdef USE_TERMINATE_PROCESS
     memcpy(Data.String.GetCurrentProcess, "GetCurrentProcess", sizeof("GetCurrentProcess")); // 18 bytes (plus 2 byte hint)
-    memcpy(Data.String.Msvcrt, "Msvcrt.dll", sizeof("Msvcrt.dll")); // 11 bytes
-#ifndef REUSE_HEADERS
-    memcpy(Data.String.Kernel32, "Kernel32.dll", sizeof("Kernel32.dll")); // 13 bytes
-#else
-    memcpy(&OptionalHeader->SizeOfStackReserve, "Kernel32.dll", sizeof("Kernel32.dll")); // 13 bytes, 16 available
-#endif
-#ifndef REUSE_HEADERS
-    memcpy(Data.String.Hello, "Hello", sizeof("Hello"));
+    memcpy(Data.String.TerminateProcess, "TerminateProcess", sizeof("TerminateProcess")); // 17 bytes (plus 2 byte hint)
 #endif
 
     // relocs
@@ -376,14 +521,19 @@ wmain()
     Data.Relocs.Header.VirtualAddress = RVA(Data.uFirstInstruction.FirstInstruction);
     Data.Relocs.Hello = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.Hello - &Data.uFirstInstruction.FirstInstruction));
     Data.Relocs.puts = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.puts - &Data.uFirstInstruction.FirstInstruction));
+#ifdef USE_EXIT
+    Data.Relocs.exit = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.exit - &Data.uFirstInstruction.FirstInstruction));
+#endif
+#ifdef USE_TERMINATE_PROCESS
     Data.Relocs.GetCurrentProcess = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.GetCurrentProcess - &Data.uFirstInstruction.FirstInstruction));
     Data.Relocs.TerminateProcess = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.TerminateProcess - &Data.uFirstInstruction.FirstInstruction));
+#endif
 
 #endif
 
     // version resource?
 
-#ifdef OMIT_TRAILING_NULL_IMPORT_DESCRIPTOR
+#ifdef OMIT_TRAILING_ZEROS
     // link /dump doesn't like this but the loader is ok
     while ((Section->SizeOfRawData != 0) && (((PBYTE) &Data)[Section->SizeOfRawData - 1] == 0))
     {
@@ -391,16 +541,13 @@ wmain()
     }
 #endif
 
-#ifdef REUSE_HEADERS
-/*
-    DWORD   SizeOfStackReserve;
-    DWORD   SizeOfStackCommit;
-    DWORD   SizeOfHeapReserve;
-    DWORD   SizeOfHeapCommit;
-*/
-#endif
-
+#ifdef MAKE_DLL
+    DeleteFileW(L"1.dll");
     FileHandle = _wfopen(L"1.dll", L"wb");
+#else
+    DeleteFileW(L"1.exe");
+    FileHandle = _wfopen(L"1.exe", L"wb");
+#endif
     if (FileHandle == NULL)
     {
         Result = errno;
@@ -424,19 +571,24 @@ wmain()
     j = sizeof(*Section);
     fwrite(Section, j, 1, FileHandle);
     i += j;
-    fwrite(&FileAlign, (RoundUp(i, OptionalHeader->FileAlignment) - i), 1, FileHandle);
+    if ((OptionalHeader->FileAlignment != 1) && ((i % OptionalHeader->FileAlignment) != 0))
+    {
+        fwrite(&FileAlign, (RoundUp(i, OptionalHeader->FileAlignment) - i), 1, FileHandle);
+    }
 #endif
 
     fwrite(&Data, Section->SizeOfRawData, 1, FileHandle);
 
     fclose(FileHandle);
 
+#ifdef MAKE_DLL
     DllHandle = LoadLibraryW(L"1.dll");
     if (DllHandle)
         SetLastError(0);
     Error = GetLastError();
     ErrorString = GetErrorString(Error);
     wprintf(L"LoadLibrary: %p 0x%lx %ls\n", DllHandle, Error, ErrorString);
+#endif
 
     Result = Error;
 
