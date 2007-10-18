@@ -8,23 +8,30 @@
 
 #define TARGET_PAGE_SIZE 0x1000
 
+// no savings  (and not finished therefore)
+//#define TAIL_CALL_AND_NO_RETURN
+
 #define BASE 0x4000000
 
-#define MAKE_DLL
+// does not work (and not finished therefore)
+//#define OMIT_DOS_HEADER
 
+//#define MAKE_DLL
+
+// always seems ok either way, saves 2 bytes per import (could possibly reuse those)
 //#define ZERO_HINTS 1
 
 //#define USE_TERMINATE_PROCESS 1
 #define USE_EXIT 1
 
-// This works often.
+// This works very often.
 // Saves 52 bytes.
 #define OVERLAY_PE_AND_DOS_HEADER 1
 
 // Costs around 48 bytes
 //#define RELOCATABLE 1
 
-// saves 20 bytes
+// saves 20 bytes, always works
 #define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
 
 #define FILE_ALIGN 0x1 /* popular values are 0x1000 and 0x200 */
@@ -49,19 +56,23 @@
 #define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
 // requires relatively high alignment to work
-//#define OMIT_TRAILING_ZEROS
+// Can we get this to work?
+#define OMIT_TRAILING_ZEROS
 
-//#define LINK_DUMP_COMPATIBLE
+#define LINK_DUMP_COMPATIBLE
 
 #ifdef LINK_DUMP_COMPATIBLE
 #undef OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 #endif
 
+// This is an aggressive multiple-independent-part tricky option that saves many bytes.
 #define REUSE_HEADERS 1
 
 //#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
-#ifdef OVERLAY_PE_AND_DOS_HEADER
+#if defined(OMIT_DOS_HEADER)
+#define DOS_HEADER_SIZE 0
+#elif defined(OVERLAY_PE_AND_DOS_HEADER)
 #define DOS_HEADER_SIZE 0xC
 #else
 #define DOS_HEADER_SIZE sizeof(IMAGE_DOS_HEADER)
@@ -110,14 +121,33 @@ wmain()
     BYTE FileAlign[FILE_ALIGN];
     struct
     {
+#ifdef TAIL_CALL_AND_NO_RETURN
+        union
+        {
+            BYTE PushExitCode;
+            BYTE FirstInstruction;
+        } uFirstInstruction;
+        BYTE ExitCode;
+        BYTE Push_exit[2];
+        BYTE exit[4];
+        BYTE PushHello;
+#else
         union
         {
             BYTE PushHello;
             BYTE FirstInstruction;
         } uFirstInstruction;
+#endif
         BYTE Hello[4];
+
+#ifdef TAIL_CALL_AND_NO_RETURN
+        BYTE Jump_puts[2];
+#else
         BYTE Call_puts[2];
+#endif
         BYTE puts[4];
+#ifndef TAIL_CALL_AND_NO_RETURN
+
 #if defined(USE_TERMINATE_PROCESS) || defined(USE_EXIT)
         BYTE PushExitCode;
         BYTE ExitCode;
@@ -133,12 +163,14 @@ wmain()
         BYTE exit[4];
 #endif
 #endif
+
 #if !defined(USE_TERMINATE_PROCESS) && !defined(USE_EXIT)
         BYTE PopEax; // strip stack and for .dll return non-zero
 #ifdef MAKE_DLL
         BYTE RetC[3];
 #else
         BYTE Ret;
+#endif
 #endif
 #endif
 
@@ -299,7 +331,7 @@ wmain()
     //Section->Misc.VirtualSize = 0x2000;
     Section->SizeOfRawData = sizeof(Data);
     // not always needed, nets us more space to reuse maybe (a terminal nul for a string)
-#if 0
+#if 1 // def LINK_DUMP_COMPATIBLE The code flag makes link /dump /disasm work.
     Section->Characteristics = (IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_INITIALIZED_DATA);
 #endif
     // sometimes needed (not)
@@ -348,7 +380,11 @@ wmain()
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = sizeof(Data.Relocs);
 #endif
 
+#ifdef TAIL_CALL_AND_NO_RETURN
+    Data.PushHello = 0x68;
+#else
     Data.uFirstInstruction.PushHello = 0x68;
+#endif
 
 #ifndef REUSE_HEADERS
     memcpy(Data.Hello, VA(Data.String.Hello), sizeof(ULONG));
@@ -357,8 +393,15 @@ wmain()
     va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader);
     memcpy(Data.Hello, &va, sizeof(ULONG));
 #endif
+
+#ifdef TAIL_CALL_AND_NO_RETURN
+    Data.Jump_puts[0] = 0xFF;
+    Data.Jump_puts[1] = 0x25;
+#else
     Data.Call_puts[0] = 0xFF;
     Data.Call_puts[1] = 0x15;
+#endif
+
 #ifndef REUSE_HEADERS
     memcpy(Data.puts, VA(Data.ImportAddresses.Msvcrt.puts), sizeof(ULONG));
 #else
@@ -367,7 +410,11 @@ wmain()
     memcpy(Data.puts, &va, sizeof(ULONG));
 #endif
 #if defined(USE_TERMINATE_PROCESS) || defined(USE_EXIT)
+#ifdef TAIL_CALL_AND_NO_RETURN
+    Data.uFirstInstruction.PushExitCode = 0x6A;
+#else
     Data.PushExitCode = 0x6A;
+#endif
     Data.ExitCode = 42;
 #ifdef USE_TERMINATE_PROCESS
     Data.CallGetCurrentProcess[0] = 0xFF;
@@ -379,8 +426,13 @@ wmain()
     memcpy(Data.TerminateProcess, VA(Data.ImportAddresses.Kernel32.TerminateProcess), sizeof(ULONG));
 #endif
 #ifdef USE_EXIT
+#ifdef TAIL_CALL_AND_NO_RETURN
+    Data.Push_exit[0] = 0xFF;
+    Data.Push_exit[1] = 0x35;
+#else
     Data.Call_exit[0] = 0xFF;
     Data.Call_exit[1] = 0x15;
+#endif
 #ifndef REUSE_HEADERS
     memcpy(Data.exit, VA(Data.ImportAddresses.Msvcrt.exit), sizeof(ULONG));
 #else
@@ -535,6 +587,7 @@ wmain()
 
 #ifdef OMIT_TRAILING_ZEROS
     // link /dump doesn't like this but the loader is ok
+    // this doesn't work small alignment unfortunately, so we currently bother storing 3 trailing zeros
     while ((Section->SizeOfRawData != 0) && (((PBYTE) &Data)[Section->SizeOfRawData - 1] == 0))
     {
         Section->SizeOfRawData -= 1;
@@ -558,11 +611,13 @@ wmain()
     fwrite(&Header, RoundUp(OptionalHeader->SizeOfHeaders, OptionalHeader->FileAlignment), 1, FileHandle);
 #else
     i = 0;
+#ifndef OMIT_DOS_HEADER
     j = sizeof(*Dos);
     fwrite(Dos, j, 1, FileHandle);
 #ifdef OVERLAY_PE_AND_DOS_HEADER
     ((USHORT*)Nt)[24] = Dos->e_lfanew;
     fseek(FileHandle, Dos->e_lfanew, SEEK_SET);
+#endif
 #endif
     i = Dos->e_lfanew;
     j = (4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader);
