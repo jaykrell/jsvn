@@ -69,6 +69,8 @@
 // This is an aggressive multiple-independent-part tricky option that saves many bytes.
 #define REUSE_HEADERS 1
 
+#define CODE_IN_HEADERS
+
 //#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
 #if defined(OMIT_DOS_HEADER)
@@ -129,6 +131,16 @@ wmain()
         IMAGE_SECTION_HEADER Section;
     } Header;
     BYTE FileAlign[FILE_ALIGN];
+
+#ifdef CODE_IN_HEADERS
+    struct
+    {
+        struct
+        {
+            IMAGE_IMPORT_DESCRIPTOR Msvcrt;
+        } ImportDescriptors;
+    } Data;
+#else
     struct
     {
 #ifdef TAIL_CALL_AND_NO_RETURN
@@ -281,6 +293,7 @@ wmain()
         } ImportDescriptors;
 #endif
     } Data;
+#endif
 /* This is for the first section specifically. */
 #ifdef OVERLAY_PE_AND_DOS_HEADER
 #if 0 // SECTION_ALIGN != TARGET_PAGE_SIZE
@@ -308,6 +321,8 @@ wmain()
     IMAGE_SECTION_HEADER* LastSection = { 0 };
     size_t i = { 0 };
     size_t j = { 0 };
+    PBYTE p = { 0 };
+    size_t SizeOfImage = { 0 };
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = &Data.ImportDescriptors.Msvcrt;
 #else
@@ -429,6 +444,79 @@ wmain()
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = sizeof(Data.Relocs);
 #endif
 
+#ifdef CODE_IN_HEADERS
+
+    // we have 12 bytes here and then SizeOfOptionalHeader
+
+    p = (PBYTE) &FileHeader->TimeDateStamp;
+
+    // push hello
+
+    *p++ = 0x68;
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader);
+    memcpy(p, &va, sizeof(ULONG));    
+    p += sizeof(ULONG);
+
+    // mov eax, &__imp__puts
+
+    *p++ = 0xB8;
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
+    memcpy(p, &va, sizeof(ULONG));
+    p += sizeof(ULONG);
+
+    // near jmp into optional header
+
+    *p++ = 0xEB; // jump
+    OptionalHeader->AddressOfEntryPoint = (DOS_HEADER_SIZE + 4 + offsetof(IMAGE_FILE_HEADER, TimeDateStamp));
+    va = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, Win32VersionValue) - OptionalHeader->AddressOfEntryPoint - 10 - 2);
+    if (va > 128)
+    {
+        printf("near jump too far\n");
+    }
+    *p++ = (BYTE) va;
+
+    //OptionalHeader->CheckSum = 0x9090;
+    //OptionalHeader->Win32VersionValue = 0x9090;
+
+    p = (PBYTE) &OptionalHeader->Win32VersionValue;
+
+    // 16 bytes until subsystem
+    // no constraints on Win32VersionValue, CheckSum
+    // some constraints on SizeOfImage, SizeOfHeaders
+
+    SizeOfImage = OptionalHeader->SizeOfImage;
+
+    // call dword ptr [eax] (puts)
+
+    *p++ = 0xFF;
+    *p++ = 0x10;
+
+    // push exit code (42)
+
+    *p++ = 0x6A;
+    *p++ = 42;
+
+    // call exit
+
+    *p++ = 0xFF;
+    *p++ = 0x15;
+
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToLinenumbers));
+    memcpy(p, &va, sizeof(ULONG));
+    
+    //
+    // We overwrite SizeOfImage here and that is ok.
+    // If we were to make it too small and the code doesn't occupy the high bits, we could
+    // poke them bigger, possibly even with a branch to more code, but we are ok and done.
+    //
+
+    if (SizeOfImage > OptionalHeader->SizeOfImage)
+    {
+        printf("SizeOfImage error %x vs. %x\n", SizeOfImage, OptionalHeader->SizeOfImage);
+    }
+
+#else
+
 #ifdef TAIL_CALL_AND_NO_RETURN
     Data.PushHello = 0x68;
 #else
@@ -454,7 +542,7 @@ wmain()
 #if !defined(REUSE_HEADERS) || defined(OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER)
     memcpy(Data.puts, VA(Data.ImportAddresses.Msvcrt.puts), sizeof(ULONG));
 #else
-    // in section header
+    // puts is in the in section header (msvcrt IAT)
     va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
     memcpy(Data.puts, &va, sizeof(ULONG));
 #endif
@@ -501,6 +589,8 @@ wmain()
 #else
     Data.Ret = 0xc3;
 #endif
+#endif
+
 #endif
 
     // import ImportDescriptors
@@ -687,6 +777,8 @@ wmain()
         }
     }
 
+#ifndef CODE_IN_HEADERS
+
 #ifndef LINK_DUMP_COMPATIBLE
     //
     // use the last, ignored, 4 byte field in the section header for code
@@ -700,6 +792,8 @@ wmain()
     Section->Misc.VirtualSize -= CodeSizeBeforeSection;
     OptionalHeader->AddressOfEntryPoint -= CodeSizeBeforeSection;
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress -= CodeSizeBeforeSection;
+#endif
+
 #endif
 
 #if 0
