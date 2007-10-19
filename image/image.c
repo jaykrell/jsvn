@@ -11,8 +11,8 @@
 // no savings  (and not finished therefore)
 //#define TAIL_CALL_AND_NO_RETURN
 
-//#define BASE 0x00480000
-#define BASE 0x00400000 // for reloc
+#define BASE 0x00480000
+//#define BASE 0x00400000 // for reloc
 
 // does not work (and not finished therefore)
 //#define OMIT_DOS_HEADER
@@ -32,9 +32,10 @@
 #define OVERLAY_PE_AND_DOS_HEADER 1
 
 // Costs around 48 bytes
+// not necessarily maintained for all combinations
 //#define RELOCATABLE 1
 
-// saves 20 bytes, always works
+// saves 20 bytes, always works, simple
 #define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
 
 #define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
@@ -393,7 +394,7 @@ wmain()
     // a further 4 byte savings.
     //
 #ifndef RELOCATABLE
-    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1].Size;
+    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT - 1].Size;
 #else
     Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1];
 #endif
