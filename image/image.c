@@ -373,7 +373,7 @@ wmain()
     //OptionalHeader->NumberOfRvaAndSizes = IMAGE_NUMBEROF_DIRECTORY_ENTRIES;
 #endif
 
-#if defined(CODE_IN_HEADERS) && defined(MAKE_DLL)
+#if defined(CODE_IN_HEADERS)
     //
     // Besides the first field being the name, the second field is the size,
     // and the section only contains the import descriptor, and the import size
