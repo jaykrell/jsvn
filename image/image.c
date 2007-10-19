@@ -360,8 +360,10 @@ wmain()
     // otherwise crash in the loader..
     // this number depends, on something and sometimes 2 works
     // perhaps we can reuse these 16 bytes
+    // currently we are lucky and the crash is avoided
+    OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 1);
     //OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 2);
-    OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 3);
+    //OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 3);
 #endif
 #else
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_BASERELOC + 1);
@@ -372,13 +374,9 @@ wmain()
 #endif
 
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
-#ifdef MAKE_DLL
     // overlap section header and optional header for 8 byte savings
+    //Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes];
     Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1];
-#else
-    // but .exes if you do that
-    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes];
-#endif
 #else
     Section = (IMAGE_SECTION_HEADER*) (((PBYTE) ImportDescriptors) + sizeof(*ImportDescriptors) * 2);
     OptionalHeader->NumberOfRvaAndSizes = 5;
