@@ -84,6 +84,8 @@
 C_ASSERT(SECTION_ALIGN == 4);
 #endif
 
+// failed (and not second-order pruned -- this turns off other optimizations
+// while we just tried to make this work)
 //#define OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
 
 void __stdcall RemoveTrailingCharacters(PWSTR s, PCWSTR CharsToRemove)
@@ -265,7 +267,7 @@ wmain()
 #endif
 #endif
 
-#if 1 // ndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
+#ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
         struct
         {
             IMAGE_IMPORT_DESCRIPTOR Msvcrt;
@@ -309,8 +311,12 @@ wmain()
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = &Data.ImportDescriptors.Msvcrt;
 #else
+    // we have to waste space for extra directories, whose values may or may cause a crash, so tried here
+    // also tried on fields but both failed
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE];
 #endif
+    size_t FileAlignPadSize = { 0 };
+    size_t CodeSizeBeforeSection = { 0 };
 
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
@@ -338,6 +344,7 @@ wmain()
 #else
     // otherwise crash in the loader..
     // this number depends, on something and sometimes 2 works
+    // perhaps we can reuse these 16 bytes
     //OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 2);
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 3);
 #endif
@@ -497,7 +504,6 @@ wmain()
 #endif
 
     // import ImportDescriptors
-
 
 #if !defined(REUSE_HEADERS) || defined(OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER)
     ImportDescriptors[0].Name = RVA(Data.String.Msvcrt);
@@ -663,6 +669,39 @@ wmain()
         goto Exit;
     }
 
+    //
+    // section header ends with 4 ignored bytes and is followed by he code
+    // move the code back 4 bytes to save them; this breaks disassembly
+    //
+    if (OptionalHeader->FileAlignment != 1)
+    {
+        FileAlignPadSize = (i % OptionalHeader->FileAlignment);
+        if (FileAlignPadSize != 0)
+        {
+            FileAlignPadSize = (RoundUp(FileAlignPadSize, OptionalHeader->FileAlignment) - i);
+            // nops in case we are moving code
+            // into section header, but really should put code here, duh
+            //. This turns out to be empty anyway in our smaller cases
+            printf("%u bytes of padding for alignment\n", (unsigned) FileAlignPadSize);
+            memset(FileAlign, 0x90, FileAlignPadSize);
+        }
+    }
+
+#ifndef LINK_DUMP_COMPATIBLE
+    //
+    // use the last, ignored, 4 byte field in the section header for code
+    // and the padding, if there is any
+    //
+    CodeSizeBeforeSection = (FileAlignPadSize + sizeof(ULONG));
+    memmove(&Section->Characteristics, &Data, sizeof(ULONG));
+    memmove(FileAlign, (((PBYTE) &Data) + sizeof(ULONG)), FileAlignPadSize);
+    memmove(&Data, (((PBYTE) &Data) + CodeSizeBeforeSection), (sizeof(Data) - CodeSizeBeforeSection));
+    Section->SizeOfRawData -= CodeSizeBeforeSection;
+    Section->Misc.VirtualSize -= CodeSizeBeforeSection;
+    OptionalHeader->AddressOfEntryPoint -= CodeSizeBeforeSection;
+    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress -= CodeSizeBeforeSection;
+#endif
+
 #if 0
     fwrite(&Header, RoundUp(OptionalHeader->SizeOfHeaders, OptionalHeader->FileAlignment), 1, FileHandle);
 #else
@@ -682,10 +721,7 @@ wmain()
     j = sizeof(*Section);
     fwrite(Section, j, 1, FileHandle);
     i += j;
-    if ((OptionalHeader->FileAlignment != 1) && ((i % OptionalHeader->FileAlignment) != 0))
-    {
-        fwrite(&FileAlign, (RoundUp(i, OptionalHeader->FileAlignment) - i), 1, FileHandle);
-    }
+    fwrite(&FileAlign, FileAlignPadSize, 1, FileHandle);
 #endif
 
     fwrite(&Data, Section->SizeOfRawData, 1, FileHandle);
