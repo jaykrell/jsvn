@@ -372,11 +372,18 @@ wmain()
 #endif
 
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
+#ifdef MAKE_DLL
+    // overlap section header and optional header for 8 byte savings
+    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1];
+#else
+    // but .exes if you do that
     Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes];
+#endif
 #else
     Section = (IMAGE_SECTION_HEADER*) (((PBYTE) ImportDescriptors) + sizeof(*ImportDescriptors) * 2);
     OptionalHeader->NumberOfRvaAndSizes = 5;
 #endif
+
     FileHeader->SizeOfOptionalHeader = (ULONG) (((size_t) Section) - (size_t) OptionalHeader);
     OptionalHeader->SizeOfHeaders = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + FileHeader->SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
 
@@ -453,7 +460,7 @@ wmain()
     // push hello
 
     *p++ = 0x68;
-    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader);
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, BaseOfCode));
     memcpy(p, &va, sizeof(ULONG));    
     p += sizeof(ULONG);
 
@@ -696,7 +703,7 @@ wmain()
  
 #else
 
-    strcpy(Section->Name, "Hello");
+    memcpy(&OptionalHeader->BaseOfCode, "Hello", sizeof("Hello"));
 #if DOS_HEADER_SIZE >= 8
     // puts is in the dos header (preceded by 2 byte hint, and not zero
     // budget here is 10 bytes when dos header was 0xc bytes, puts + hint + null is 7.
