@@ -11,16 +11,19 @@
 // no savings  (and not finished therefore)
 //#define TAIL_CALL_AND_NO_RETURN
 
-#define BASE 0x00480000
+//#define BASE 0x00480000
+#define BASE 0x00400000 // for reloc
 
 // does not work (and not finished therefore)
 //#define OMIT_DOS_HEADER
 
+// works either way
 //#define MAKE_DLL
 
 // always seems ok either way, saves 2 bytes per import (could possibly reuse those)
 //#define ZERO_HINTS 1
 
+// kernel32 paths not maintained
 //#define USE_TERMINATE_PROCESS 1
 #define USE_EXIT 1
 
@@ -139,6 +142,15 @@ wmain()
         {
             IMAGE_IMPORT_DESCRIPTOR Msvcrt;
         } ImportDescriptors;
+#ifdef RELOCATABLE
+        struct
+        {
+            IMAGE_BASE_RELOCATION Header;
+            USHORT Hello;
+            USHORT puts;
+            USHORT exit;
+        } Relocs;
+#endif
     } Data;
 #else
     struct
@@ -378,9 +390,13 @@ wmain()
     // Besides the first field being the name, the second field is the size,
     // and the section only contains the import descriptor, and the import size
     // is the last field in the optional header, so we can overlap it too for
-    // a further 4 byte savings. However for now that brings back the crash in the .exe.
+    // a further 4 byte savings.
     //
-    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT - 1].Size;
+#ifndef RELOCATABLE
+    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1].Size;
+#else
+    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1];
+#endif
 
 #else
 
@@ -390,8 +406,8 @@ wmain()
     //Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes];
     Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1];
 #else
-    Section = (IMAGE_SECTION_HEADER*) (((PBYTE) ImportDescriptors) + sizeof(*ImportDescriptors) * 2);
-    OptionalHeader->NumberOfRvaAndSizes = 5;
+    //Section = (IMAGE_SECTION_HEADER*) (((PBYTE) ImportDescriptors) + sizeof(*ImportDescriptors) * 2);
+    //OptionalHeader->NumberOfRvaAndSizes = 5;
 #endif
 #endif
 
@@ -739,6 +755,12 @@ wmain()
     // This depends on their being less than 4k of code.
     //
     Data.Relocs.Header.SizeOfBlock = sizeof(Data.Relocs);
+#ifdef CODE_IN_HEADERS
+    Data.Relocs.Header.VirtualAddress = (DOS_HEADER_SIZE + 4);
+    Data.Relocs.Hello = ((IMAGE_REL_BASED_HIGHLOW << 12) | (offsetof(IMAGE_FILE_HEADER, TimeDateStamp) + 1));
+    Data.Relocs.puts = ((IMAGE_REL_BASED_HIGHLOW << 12) | (offsetof(IMAGE_FILE_HEADER, TimeDateStamp) + 6));
+    Data.Relocs.exit = ((IMAGE_REL_BASED_HIGHLOW << 12) | (sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, Win32VersionValue) + 6));
+#else
     Data.Relocs.Header.VirtualAddress = RVA(Data.uFirstInstruction.FirstInstruction);
     Data.Relocs.Hello = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.Hello - &Data.uFirstInstruction.FirstInstruction));
     Data.Relocs.puts = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.puts - &Data.uFirstInstruction.FirstInstruction));
@@ -749,7 +771,7 @@ wmain()
     Data.Relocs.GetCurrentProcess = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.GetCurrentProcess - &Data.uFirstInstruction.FirstInstruction));
     Data.Relocs.TerminateProcess = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Data.TerminateProcess - &Data.uFirstInstruction.FirstInstruction));
 #endif
-
+#endif
 #endif
 
     // version resource?
