@@ -16,7 +16,7 @@
 // does not work (and not finished therefore)
 //#define OMIT_DOS_HEADER
 
-//#define MAKE_DLL
+#define MAKE_DLL
 
 // always seems ok either way, saves 2 bytes per import (could possibly reuse those)
 //#define ZERO_HINTS 1
@@ -34,18 +34,19 @@
 // saves 20 bytes, always works
 #define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
 
-#define FILE_ALIGN 0x1 /* popular values are 0x1000 and 0x200 */
+#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x1000 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN TARGET_PAGE_SIZE
 
 // section align cannot be less than file align and will be increased to match */
-#define SECTION_ALIGN 0x1 /* can be any power of two but usually page size */
+//#define SECTION_ALIGN 0x1 /* can be any power of two but usually page size */
 //#define SECTION_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
 //#define SECTION_ALIGN TARGET_PAGE_SIZE
+#define SECTION_ALIGN 0x4
 
 // if section_align < pagesize, then section_align must equal file_align
 // That is not enforced here currently.
@@ -73,9 +74,14 @@
 #if defined(OMIT_DOS_HEADER)
 #define DOS_HEADER_SIZE 0
 #elif defined(OVERLAY_PE_AND_DOS_HEADER)
-#define DOS_HEADER_SIZE 0xC
+#define DOS_HEADER_SIZE 0x4
 #else
 #define DOS_HEADER_SIZE sizeof(IMAGE_DOS_HEADER)
+#endif
+
+#if DOS_HEADER_SIZE == 4
+// This size dos header leads to dos_header.e_lfanew overlaying SectionAlign.
+C_ASSERT(SECTION_ALIGN == 4);
 #endif
 
 void __stdcall RemoveTrailingCharacters(PWSTR s, PCWSTR CharsToRemove)
@@ -459,7 +465,7 @@ wmain()
 #ifndef REUSE_HEADERS
     Data.ImportDescriptors.Msvcrt.Name = RVA(Data.String.Msvcrt);
 #else
-    Data.ImportDescriptors.Msvcrt.Name = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfCode));
+    Data.ImportDescriptors.Msvcrt.Name = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, MajorLinkerVersion));
 #endif
 
 #ifndef REUSE_HEADERS
@@ -489,11 +495,19 @@ wmain()
 #if 0
     Data.ImportAddresses.Msvcrt.exit = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfStackReserve) - 2);
     // puts is at the start of the image, after mz, allowing two garbage bytes for the into, and avoid being 0
+#if DOS_HEADER_SIZE >= 8
     Data.ImportAddresses.Msvcrt.puts = 1;
+#else
+    Data.ImportAddresses.Msvcrt.puts = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, BaseOfCode) - 2);
+#endif
 #else
     Section->PointerToLinenumbers = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, SizeOfStackReserve) - 2);
     // puts is at the start of the image, after mz, allowing two garbage bytes for the into, and avoid being 0
+#if DOS_HEADER_SIZE >= 8
     Section->PointerToRelocations = 1;
+#else
+    Section->PointerToRelocations = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, BaseOfCode) - 2);
+#endif
 #endif
 #endif
 #endif
@@ -531,7 +545,7 @@ wmain()
 #ifndef REUSE_HEADERS
     memcpy(Data.String.Msvcrt, "msvcrt", sizeof("msvcrt")); // 7 bytes
 #else
-    memcpy(&OptionalHeader->SizeOfCode, "msvcrt", sizeof("msvcrt")); // 7 bytes
+    memcpy(&OptionalHeader->MajorLinkerVersion, "msvcrt", sizeof("msvcrt")); // 7 bytes
 #endif
 
 #ifdef USE_TERMINATE_PROCESS
@@ -550,9 +564,13 @@ wmain()
 #else
 
     strcpy(Section->Name, "Hello");
+#if DOS_HEADER_SIZE >= 8
     // puts is in the dos header (preceded by 2 byte hint, and not zero
-    // budget here is 10 bytes, puts + hint + null is 7.
+    // budget here is 10 bytes when dos header was 0xc bytes, puts + hint + null is 7.
     memcpy((((PBYTE) Dos) + 3), "puts", sizeof("puts"));
+#else // after exit
+    memcpy(&OptionalHeader->BaseOfCode, "puts", sizeof("puts"));
+#endif
 #ifdef USE_TERMINATE_PROCESS
     memcpy(&OptionalHeader->SizeOfStackReserve, "Kernel32", sizeof("Kernel32")); // 9 bytes, 16 available
 #endif
@@ -615,7 +633,7 @@ wmain()
     j = sizeof(*Dos);
     fwrite(Dos, j, 1, FileHandle);
 #ifdef OVERLAY_PE_AND_DOS_HEADER
-    ((USHORT*)Nt)[24] = Dos->e_lfanew;
+    ((ULONG*)Nt)[14] = Dos->e_lfanew;
     fseek(FileHandle, Dos->e_lfanew, SEEK_SET);
 #endif
 #endif
