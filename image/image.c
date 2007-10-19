@@ -11,8 +11,12 @@
 // no savings  (and not finished therefore)
 //#define TAIL_CALL_AND_NO_RETURN
 
+#ifndef BASE
+
 #define BASE 0x00480000
 //#define BASE 0x00400000 // for reloc
+
+#endif
 
 // does not work (and not finished therefore)
 //#define OMIT_DOS_HEADER
@@ -419,7 +423,7 @@ wmain()
     //Section->Misc.VirtualSize = 0x2000;
     Section->SizeOfRawData = sizeof(Data);
     // not always needed, nets us more space to reuse maybe (a terminal nul for a string)
-#if 1 // def LINK_DUMP_COMPATIBLE The code flag makes link /dump /disasm work.
+#ifndef CODE_IN_HEADERS // def LINK_DUMP_COMPATIBLE The code flag makes link /dump /disasm work.
     Section->Characteristics = (IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ | IMAGE_SCN_CNT_INITIALIZED_DATA);
 #endif
     // sometimes needed (not)
