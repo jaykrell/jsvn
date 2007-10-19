@@ -11,7 +11,7 @@
 // no savings  (and not finished therefore)
 //#define TAIL_CALL_AND_NO_RETURN
 
-#define BASE 0x40000000
+#define BASE 0x00480000
 
 // does not work (and not finished therefore)
 //#define OMIT_DOS_HEADER
@@ -683,7 +683,7 @@ wmain()
             // into section header, but really should put code here, duh
             //. This turns out to be empty anyway in our smaller cases
             printf("%u bytes of padding for alignment\n", (unsigned) FileAlignPadSize);
-            memset(FileAlign, 0x90, FileAlignPadSize);
+            //memset(FileAlign, 0x90, FileAlignPadSize);
         }
     }
 
