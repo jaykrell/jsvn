@@ -373,13 +373,26 @@ wmain()
     //OptionalHeader->NumberOfRvaAndSizes = IMAGE_NUMBEROF_DIRECTORY_ENTRIES;
 #endif
 
+#if defined(CODE_IN_HEADERS) && defined(MAKE_DLL)
+    //
+    // Besides the first field being the name, the second field is the size,
+    // and the section only contains the import descriptor, and the import size
+    // is the last field in the optional header, so we can overlap it too for
+    // a further 4 byte savings. However for now that brings back the crash in the .exe.
+    //
+    Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT - 1].Size;
+
+#else
+
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
     // overlap section header and optional header for 8 byte savings
+    // the first field is the name and it has no meaning
     //Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes];
     Section = (IMAGE_SECTION_HEADER*) &OptionalHeader->DataDirectory[OptionalHeader->NumberOfRvaAndSizes - 1];
 #else
     Section = (IMAGE_SECTION_HEADER*) (((PBYTE) ImportDescriptors) + sizeof(*ImportDescriptors) * 2);
     OptionalHeader->NumberOfRvaAndSizes = 5;
+#endif
 #endif
 
     FileHeader->SizeOfOptionalHeader = (ULONG) (((size_t) Section) - (size_t) OptionalHeader);
