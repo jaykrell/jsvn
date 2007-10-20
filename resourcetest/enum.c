@@ -1,19 +1,28 @@
 /*
 cl /W4 /WX /Zi enum.c
 */
+#define UNICODE
+#define _UNICODE
 struct _CRYPT_PROVIDER_DATA;
 struct _CRYPT_PROVIDER_DEFUSAGE;
 struct _CRYPT_PROVIDER_PRIVDATA;
 struct _CRYPT_PROVIDER_SGNR;
 #define _CRT_SECURE_NO_DEPRECATE
+#ifndef __GNUC__
 #pragma warning(push)
 #pragma warning(disable:4201)
+#endif
 #include <windows.h>
 #include <imagehlp.h>
+#ifndef __GNUC__
 #pragma warning(pop)
+#endif
 #include <stdio.h>
+#ifndef __GNUC__
 #pragma comment(lib, "imagehlp.lib")
-
+#endif
+#include <limits.h>
+#define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1] /* compat with other headers */
 #define MAXUSHORT ((USHORT) ~ (USHORT) 0)
 #define NUMBER_OF(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -85,7 +94,7 @@ IdToString(
     //wprintf(L"id:%p\n", Id);
     if (((size_t) Id) <= MAXUSHORT)
     {
-        swprintf(Buffer, BufferSize, L"#%hx", (USHORT) (size_t) Id);
+        _snwprintf(Buffer, BufferSize, L"#%hx", (USHORT) (size_t) Id);
         Id = Buffer;
     }
     return Id;
@@ -163,7 +172,6 @@ DumpResourceDirectoryEntry(
     )
 {
     WCHAR Buffer[20];
-    PCWSTR Id = Buffer;
     IMAGE_RESOURCE_DIR_STRING_U* String = { 0 };
     size_t Length = { 0 };
     PCWSTR Chars = { 0 };
@@ -178,7 +186,7 @@ DumpResourceDirectoryEntry(
     }
     else
     {
-        Length = swprintf(Buffer, NUMBER_OF(Buffer), L"#%hx", Entry->Id);
+        Length = _snwprintf(Buffer, NUMBER_OF(Buffer), L"#%hx", Entry->Id);
         Chars = Buffer;
     }
     if (Length > INT_MAX)
@@ -284,14 +292,14 @@ DumpResourceDirectory(
     }
 }
 
-int wmain()
+int main()
 {
     HMODULE Module;
     HANDLE File = { 0 };
     BYTE* MappedFile = { 0 };
     BYTE* MappedFile_End = { 0 };
     HANDLE FileMapping = { 0 };
-    ULARGE_INTEGER FileSize = { 0 };
+    ULARGE_INTEGER FileSize;
     DWORD Error = { 0 };
     IMAGE_NT_HEADERS* NtHeaders = { 0 };
     IMAGE_DOS_HEADER* DosHeader = { 0 };
