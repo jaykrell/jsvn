@@ -293,7 +293,7 @@ DumpResourceDirectory(
     }
 }
 
-int main()
+int wmain()
 {
     HMODULE Module;
     HANDLE File = { 0 };
@@ -420,3 +420,10 @@ Exit:
 
     return 0;
 }
+
+#ifdef __GNUC__
+int main()
+{
+    return wmain();
+}
+#endif
