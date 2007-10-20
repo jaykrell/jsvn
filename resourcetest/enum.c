@@ -7,16 +7,23 @@ struct _CRYPT_PROVIDER_DATA;
 struct _CRYPT_PROVIDER_DEFUSAGE;
 struct _CRYPT_PROVIDER_PRIVDATA;
 struct _CRYPT_PROVIDER_SGNR;
+struct _RPC_ASYNC_STATE;
+struct IRpcStubBuffer;
 #define _CRT_SECURE_NO_DEPRECATE
-#ifndef __GNUC__
-#pragma warning(push)
-#pragma warning(disable:4201)
+#ifdef _MSC_VER
+#pragma warning(disable:4100 4201)
+#if (_MSC_VER <= 1100)
+#pragma warning(disable:4057 4214 4514)
+#endif
+#if (_MSC_VER == 900)
+#pragma warning(disable:4001 4209 4226 4705)
+#endif
 #endif
 #include <windows.h>
-#include <imagehlp.h>
-#ifndef __GNUC__
-#pragma warning(pop)
+#if (_MSC_VER == 900)
+#pragma warning(disable:4001)
 #endif
+#include <imagehlp.h>
 #include <stdio.h>
 #ifndef __GNUC__
 #pragma comment(lib, "imagehlp.lib")
@@ -119,8 +126,6 @@ EnumLangProc(
         IdToString(Name, NameBuffer, NUMBER_OF(NameBuffer)),
         Language);
     return TRUE;
-
-    UNREFERENCED_PARAMETER(Param);
 }
 
 BOOL
@@ -138,8 +143,6 @@ EnumNamesProc(
         wprintf(L"EnumResourceLanguages failed %x\n", Error);
     }
     return TRUE;
-
-    UNREFERENCED_PARAMETER(Param);
 }
 
 BOOL
@@ -157,8 +160,6 @@ EnumTypesProc(
         wprintf(L"EnumResourceNames(%p, %x %ls) failed %x\n", Module, Type, IdToString(Type, Buffer, NUMBER_OF(Buffer)), Error);
     }
     return TRUE;
-
-    UNREFERENCED_PARAMETER(Param);
 }
 
 void
@@ -178,22 +179,22 @@ DumpResourceDirectoryEntry(
     ULONG OffsetToDirectory = { 0 };
     ULONG DataIsDirectory = { 0 };
 
-    if (Entry->NameIsString)
+    if (Entry->Name > INT_MAX)
     {
-        String = (IMAGE_RESOURCE_DIR_STRING_U*) (Entry->NameOffset + (BYTE*) TopDirectory);
+        String = (IMAGE_RESOURCE_DIR_STRING_U*) ((Entry->Name & INT_MAX) + (BYTE*) TopDirectory);
         Chars = String->NameString;
         Length = String->Length;
     }
     else
     {
-        Length = _snwprintf(Buffer, NUMBER_OF(Buffer), L"#%hx", Entry->Id);
+        Length = _snwprintf(Buffer, NUMBER_OF(Buffer), L"#%hx", Entry->Name);
         Chars = Buffer;
     }
     if (Length > INT_MAX)
         Length = INT_MAX;
 
-    DataIsDirectory = Entry->DataIsDirectory;
-    OffsetToDirectory = Entry->OffsetToDirectory;
+    DataIsDirectory = (Entry->OffsetToData > INT_MAX);
+    OffsetToDirectory = (Entry->OffsetToData & INT_MAX);
 
 #if 0 // more verbose
     wprintf(
