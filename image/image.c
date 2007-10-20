@@ -1,17 +1,22 @@
 #define Reserved1 Win32VersionValue /* compat with older headers */
+#ifndef __GNUC__
 #pragma warning(disable:4244 4057 4115)
 #pragma warning(disable:4226) /* nonstandard extension: __export */
 #pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
 #pragma warning(disable:4214) /* nonstandard extension: bitfields other than int */
 #pragma warning(disable:4209) /* nonstandard extension: benign retypedef */
 #pragma warning(disable:4514) /* unused inline function removed */
+#endif
 #define _CRT_SECURE_NO_DEPRECATE /* compat with new headers */
 #include <stdio.h>
 #include <windows.h>
 #include <stddef.h>
+#include <errno.h>
 #define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1] /* compat with older headers */
 #define OriginalFirstThunk Characteristics /* compat with older headers */
+#ifndef __GNUC__
 #pragma warning(disable:4001)
+#endif
 
 /* every option works, but not every option in combination or
  every value for every option */
@@ -23,7 +28,7 @@
 
 #ifndef BASE
 
-#define BASE 0x00580000
+#define BASE 0x00900000
 //#define BASE 0x00400000 // for reloc
 
 #endif
@@ -139,7 +144,7 @@ size_t RoundUp(size_t a, size_t b)
 
 int
 __cdecl
-wmain()
+main()
 {
 #pragma pack(1) // TBD get the same size but without this; where is the padding?
     struct
@@ -349,7 +354,7 @@ wmain()
     size_t j = { 0 };
     PBYTE p = { 0 };
     DWORD* FirstThunk = { 0 }; /* for compat with old headers */ 
-    size_t SizeOfImage = { 0 };
+    DWORD SizeOfImage = { 0 };
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = &Data.ImportDescriptors.Msvcrt;
 #else
@@ -563,7 +568,7 @@ wmain()
 
     if (SizeOfImage > OptionalHeader->SizeOfImage)
     {
-        printf("SizeOfImage error %x vs. %x\n", SizeOfImage, OptionalHeader->SizeOfImage);
+        printf("SizeOfImage error %lx vs. %lx\n", SizeOfImage, OptionalHeader->SizeOfImage);
     }
 
 #else
@@ -806,10 +811,10 @@ wmain()
 
 #ifdef MAKE_DLL
     DeleteFileW(L"1.dll");
-    FileHandle = _wfopen(L"1.dll", L"wb");
+    FileHandle = fopen("1.dll", "wb");
 #else
     DeleteFileW(L"1.exe");
-    FileHandle = _wfopen(L"1.exe", L"wb");
+    FileHandle = fopen("1.exe", "wb");
 #endif
     if (FileHandle == NULL)
     {
