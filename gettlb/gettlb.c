@@ -226,3 +226,14 @@ Exit:
     free(CurrentDirectory);
     return ExitCode;
 }
+
+#ifdef __GNUC__
+int main()
+{
+    int argc;
+    WCHAR** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    argc = wmain(argc, argv);
+    LocalFree(argv);
+    return argc;
+}
+#endif
