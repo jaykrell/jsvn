@@ -1,7 +1,17 @@
-#define _CRT_SECURE_NO_DEPRECATE
+#define Reserved1 Win32VersionValue /* compat with older headers */
+#pragma warning(disable:4244 4057 4115)
+#pragma warning(disable:4226) /* nonstandard extension: __export */
+#pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
+#pragma warning(disable:4214) /* nonstandard extension: bitfields other than int */
+#pragma warning(disable:4209) /* nonstandard extension: benign retypedef */
+#pragma warning(disable:4514) /* unused inline function removed */
+#define _CRT_SECURE_NO_DEPRECATE /* compat with new headers */
 #include <stdio.h>
 #include <windows.h>
 #include <stddef.h>
+#define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1] /* compat with older headers */
+#define OriginalFirstThunk Characteristics /* compat with older headers */
+#pragma warning(disable:4001)
 
 /* every option works, but not every option in combination or
  every value for every option */
@@ -13,7 +23,7 @@
 
 #ifndef BASE
 
-#define BASE 0x00480000
+#define BASE 0x00580000
 //#define BASE 0x00400000 // for reloc
 
 #endif
@@ -324,7 +334,6 @@ wmain()
 #endif
 #define VA(x) ((va = (RVA(x) + OptionalHeader->ImageBase)), &va)
     ULONG va;
-    ULONG rva;
     FILE* FileHandle = { 0 };
     HMODULE DllHandle = { 0 };
     DWORD Error = { 0 };
@@ -339,6 +348,7 @@ wmain()
     size_t i = { 0 };
     size_t j = { 0 };
     PBYTE p = { 0 };
+    DWORD* FirstThunk = { 0 }; /* for compat with old headers */ 
     size_t SizeOfImage = { 0 };
 #ifndef OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = &Data.ImportDescriptors.Msvcrt;
@@ -348,7 +358,9 @@ wmain()
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE];
 #endif
     size_t FileAlignPadSize = { 0 };
+#if !defined(CODE_IN_HEADERS) && !defined(LINK_DUMP_COMPATIBLE)
     size_t CodeSizeBeforeSection = { 0 };
+#endif
 
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
@@ -640,14 +652,16 @@ wmain()
     ImportDescriptors[0].Name = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, MajorLinkerVersion));
 #endif
 
+    FirstThunk = (DWORD*) &ImportDescriptors[0].FirstThunk;
 #if !defined(REUSE_HEADERS) || defined(OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER)
-    ImportDescriptors[0].FirstThunk = RVA(Data.ImportAddresses.Msvcrt);
+    *FirstThunk = RVA(Data.ImportAddresses.Msvcrt);
 #else
-    ImportDescriptors[0].FirstThunk = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
+    *FirstThunk = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
 #endif
 
 #ifdef USE_TERMINATE_PROCESS
-    ImportDescriptors[1].FirstThunk = RVA(Data.ImportAddresses.Kernel32);
+    FirstThunk = (DWORD*) &ImportDescriptors[1].FirstThunk;
+    *FirstThunk = RVA(Data.ImportAddresses.Kernel32);
 
 #ifndef REUSE_HEADERS
     ImportDescriptors[1].ImportNames = RVA(Data.String.Kernel32);
@@ -692,9 +706,9 @@ wmain()
     // names
 
 #ifdef OPTIMIZE_NOT_BINDABLE
-    ImportDescriptors[0].OriginalFirstThunk = ImportDescriptors[0].FirstThunk;
+    ImportDescriptors[0].OriginalFirstThunk = (DWORD) ImportDescriptors[0].FirstThunk;
 #ifdef USE_TERMINATE_PROCESS
-    ImportDescriptors[1].OriginalFirstThunk = ImportDescriptors[1].FirstThunk;
+    ImportDescriptors[1].OriginalFirstThunk = (DWORD) ImportDescriptors[1].FirstThunk;
 #endif
 #else
     ImportDescriptors[0].OriginalFirstThunk = RVA(Data.ImportNames.Msvcrt);
@@ -800,7 +814,7 @@ wmain()
     if (FileHandle == NULL)
     {
         Result = errno;
-        wprintf(L"fopen error %d %ls\n", Result, _wcserror(Result));
+        wprintf(L"fopen error %d %hs\n", Result, strerror(Result));
         goto Exit;
     }
 
