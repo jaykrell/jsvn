@@ -13,9 +13,9 @@ install: all
  copy /y *.exe \bin
  copy /y *.exe \windows
  copy /y *.exe \windows\system32
- copy /y *.pdb \bin
- copy /y *.pdb \windows
- copy /y *.pdb \windows\system32
+ -copy /y *.pdb \bin
+ -copy /y *.pdb \windows
+ -copy /y *.pdb \windows\system32
 
 $(TARGETNAME).exe : hardlink_identical_files.obj
 
