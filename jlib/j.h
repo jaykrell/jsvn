@@ -213,10 +213,13 @@ _MSC_VER 1400 is Visual C++ 8.0
 #include <yvals.h>
 #endif
 
+#if (_MSC_VER == 1020) || (_MSC_VER == 1100)
+#pragma warning(disable:4245) /* conversion from larger int to smaller int */
+#endif
+
 #if (_MSC_VER == 1020)
 #define bool int /* char for binary compat? */
 #pragma warning(disable:4211) /* non standard extension */
-#pragma warning(disable:4245) /* conversion from larger int to smaller int */
 #pragma warning(disable:4514) /* unreferenced inline function has been removed */
 #endif
 
