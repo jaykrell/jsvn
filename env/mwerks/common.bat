@@ -11,4 +11,4 @@ call "%CWFolder%\Other Metrowerks Tools\Command Line Tools\cwenv.bat" -quiet -cr
 @rem reset errorlevel
 dir > nul
 
-Title Metrowerks
+Title Metrowerks %1
