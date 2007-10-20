@@ -1,11 +1,13 @@
 #define Reserved1 Win32VersionValue /* compat with older headers */
 #ifndef __GNUC__
+#if (_MSC_VER < 1000)
 #pragma warning(disable:4244 4057 4115)
 #pragma warning(disable:4226) /* nonstandard extension: __export */
 #pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
 #pragma warning(disable:4214) /* nonstandard extension: bitfields other than int */
 #pragma warning(disable:4209) /* nonstandard extension: benign retypedef */
 #pragma warning(disable:4514) /* unused inline function removed */
+#endif
 #endif
 #define _CRT_SECURE_NO_DEPRECATE /* compat with new headers */
 #include <stdio.h>
