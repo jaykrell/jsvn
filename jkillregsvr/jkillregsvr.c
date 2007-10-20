@@ -19,7 +19,7 @@ wchar_t a[1000];
 void* MyOpenProcess(unsigned i);
 void GetProcessName(void* p);
 
-int main()
+int wmain()
 {
     unsigned long cb = 1000;
     unsigned long ProcessIds[1000] = { 0 };
@@ -49,6 +49,13 @@ int main()
     }
     return 0;
 }
+
+#ifdef __GNUC__
+int main()
+{
+    return wmain();
+}
+#endif
 
 void GetProcessName(void* ProcessHandle)
 {
