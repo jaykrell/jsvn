@@ -146,7 +146,7 @@ size_t RoundUp(size_t a, size_t b)
 
 int
 __cdecl
-main()
+wmain()
 {
 #pragma pack(1) // TBD get the same size but without this; where is the padding?
     struct
@@ -905,3 +905,10 @@ Exit:
         FreeLibrary(DllHandle);
     return Result;
 }
+
+#ifdef __GNUC__
+int main()
+{
+    return wmain();
+}
+#endif
