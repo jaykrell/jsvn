@@ -1,1 +1,1 @@
-call \dev2\j\env\Metrowerks\common 8
+call \dev2\j\env\mwerks\common 8
