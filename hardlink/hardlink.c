@@ -3,11 +3,31 @@
 
 /* for use with older kernel32.lib, use LoadLibrary/GetProcAddress */
 #ifndef DYNAMIC_LINK_CREATEHARDLINK
+#ifdef __DMC__
+#define DYNAMIC_LINK_CREATEHARDLINK 1
+#else
 #define DYNAMIC_LINK_CREATEHARDLINK 0
 #endif
+#endif
 
-#if DYNAMIC_LINK_CREATEHARDLINK
 typedef BOOL (__stdcall * PFNCreateHardLinkW)(PCWSTR NewLink, PCWSTR ExistingFile, void* reserved);
+
+#ifdef __DMC__ /* workaround bugs */
+
+#include <stdarg.h>
+
+int my_wprintf(const wchar_t * format, ...)
+{
+    va_list va;
+    int result;
+    va_start(va, format);
+    _putws(format);
+    result = wcslen(format);
+    //result = vfwprintf(format, va);
+    va_end(va);
+    return result;
+}
+#define wprintf my_wprintf
 #endif
 
 long sizet_add(size_t a, size_t b, size_t* c)
@@ -104,7 +124,7 @@ int Main(int argc, wchar_t** argv)
     
     if (argc != 3)
     {
-        wprintf(L"usage: %l <existing file> <link>\n", argv[0]);
+        wprintf(L"usage: %ls <existing file> <link>\n", argv[0]);
         return 1;
     }
 
@@ -235,7 +255,7 @@ int Main(int argc, wchar_t** argv)
     {
         SetFileAttributesW(argv[2], 0);
         DeleteFileW(argv[2]);
-        wprintf("del /f /a %ls\n", Qargv2);
+        wprintf(L"del /f /a %ls\n", Qargv2);
     }
 
     Success = pfnCreateHardLinkW(argv[2], argv[1], 0);
@@ -254,8 +274,16 @@ void Entry()
     PWSTR* argv;
     int ExitCode;
 
-    argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    // old headers have the types wrong
+    argv = (PWSTR*) CommandLineToArgvW((void*) GetCommandLineW(), &argc);
     ExitCode = Main(argc, argv);
     LocalFree(argv);
     ExitProcess(ExitCode);
 }
+
+#ifdef __DMC__ /* don't know command line options.. */
+int wmain(int argc, wchar_t** argv)
+{
+    return Main(argc, argv);
+}
+#endif
