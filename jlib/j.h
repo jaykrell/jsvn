@@ -74,7 +74,9 @@ File "z:Development:MPW::Interfaces&Libraries:Interfaces:CIncludes:WCharTDef.h";
 /*#include <vector>*/
 #endif
 #include <string.h>
+#ifndef __MWERKS__
 #include <memory.h>
+#endif
 
 #define JK_NOTHING /* nothing */
 
