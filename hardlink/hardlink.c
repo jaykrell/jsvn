@@ -1,9 +1,13 @@
+#ifndef __MWERKS__
 #include "..\jk_prefix.h"
+#else
+#include "jk_prefix.h"
+#endif
 #include <windows.h>
 
 /* for use with older kernel32.lib, use LoadLibrary/GetProcAddress */
 #ifndef DYNAMIC_LINK_CREATEHARDLINK
-#ifdef __DMC__
+#if defined(__DMC__) || defined(__GNUC__) || defined(__MWERKS__)
 #define DYNAMIC_LINK_CREATEHARDLINK 1
 #else
 #define DYNAMIC_LINK_CREATEHARDLINK 0
@@ -12,7 +16,9 @@
 
 typedef BOOL (__stdcall * PFNCreateHardLinkW)(PCWSTR NewLink, PCWSTR ExistingFile, void* reserved);
 
-#ifdef __DMC__ /* workaround bugs */
+#if defined(__DMC__) /* workaround bugs */ \
+    || defined(__GNUC__) /* workaround missing functionality */ \
+    || defined(__MWERKS__) /* workaround bugs */ \
 
 #include <stdarg.h>
 
@@ -21,7 +27,11 @@ int my_wprintf(const wchar_t * format, ...)
     va_list va;
     int result;
     va_start(va, format);
+#ifdef __MWERKS__
+    printf("%ls", format);
+#else
     _putws(format);
+#endif
     result = wcslen(format);
     //result = vfwprintf(format, va);
     va_end(va);
@@ -281,9 +291,20 @@ void Entry()
     ExitProcess(ExitCode);
 }
 
-#ifdef __DMC__ /* don't know command line options.. */
+#if defined(__DMC__)
 int wmain(int argc, wchar_t** argv)
 {
     return Main(argc, argv);
+}
+#endif
+
+#if defined(__GNUC__) || defined(__MWERKS__)
+int main()
+{
+    int argc;
+    WCHAR** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    argc = Main(argc, argv);
+    LocalFree(argv);
+    return argc;
 }
 #endif
