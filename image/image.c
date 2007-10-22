@@ -1,3 +1,5 @@
+#define _WIN32_WINNT ~0u
+#define _CRT_SECURE_NO_DEPRECATE
 #define Reserved1 Win32VersionValue /* compat with older headers */
 #ifndef __GNUC__
 #if (_MSC_VER < 1000)
@@ -9,7 +11,6 @@
 #pragma warning(disable:4514) /* unused inline function removed */
 #endif
 #endif
-#define _CRT_SECURE_NO_DEPRECATE /* compat with new headers */
 #include <stdio.h>
 #include <windows.h>
 #include <stddef.h>
@@ -50,18 +51,18 @@
 
 // This works very often.
 // Saves 52 bytes.
-#define OVERLAY_PE_AND_DOS_HEADER 1
+//#define OVERLAY_PE_AND_DOS_HEADER 1
 
 // Costs around 48 bytes
 // not necessarily maintained for all combinations
-//#define RELOCATABLE 1
+#define RELOCATABLE 1
 
 // saves 20 bytes, always works, simple
-#define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
+//#define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
 
-#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
+//#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
-//#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
+#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x1000 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN TARGET_PAGE_SIZE
 
@@ -69,9 +70,9 @@
 //#define SECTION_ALIGN 0x1 /* can be any power of two but usually page size */
 //#define SECTION_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
-//#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
+#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
 //#define SECTION_ALIGN TARGET_PAGE_SIZE
-#define SECTION_ALIGN 0x4
+//#define SECTION_ALIGN 0x4
 
 // if section_align < pagesize, then section_align must equal file_align
 // That is not enforced here currently.
@@ -79,7 +80,7 @@
 // causes link /dump to fail but ok
 // saves 20 or 22 bytes but not compatible with all options
 // not compatible with many file/section align settings
-#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
+//#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
 // requires relatively high alignment to work
 // Can we get this to work?
@@ -92,9 +93,9 @@
 #endif
 
 // This is an aggressive multiple-independent-part tricky option that saves many bytes.
-#define REUSE_HEADERS 1
+//#define REUSE_HEADERS 1
 
-#define CODE_IN_HEADERS
+//#define CODE_IN_HEADERS
 
 //#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
@@ -103,7 +104,7 @@
 #elif defined(OVERLAY_PE_AND_DOS_HEADER)
 #define DOS_HEADER_SIZE 0x4
 #else
-#define DOS_HEADER_SIZE sizeof(IMAGE_DOS_HEADER)
+#define DOS_HEADER_SIZE 64
 #endif
 
 #if DOS_HEADER_SIZE == 4
@@ -406,7 +407,7 @@ wmain()
 #endif
 #ifdef LINK_DUMP_COMPATIBLE
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_NUMBEROF_DIRECTORY_ENTRIES - 3);
-    //OptionalHeader->NumberOfRvaAndSizes = IMAGE_NUMBEROF_DIRECTORY_ENTRIES;
+    OptionalHeader->NumberOfRvaAndSizes = IMAGE_NUMBEROF_DIRECTORY_ENTRIES;
 #endif
 
 #if defined(CODE_IN_HEADERS)
@@ -811,6 +812,13 @@ wmain()
     }
 #endif
 
+    //Section->SizeOfRawData -= 4;
+    //Section->Misc.VirtualSize -= 4;
+    //Section->PointerToRawData = 32;
+    //OptionalHeader->SizeOfHeaders -= 4;
+    //Section->VirtualAddress -= 4;
+    //Nt->FileHeader.SizeOfOptionalHeader -= 4;
+
 #ifdef MAKE_DLL
     DeleteFileW(L"1.dll");
     FileHandle = fopen("1.dll", "wb");
@@ -825,6 +833,8 @@ wmain()
         goto Exit;
     }
 
+    i = (Dos->e_lfanew + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
+
     //
     // section header ends with 4 ignored bytes and is followed by he code
     // move the code back 4 bytes to save them; this breaks disassembly
@@ -834,7 +844,7 @@ wmain()
         FileAlignPadSize = (i % OptionalHeader->FileAlignment);
         if (FileAlignPadSize != 0)
         {
-            FileAlignPadSize = (RoundUp(FileAlignPadSize, OptionalHeader->FileAlignment) - i);
+            FileAlignPadSize = (OptionalHeader->FileAlignment - FileAlignPadSize);
             // nops in case we are moving code
             // into section header, but really should put code here, duh
             //. This turns out to be empty anyway in our smaller cases
@@ -843,14 +853,17 @@ wmain()
         }
     }
 
+#if 0
 #ifndef CODE_IN_HEADERS
-
 #ifndef LINK_DUMP_COMPATIBLE
     //
     // use the last, ignored, 4 byte field in the section header for code
     // and the padding, if there is any
     //
+    if (IsDebuggerPresent()) DebugBreak();
     CodeSizeBeforeSection = (FileAlignPadSize + sizeof(ULONG));
+    if (CodeSizeBeforeSection > sizeof(Data))
+        CodeSizeBeforeSection = sizeof(Data);
     memmove(&Section->Characteristics, &Data, sizeof(ULONG));
     memmove(FileAlign, (((PBYTE) &Data) + sizeof(ULONG)), FileAlignPadSize);
     memmove(&Data, (((PBYTE) &Data) + CodeSizeBeforeSection), (sizeof(Data) - CodeSizeBeforeSection));
@@ -858,8 +871,9 @@ wmain()
     Section->Misc.VirtualSize -= CodeSizeBeforeSection;
     OptionalHeader->AddressOfEntryPoint -= CodeSizeBeforeSection;
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress -= CodeSizeBeforeSection;
-#endif
 
+#endif
+#endif
 #endif
 
 #if 0
