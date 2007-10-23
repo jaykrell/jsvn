@@ -1,6 +1,5 @@
 #define _WIN32_WINNT ~0u
 #define _CRT_SECURE_NO_DEPRECATE
-#define Reserved1 Win32VersionValue /* compat with older headers */
 #ifndef __GNUC__
 #if (_MSC_VER < 1000)
 #pragma warning(disable:4244 4057 4115)
@@ -15,7 +14,6 @@
 #include <windows.h>
 #include <stddef.h>
 #include <errno.h>
-#define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1] /* compat with older headers */
 #define OriginalFirstThunk Characteristics /* compat with older headers */
 #ifndef __GNUC__
 #pragma warning(disable:4001)
@@ -389,7 +387,7 @@ Exit:
     return Result;
 }
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__MWERKS__)
 int main()
 {
     return wmain();
