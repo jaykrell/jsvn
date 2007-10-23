@@ -1,8 +1,8 @@
-#pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
 #define _WIN32_WINNT ~0u
 #define _CRT_SECURE_NO_DEPRECATE
 #define Reserved1 Win32VersionValue /* compat with older headers */
 #ifndef __GNUC__
+#pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
 #if (_MSC_VER <= 1200)
 #pragma warning(disable:4244 4057 4115)
 #pragma warning(disable:4226) /* nonstandard extension: __export */
