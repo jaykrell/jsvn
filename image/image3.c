@@ -21,14 +21,6 @@
 #pragma warning(disable:4001)
 #endif
 
-/* every option works, but not every option in combination or
- every value for every option */
-
-#define TARGET_PAGE_SIZE 0x1000
-
-// no savings  (and not finished therefore)
-//#define TAIL_CALL_AND_NO_RETURN
-
 #ifndef BASE
 
 #define BASE 0x00900000
@@ -39,14 +31,9 @@
 // works either way
 //#define MAKE_DLL
 
-#define USE_EXIT 1
-#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
+#define FILE_ALIGN 0x4
 #define SECTION_ALIGN 0x4
 #define DOS_HEADER_SIZE 0x4
-
-// failed (and not second-order pruned -- this turns off other optimizations
-// while we just tried to make this work)
-//#define OVERLAY_IMPORT_DESCRIPTOR_ON_OPTIONAL_HEADER
 
 void __stdcall RemoveTrailingCharacters(PWSTR s, PCWSTR CharsToRemove)
 {
@@ -81,7 +68,7 @@ int
 __cdecl
 wmain()
 {
-//#pragma pack(1) // TBD get the same size but without this; where is the padding?
+#pragma pack(1) // TBD get the same size but without this; where is the padding?
     struct
     {
         WORD    e_magic; // MZ
@@ -192,11 +179,7 @@ wmain()
     OptionalHeader->FileAlignment = FILE_ALIGN;
     OptionalHeader->ImageBase = BASE;
 
-#ifndef RELOCATABLE
     OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 1);
-#else
-    OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_BASERELOC + 1);
-#endif
 
     SizeOfOptionalHeader = sizeof(Image.Section.OptionalHeaderPad);
     Section = (IMAGE_SECTION_HEADER*) (SizeOfOptionalHeader + (PBYTE) OptionalHeader);
@@ -220,9 +203,7 @@ wmain()
 #ifdef MAKE_DLL
     FileHeader->Characteristics |= IMAGE_FILE_DLL;
 #endif
-#ifndef RELOCATABLE
     FileHeader->Characteristics |= IMAGE_FILE_RELOCS_STRIPPED;
-#endif
     Nt->Signature = IMAGE_NT_SIGNATURE;
 
     OptionalHeader->Magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
@@ -233,11 +214,6 @@ wmain()
     OptionalHeader->MinorSubsystemVersion = 10;
     OptionalHeader->Subsystem = IMAGE_SUBSYSTEM_WINDOWS_CUI;
     OptionalHeader->SizeOfImage = RoundUp(Section->VirtualAddress + Section->Misc.VirtualSize, SectionAlignment);
-
-#ifdef RELOCATABLE
-    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress = RVA(Image.Data.Relocs);
-    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = sizeof(Image.Data.Relocs);
-#endif
 
     p = (PBYTE) &OptionalHeader->MajorLinkerVersion;
 
@@ -319,7 +295,11 @@ wmain()
 
     // last three bytes are zero and don't have to be written
 
-    fwrite(&Image, sizeof(Image) - 3, 1, FileHandle);
+#ifdef MAKE_DLL
+    fwrite(&Image, (sizeof(Image) - 3), 1, FileHandle);
+#else
+    fwrite(&Image, sizeof(Image), 1, FileHandle);
+#endif
     fclose(FileHandle);
 
 #ifdef MAKE_DLL
