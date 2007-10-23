@@ -157,6 +157,7 @@ wmain()
     IMAGE_FILE_HEADER* const FileHeader = (IMAGE_FILE_HEADER*) &Image.FileHeader;
     IMAGE_SECTION_HEADER* const Section = (IMAGE_SECTION_HEADER*) &Image.Section.Name;
     PBYTE p = { 0 };
+    DWORD* FirstThunk = { 0 }; /* for compat with old headers */ 
     IMAGE_IMPORT_DESCRIPTOR* const ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->SizeOfHeapReserve;
     USHORT const SizeOfOptionalHeader = sizeof(Image.Section.OptionalHeaderPad);
     USHORT const SizeOfHeaders = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
@@ -251,8 +252,9 @@ wmain()
     IAT[2] = 0;
 
     ImportDescriptors[0].Name = RVA(Image.OptionalHeader.MajorOperatingSystemVersion);
-    ImportDescriptors[0].FirstThunk = RVA(Image.FileHeader.TimeDateStamp);
-    ImportDescriptors[0].OriginalFirstThunk = ImportDescriptors[0].FirstThunk;
+    FirstThunk = (DWORD*) &ImportDescriptors[0].FirstThunk;
+    *FirstThunk = RVA(Image.FileHeader.TimeDateStamp);
+    ImportDescriptors[0].OriginalFirstThunk = (DWORD) ImportDescriptors[0].FirstThunk;
 
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = RVA(*ImportDescriptors);
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(IMAGE_IMPORT_DESCRIPTOR);
