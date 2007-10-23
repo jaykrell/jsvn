@@ -120,10 +120,10 @@ wmain()
                 WORD    MajorSubsystemVersion; // section virtualsize
                 WORD    MinorSubsystemVersion; // section virtualsize
                 DWORD   Win32VersionValue; // section virtualaddress
-                DWORD   SizeOfImage; // section sizeofrawdata
-                DWORD   SizeOfHeaders; // section pointer to relocs unused
-                DWORD   CheckSum; // section number of relocs, number of line numbers (unused)
-                WORD    Subsystem; // section characteristics
+                DWORD   SizeOfImage; // section sizeofrawdata, semi-unused (some constraints on the value)
+                DWORD   SizeOfHeaders; // section pointer to relocs, semi-unused (some constraints on the value)
+                DWORD   CheckSum; // section number of relocs, number of line numbers, "hello" in .dll, unused in .exe
+                WORD    Subsystem; // section characteristics, "hello" in .dll
                 WORD    DllCharacteristics; // "puts"
                 DWORD   SizeOfStackReserve; // "puts" "exit"
                 DWORD   SizeOfStackCommit; // "exit"
