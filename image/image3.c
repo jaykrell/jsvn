@@ -3,7 +3,7 @@
 #define _CRT_SECURE_NO_DEPRECATE
 #define Reserved1 Win32VersionValue /* compat with older headers */
 #ifndef __GNUC__
-#if (_MSC_VER < 1000)
+#if (_MSC_VER <= 1200)
 #pragma warning(disable:4244 4057 4115)
 #pragma warning(disable:4226) /* nonstandard extension: __export */
 #pragma warning(disable:4214) /* nonstandard extension: bitfields other than int */
@@ -18,7 +18,10 @@
 #define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1] /* compat with older headers */
 #define OriginalFirstThunk Characteristics /* compat with older headers */
 #ifndef __GNUC__
+#if (_MSC_VER <= 1200)
 #pragma warning(disable:4001)
+#pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
+#endif
 #endif
 
 #ifndef BASE
