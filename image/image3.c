@@ -306,7 +306,7 @@ Exit:
     return Result;
 }
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__MWERKS__)
 int main()
 {
     return wmain();
