@@ -42,9 +42,7 @@
 #define USE_EXIT 1
 #define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
 #define SECTION_ALIGN 0x4
-
 #define DOS_HEADER_SIZE 0x4
-
 
 // failed (and not second-order pruned -- this turns off other optimizations
 // while we just tried to make this work)
@@ -86,16 +84,16 @@ wmain()
 //#pragma pack(1) // TBD get the same size but without this; where is the padding?
     struct
     {
-        WORD    e_magic;
-        WORD    DosPad;
-        DWORD   PeSignature;
+        WORD    e_magic; // MZ
+        WORD    DosPad; // unused
+        DWORD   PeSignature; // PE00
         struct
         {
-            WORD    Machine;
-            WORD    NumberOfSections;
-            DWORD   TimeDateStamp;
-            DWORD   PointerToSymbolTable;
-            DWORD   NumberOfSymbols;
+            WORD    Machine; // x86
+            WORD    NumberOfSections; // 1
+            DWORD   TimeDateStamp; // code push hello
+            DWORD   PointerToSymbolTable; // code push hello, move eax puts
+            DWORD   NumberOfSymbols; // code push hello, move eax puts, jump into optional header
             WORD    SizeOfOptionalHeader;
             WORD    Characteristics;
         } FileHeader;
@@ -104,41 +102,45 @@ wmain()
             struct
             {
                 WORD    Magic;
-                BYTE    MajorLinkerVersion;
-                BYTE    MinorLinkerVersion;
-                DWORD   SizeOfCode;
-                DWORD   SizeOfInitializedData;
-                DWORD   SizeOfUninitializedData;
+                BYTE    MajorLinkerVersion; // code call dword ptr [eax] (puts)
+                BYTE    MinorLinkerVersion; // code call dword ptr [eax] (puts)
+                DWORD   SizeOfCode; // ocode push exit code 42, call exit
+                DWORD   SizeOfInitializedData; // code call exit
+                DWORD   SizeOfUninitializedData; // unused
                 DWORD   AddressOfEntryPoint;
-                DWORD   BaseOfCode;
-                DWORD   BaseOfData;
+                DWORD   BaseOfCode; // unused
+                DWORD   BaseOfData; // unused
                 DWORD   ImageBase;
                 DWORD   SectionAlignment;
                 DWORD   FileAlignment;
-                WORD    MajorOperatingSystemVersion;
-                WORD    MinorOperatingSystemVersion;
-                WORD    MajorImageVersion;
-                WORD    MinorImageVersion;
-                WORD    MajorSubsystemVersion;
-                WORD    MinorSubsystemVersion;
-                DWORD   Win32VersionValue;
-                DWORD   SizeOfImage;
-                DWORD   SizeOfHeaders;
-                DWORD   CheckSum;
-                WORD    Subsystem;
-                WORD    DllCharacteristics;
-                DWORD   SizeOfStackReserve;
-                DWORD   SizeOfStackCommit;
-                DWORD   SizeOfHeapReserve;
-                DWORD   SizeOfHeapCommit;
-                DWORD   LoaderFlags;
-                DWORD   NumberOfRvaAndSizes;
-                IMAGE_DATA_DIRECTORY ExportDirectory;
+                WORD    MajorOperatingSystemVersion; // section name "Hello"
+                WORD    MinorOperatingSystemVersion; // section name "Hello"
+                WORD    MajorImageVersion; // section name "Hello"
+                WORD    MinorImageVersion; // section name "Hello"
+                WORD    MajorSubsystemVersion; // section virtualsize
+                WORD    MinorSubsystemVersion; // section virtualsize
+                DWORD   Win32VersionValue; // section virtualaddress
+                DWORD   SizeOfImage; // section sizeofrawdata
+                DWORD   SizeOfHeaders; // section pointer to relocs
+                DWORD   CheckSum; // section number of relocs, number of line numbers
+                WORD    Subsystem; // section characteristics
+                WORD    DllCharacteristics; // "puts"
+                DWORD   SizeOfStackReserve; // "puts"
+                DWORD   SizeOfStackCommit; // iat puts
+                DWORD   SizeOfHeapReserve; // iat exit
+                DWORD   SizeOfHeapCommit;  // iat terminal nul
+                DWORD   LoaderFlags;       // "msvcrt"
+                DWORD   NumberOfRvaAndSizes; // "msvcrt"
+                IMAGE_DATA_DIRECTORY ExportDirectory; // "exit"
                 IMAGE_DATA_DIRECTORY ImportDirectory;
-                IMAGE_DATA_DIRECTORY ResourceDirectory;
             } OptionalHeader;
             struct
             {
+                //
+                // Experimentation with an otherwise well formed image shows 0x28 to be the
+                // smallest acceptable value for SizeOfOptionalHeader.
+                // Experimentation shows that the import descriptor must be after the headers.
+                //
                 BYTE    OptionalHeaderPad[0x28]; // up to MajorOperatingSystemVersion
                 BYTE    Name[8]; // MajorOperatingSystemVersion
                 DWORD   VirtualSize; // OptionalHeader_MajorSubsystemVersion, OptionalHeader_MinorSubsystemVersion
@@ -154,49 +156,10 @@ wmain()
         };
         struct
         {
-            union
-            {
-                BYTE PushHello;
-                BYTE FirstInstruction;
-            } uFirstInstruction;
-            BYTE Hello[4];
-            BYTE Call_puts[2];
-            BYTE puts[4];
-            BYTE PushExitCode;
-            BYTE ExitCode;
-            BYTE Call_exit[2];
-            BYTE exit[4];
-            struct
-            {
-                BYTE Msvcrt[sizeof("msvcrt")];
-                BYTE Hello[sizeof("Hello")];
-                BYTE puts[sizeof("puts")];
-                BYTE exit[sizeof("exit")];
-            } String;
-            struct
-            {
-                struct
-                {
-                    ULONG puts;
-                    ULONG exit;
-                    ULONG Null;
-                } Msvcrt;
-            }
-            ImportAddresses;
             IMAGE_IMPORT_DESCRIPTOR ImportDescriptors[1];
         } Data;
     } Image;
-/* This is for the first section specifically. */
-#ifdef OVERLAY_PE_AND_DOS_HEADER
-#if 0 // SECTION_ALIGN != TARGET_PAGE_SIZE
-/* This isn't completely understood. */
-#define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image.Data) + Section->VirtualAddress - 0x34)
-#else
-#define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image.Data) + Section->VirtualAddress)
-#endif
-#else
-#define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image.Data) + Section->VirtualAddress)
-#endif
+#define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image))
 #define VA(x) ((va = (RVA(x) + OptionalHeader->ImageBase)), &va)
     ULONG va;
     FILE* FileHandle = { 0 };
@@ -213,13 +176,13 @@ wmain()
     size_t j = { 0 };
     PBYTE p = { 0 };
     DWORD* FirstThunk = { 0 }; /* for compat with old headers */ 
-    DWORD SizeOfImage = { 0 };
     //IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->SizeOfHeapReserve;
     IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = Image.Data.ImportDescriptors;
     USHORT SizeOfOptionalHeader = { 0 };
     USHORT SizeOfHeaders = { 0 };
     USHORT SizeOfRawData = { 0 };
     USHORT SectionAlignment = { 0 };
+    PDWORD IAT = { 0 };
 
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
@@ -247,7 +210,7 @@ wmain()
     Section->PointerToRawData = RoundUp(SizeOfHeaders, FILE_ALIGN);
 
     FileHeader->SizeOfOptionalHeader = SizeOfOptionalHeader;
-    OptionalHeader->SizeOfHeaders = SizeOfHeaders;
+    //OptionalHeader->SizeOfHeaders = SizeOfHeaders;
 
     Dos->e_magic = IMAGE_DOS_SIGNATURE;
     Dos->e_lfanew = DOS_HEADER_SIZE;
@@ -278,9 +241,6 @@ wmain()
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = sizeof(Image.Data.Relocs);
 #endif
 
-#ifdef CODE_IN_HEADERS
-
-#if 0
     // we have 12 bytes here and then SizeOfOptionalHeader
 
     p = (PBYTE) &FileHeader->TimeDateStamp;
@@ -288,14 +248,14 @@ wmain()
     // push hello
 
     *p++ = 0x68;
-    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, BaseOfCode));
+    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, MajorOperatingSystemVersion));
     memcpy(p, &va, sizeof(ULONG));    
     p += sizeof(ULONG);
 
     // mov eax, &__imp__puts
 
     *p++ = 0xB8;
-    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToRelocations));
+    va = (OptionalHeader->ImageBase + RVA(Image.OptionalHeader.SizeOfStackCommit));
     memcpy(p, &va, sizeof(ULONG));
     p += sizeof(ULONG);
 
@@ -303,23 +263,14 @@ wmain()
 
     *p++ = 0xEB; // jump
     OptionalHeader->AddressOfEntryPoint = (DOS_HEADER_SIZE + 4 + offsetof(IMAGE_FILE_HEADER, TimeDateStamp));
-    va = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, Win32VersionValue) - OptionalHeader->AddressOfEntryPoint - 10 - 2);
+    va = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, MajorLinkerVersion) - OptionalHeader->AddressOfEntryPoint - 10 - 2);
     if (va > 128)
     {
         printf("near jump too far\n");
     }
     *p++ = (BYTE) va;
 
-    //OptionalHeader->CheckSum = 0x9090;
-    //OptionalHeader->Win32VersionValue = 0x9090;
-
-    p = (PBYTE) &OptionalHeader->Win32VersionValue;
-
-    // 16 bytes until subsystem
-    // no constraints on Win32VersionValue, CheckSum
-    // some constraints on SizeOfImage, SizeOfHeaders
-
-    SizeOfImage = OptionalHeader->SizeOfImage;
+    p = (PBYTE) &OptionalHeader->MajorLinkerVersion;
 
     // call dword ptr [eax] (puts)
 
@@ -336,86 +287,28 @@ wmain()
     *p++ = 0xFF;
     *p++ = 0x15;
 
-    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + SizeOfOptionalHeader + offsetof(IMAGE_SECTION_HEADER, PointerToLinenumbers));
+    va = (OptionalHeader->ImageBase + RVA(Image.OptionalHeader.SizeOfHeapReserve));
     memcpy(p, &va, sizeof(ULONG));
     
-    //
-    // We overwrite SizeOfImage here and that is ok.
-    // If we were to make it too small and the code doesn't occupy the high bits, we could
-    // poke them bigger, possibly even with a branch to more code, but we are ok and done.
-    //
+    memcpy(&Image.OptionalHeader.MajorOperatingSystemVersion, "Hello", sizeof("Hello"));
+    memcpy(&Image.OptionalHeader.DllCharacteristics, "puts", sizeof("puts"));
+    memcpy(&Image.OptionalHeader.LoaderFlags, "msvcrt", sizeof("msvcrt"));
+    memcpy(&Image.OptionalHeader.ExportDirectory, "exit", sizeof("exit"));
 
-    if (SizeOfImage > OptionalHeader->SizeOfImage)
-    {
-        printf("SizeOfImage error %lx vs. %lx\n", SizeOfImage, OptionalHeader->SizeOfImage);
-    }
+    IAT = &Image.OptionalHeader.SizeOfStackCommit;
+    IAT[0] = (RVA(Image.OptionalHeader.DllCharacteristics) - 2);
+    IAT[1] = (RVA(Image.OptionalHeader.ExportDirectory) - 2);
+    IAT[2] = 0;
 
-#endif
+    ImportDescriptors[0].Name = RVA(Image.OptionalHeader.LoaderFlags);
+    ImportDescriptors[0].FirstThunk = RVA(Image.OptionalHeader.SizeOfStackCommit);
+    ImportDescriptors[0].OriginalFirstThunk = ImportDescriptors[0].FirstThunk;
 
-#else
-
-    Image.Data.uFirstInstruction.PushHello = 0x68;
-
-    memcpy(Image.Data.Hello, VA(Image.Data.String.Hello), sizeof(ULONG));
-
-    Image.Data.Call_puts[0] = 0xFF;
-    Image.Data.Call_puts[1] = 0x15;
-
-    memcpy(Image.Data.puts, VA(Image.Data.ImportAddresses.Msvcrt.puts), sizeof(ULONG));
-    Image.Data.PushExitCode = 0x6A;
-    Image.Data.ExitCode = 42;
-    Image.Data.Call_exit[0] = 0xFF;
-    Image.Data.Call_exit[1] = 0x15;
-    memcpy(Image.Data.exit, VA(Image.Data.ImportAddresses.Msvcrt.exit), sizeof(ULONG));
-
-#endif
-
-    // import ImportDescriptors
-
-    ImportDescriptors[0].Name = RVA(Image.Data.String.Msvcrt);
-    FirstThunk = (DWORD*) &ImportDescriptors[0].FirstThunk;
-    *FirstThunk = RVA(Image.Data.ImportAddresses.Msvcrt);
-
-    // ImportAddresseses, subtract 2 to leave room for an arbitrary and not necessarily aligned hint
-
-    Image.Data.ImportAddresses.Msvcrt.exit = (RVA(Image.Data.String.exit) - 2);
-    Image.Data.ImportAddresses.Msvcrt.puts = (RVA(Image.Data.String.puts) - 2);
-
-    // names
-
-    ImportDescriptors[0].OriginalFirstThunk = (DWORD) ImportDescriptors[0].FirstThunk;
-
-    // strings
-
-    memcpy(Image.Data.String.exit, "exit", sizeof("exit")); // 5 bytes
-    memcpy(Image.Data.String.Msvcrt, "msvcrt", sizeof("msvcrt")); // 7 bytes
-
-    memcpy(Image.Data.String.puts, "puts", sizeof("puts")); // 5 bytes
-    memcpy(Image.Data.String.Hello, "Hello", sizeof("Hello"));
- 
-    // relocs
-
-#ifdef RELOCATABLE
-    //
-    // This depends on their being less than 4k of code.
-    //
-    Image.Data.Relocs.Header.SizeOfBlock = sizeof(Image.Data.Relocs);
-    Image.Data.Relocs.Header.VirtualAddress = RVA(Image.Data.uFirstInstruction.FirstInstruction);
-    Image.Data.Relocs.Hello = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Image.Data.Hello - &Image.Data.uFirstInstruction.FirstInstruction));
-    Image.Data.Relocs.puts = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Image.Data.puts - &Image.Data.uFirstInstruction.FirstInstruction));
-    Image.Data.Relocs.exit = ((IMAGE_REL_BASED_HIGHLOW << 12) | (Image.Data.exit - &Image.Data.uFirstInstruction.FirstInstruction));
-#endif
-
-    OptionalHeader->NumberOfRvaAndSizes = 0x123;
-
-    // version resource?
-
-    //Section->SizeOfRawData -= 4;
-    //Section->Misc.VirtualSize -= 4;
-    //Section->PointerToRawData = 32;
-    //OptionalHeader->SizeOfHeaders -= 4;
-    //Section->VirtualAddress -= 4;
-    //Nt->FileHeader.SizeOfOptionalHeader -= 4;
+    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = RVA(*ImportDescriptors);
+    OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size = sizeof(IMAGE_IMPORT_DESCRIPTOR);
+    //printf("OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress %x\n", OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+    //printf("ImportDescriptors %p\n", ImportDescriptors);
+    //printf("Image %p\n", &Image);
 
 #ifdef MAKE_DLL
     DeleteFileW(L"1.dll");
@@ -431,7 +324,9 @@ wmain()
         goto Exit;
     }
 
-    fwrite(&Image, sizeof(Image), 1, FileHandle);
+    // the last three bytes are zero and don't have to be written
+
+    fwrite(&Image, sizeof(Image) - 3, 1, FileHandle);
     fclose(FileHandle);
 
 #ifdef MAKE_DLL
