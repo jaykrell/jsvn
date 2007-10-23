@@ -95,7 +95,7 @@ wmain()
             DWORD   PointerToSymbolTable; // code push hello, move eax puts
             DWORD   NumberOfSymbols; // code push hello, move eax puts, jump into optional header
             WORD    SizeOfOptionalHeader;
-            WORD    Characteristics;
+            WORD    Characteristics; // unused
         } FileHeader;
         union
         {
@@ -108,8 +108,8 @@ wmain()
                 DWORD   SizeOfInitializedData; // code call exit
                 DWORD   SizeOfUninitializedData; // unused
                 DWORD   AddressOfEntryPoint;
-                DWORD   BaseOfCode; // unused
-                DWORD   BaseOfData; // unused
+                DWORD   BaseOfCode; // "msvcrt"
+                DWORD   BaseOfData; // "msvcrt" one byte unused
                 DWORD   ImageBase;
                 DWORD   SectionAlignment;
                 DWORD   FileAlignment;
@@ -121,17 +121,17 @@ wmain()
                 WORD    MinorSubsystemVersion; // section virtualsize
                 DWORD   Win32VersionValue; // section virtualaddress
                 DWORD   SizeOfImage; // section sizeofrawdata
-                DWORD   SizeOfHeaders; // section pointer to relocs
-                DWORD   CheckSum; // section number of relocs, number of line numbers
+                DWORD   SizeOfHeaders; // section pointer to relocs unused
+                DWORD   CheckSum; // section number of relocs, number of line numbers (unused)
                 WORD    Subsystem; // section characteristics
                 WORD    DllCharacteristics; // "puts"
-                DWORD   SizeOfStackReserve; // "puts"
-                DWORD   SizeOfStackCommit; // iat puts
-                DWORD   SizeOfHeapReserve; // iat exit
-                DWORD   SizeOfHeapCommit;  // iat terminal nul
-                DWORD   LoaderFlags;       // "msvcrt"
-                DWORD   NumberOfRvaAndSizes; // "msvcrt"
-                IMAGE_DATA_DIRECTORY ExportDirectory; // "exit"
+                DWORD   SizeOfStackReserve; // "puts" "exit"
+                DWORD   SizeOfStackCommit; // "exit"
+                DWORD   SizeOfHeapReserve; // section data import descriptor
+                DWORD   SizeOfHeapCommit;  // section data import descriptor
+                DWORD   LoaderFlags;       // section data import descriptor
+                DWORD   NumberOfRvaAndSizes; // section data import descriptor
+                IMAGE_DATA_DIRECTORY ExportDirectory; // section data import descriptor four bytes unused
                 IMAGE_DATA_DIRECTORY ImportDirectory;
             } OptionalHeader;
             struct
@@ -154,10 +154,12 @@ wmain()
                 DWORD   Characteristics; // OptionalHeader_SizeOfStackCommit
             } Section;
         };
+        DWORD Zero; // helps terminate import descriptors, else crash
         struct
         {
-            IMAGE_IMPORT_DESCRIPTOR ImportDescriptors[1];
-        } Data;
+            DWORD puts;
+            DWORD exit;
+        } IAT;
     } Image;
 #define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image))
 #define VA(x) ((va = (RVA(x) + OptionalHeader->ImageBase)), &va)
@@ -176,8 +178,7 @@ wmain()
     size_t j = { 0 };
     PBYTE p = { 0 };
     DWORD* FirstThunk = { 0 }; /* for compat with old headers */ 
-    //IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->SizeOfHeapReserve;
-    IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = Image.Data.ImportDescriptors;
+    IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->SizeOfHeapReserve;
     USHORT SizeOfOptionalHeader = { 0 };
     USHORT SizeOfHeaders = { 0 };
     USHORT SizeOfRawData = { 0 };
@@ -203,8 +204,8 @@ wmain()
     Section = (IMAGE_SECTION_HEADER*) (SizeOfOptionalHeader + (PBYTE) OptionalHeader);
     SizeOfHeaders = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
 
-    Section->Misc.VirtualSize = sizeof(Image.Data);
-    SizeOfRawData = sizeof(Image.Data);
+    Section->Misc.VirtualSize = 0x1000;
+    SizeOfRawData = 0x1000;
     Section->SizeOfRawData = SizeOfRawData;
     Section->VirtualAddress = RoundUp(SizeOfHeaders, SectionAlignment);
     Section->PointerToRawData = RoundUp(SizeOfHeaders, FILE_ALIGN);
@@ -255,7 +256,7 @@ wmain()
     // mov eax, &__imp__puts
 
     *p++ = 0xB8;
-    va = (OptionalHeader->ImageBase + RVA(Image.OptionalHeader.SizeOfStackCommit));
+    va = (OptionalHeader->ImageBase + RVA(Image.IAT.puts));
     memcpy(p, &va, sizeof(ULONG));
     p += sizeof(ULONG);
 
@@ -287,21 +288,19 @@ wmain()
     *p++ = 0xFF;
     *p++ = 0x15;
 
-    va = (OptionalHeader->ImageBase + RVA(Image.OptionalHeader.SizeOfHeapReserve));
+    va = (OptionalHeader->ImageBase + RVA(Image.IAT.exit));
     memcpy(p, &va, sizeof(ULONG));
     
     memcpy(&Image.OptionalHeader.MajorOperatingSystemVersion, "Hello", sizeof("Hello"));
     memcpy(&Image.OptionalHeader.DllCharacteristics, "puts", sizeof("puts"));
-    memcpy(&Image.OptionalHeader.LoaderFlags, "msvcrt", sizeof("msvcrt"));
-    memcpy(&Image.OptionalHeader.ExportDirectory, "exit", sizeof("exit"));
+    memcpy(&Image.OptionalHeader.BaseOfCode, "msvcrt", sizeof("msvcrt"));
+    memcpy((3 + ((PBYTE) &Image.OptionalHeader.SizeOfStackReserve)), "exit", sizeof("exit"));
 
-    IAT = &Image.OptionalHeader.SizeOfStackCommit;
-    IAT[0] = (RVA(Image.OptionalHeader.DllCharacteristics) - 2);
-    IAT[1] = (RVA(Image.OptionalHeader.ExportDirectory) - 2);
-    IAT[2] = 0;
+    Image.IAT.puts = (RVA(Image.OptionalHeader.DllCharacteristics) - 2);
+    Image.IAT.exit = (RVA(Image.OptionalHeader.SizeOfStackReserve) + 3 - 2);
 
-    ImportDescriptors[0].Name = RVA(Image.OptionalHeader.LoaderFlags);
-    ImportDescriptors[0].FirstThunk = RVA(Image.OptionalHeader.SizeOfStackCommit);
+    ImportDescriptors[0].Name = RVA(Image.OptionalHeader.BaseOfCode);
+    ImportDescriptors[0].FirstThunk = RVA(Image.IAT);
     ImportDescriptors[0].OriginalFirstThunk = ImportDescriptors[0].FirstThunk;
 
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = RVA(*ImportDescriptors);
@@ -324,7 +323,7 @@ wmain()
         goto Exit;
     }
 
-    // the last three bytes are zero and don't have to be written
+    // last three bytes are zero and don't have to be written
 
     fwrite(&Image, sizeof(Image) - 3, 1, FileHandle);
     fclose(FileHandle);
