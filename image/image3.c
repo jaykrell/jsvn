@@ -91,9 +91,9 @@ wmain()
         {
             WORD    Machine; // x86
             WORD    NumberOfSections; // 1
-            DWORD   TimeDateStamp; // code push hello
-            DWORD   PointerToSymbolTable; // code push hello, move eax puts
-            DWORD   NumberOfSymbols; // code push hello, move eax puts, jump into optional header
+            DWORD   TimeDateStamp; // iat puts
+            DWORD   PointerToSymbolTable; // iat exit
+            DWORD   NumberOfSymbols; // iat terminal zero
             WORD    SizeOfOptionalHeader;
             WORD    Characteristics; // unused
         } FileHeader;
@@ -102,21 +102,21 @@ wmain()
             struct
             {
                 WORD    Magic;
-                BYTE    MajorLinkerVersion; // code call dword ptr [eax] (puts)
-                BYTE    MinorLinkerVersion; // code call dword ptr [eax] (puts)
-                DWORD   SizeOfCode; // ocode push exit code 42, call exit
-                DWORD   SizeOfInitializedData; // code call exit
-                DWORD   SizeOfUninitializedData; // unused
+                BYTE    MajorLinkerVersion; // code
+                BYTE    MinorLinkerVersion; // code
+                DWORD   SizeOfCode; // code
+                DWORD   SizeOfInitializedData; // code
+                DWORD   SizeOfUninitializedData; // code
                 DWORD   AddressOfEntryPoint;
-                DWORD   BaseOfCode; // "msvcrt"
-                DWORD   BaseOfData; // "msvcrt" one byte unused
+                DWORD   BaseOfCode; // code
+                DWORD   BaseOfData; // code, 2 bytes unused
                 DWORD   ImageBase;
                 DWORD   SectionAlignment;
                 DWORD   FileAlignment;
-                WORD    MajorOperatingSystemVersion; // section name "Hello"
-                WORD    MinorOperatingSystemVersion; // section name "Hello"
-                WORD    MajorImageVersion; // section name "Hello"
-                WORD    MinorImageVersion; // section name "Hello"
+                WORD    MajorOperatingSystemVersion; // section name "msvcrt"
+                WORD    MinorOperatingSystemVersion; // section name "msvcrt"
+                WORD    MajorImageVersion; // section name "msvcrt"
+                WORD    MinorImageVersion; // section name "msvcrt" 1 byte unused
                 WORD    MajorSubsystemVersion; // section virtualsize
                 WORD    MinorSubsystemVersion; // section virtualsize
                 DWORD   Win32VersionValue; // section virtualaddress
@@ -154,15 +154,13 @@ wmain()
                 DWORD   Characteristics; // OptionalHeader_SizeOfStackCommit
             } Section;
         };
-        DWORD Zero; // helps terminate import descriptors, else crash
-        struct
-        {
-            DWORD puts;
-            DWORD exit;
-        } IAT;
+#ifndef MAKE_DLL
+        BYTE Zero[4];
+        BYTE Hello[5];
+#endif
     } Image;
 #define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image))
-#define VA(x) ((va = (RVA(x) + OptionalHeader->ImageBase)), &va)
+#define VA(x) (RVA(x) + OptionalHeader->ImageBase)
     ULONG va;
     FILE* FileHandle = { 0 };
     HMODULE DllHandle = { 0 };
@@ -183,7 +181,7 @@ wmain()
     USHORT SizeOfHeaders = { 0 };
     USHORT SizeOfRawData = { 0 };
     USHORT SectionAlignment = { 0 };
-    PDWORD IAT = { 0 };
+    PDWORD IAT = (PDWORD) &Image.FileHeader.TimeDateStamp;
 
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
@@ -211,7 +209,7 @@ wmain()
     Section->PointerToRawData = RoundUp(SizeOfHeaders, FILE_ALIGN);
 
     FileHeader->SizeOfOptionalHeader = SizeOfOptionalHeader;
-    //OptionalHeader->SizeOfHeaders = SizeOfHeaders;
+    OptionalHeader->SizeOfHeaders = SizeOfHeaders;
 
     Dos->e_magic = IMAGE_DOS_SIGNATURE;
     Dos->e_lfanew = DOS_HEADER_SIZE;
@@ -228,8 +226,7 @@ wmain()
     Nt->Signature = IMAGE_NT_SIGNATURE;
 
     OptionalHeader->Magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
-    //OptionalHeader->AddressOfEntryPoint = RVA(Image.Data);
-    OptionalHeader->AddressOfEntryPoint = 0;
+    OptionalHeader->AddressOfEntryPoint = RVA(OptionalHeader->MajorLinkerVersion);
 
     // when overlaying import_descriptor onto optional_header, this is the name of the second descriptor and must be 0.?
     OptionalHeader->MajorSubsystemVersion = 3;
@@ -242,65 +239,62 @@ wmain()
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = sizeof(Image.Data.Relocs);
 #endif
 
-    // we have 12 bytes here and then SizeOfOptionalHeader
-
-    p = (PBYTE) &FileHeader->TimeDateStamp;
+    p = (PBYTE) &OptionalHeader->MajorLinkerVersion;
 
     // push hello
 
     *p++ = 0x68;
-    va = (OptionalHeader->ImageBase + DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, MajorOperatingSystemVersion));
+#ifndef MAKE_DLL
+    va = VA(Image.Hello);
+#else
+    va = VA(Section->PointerToRelocations);
+#endif
     memcpy(p, &va, sizeof(ULONG));    
     p += sizeof(ULONG);
 
-    // mov eax, &__imp__puts
-
-    *p++ = 0xB8;
-    va = (OptionalHeader->ImageBase + RVA(Image.IAT.puts));
-    memcpy(p, &va, sizeof(ULONG));
-    p += sizeof(ULONG);
-
-    // near jmp into optional header
-
-    *p++ = 0xEB; // jump
-    OptionalHeader->AddressOfEntryPoint = (DOS_HEADER_SIZE + 4 + offsetof(IMAGE_FILE_HEADER, TimeDateStamp));
-    va = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + offsetof(IMAGE_OPTIONAL_HEADER, MajorLinkerVersion) - OptionalHeader->AddressOfEntryPoint - 10 - 2);
-    if (va > 128)
-    {
-        printf("near jump too far\n");
-    }
-    *p++ = (BYTE) va;
-
-    p = (PBYTE) &OptionalHeader->MajorLinkerVersion;
-
-    // call dword ptr [eax] (puts)
+    // call puts
 
     *p++ = 0xFF;
-    *p++ = 0x10;
+    *p++ = 0x15;
+
+    va = (OptionalHeader->ImageBase + RVA(IAT[0]));
+    memcpy(p, &va, sizeof(ULONG));
+    p += sizeof(ULONG);
 
     // push exit code (42)
 
     *p++ = 0x6A;
     *p++ = 42;
 
+    // mov eax entry point (skip)
+
+    *p++ = 0xB9;
+    p += 4;
+
     // call exit
 
     *p++ = 0xFF;
     *p++ = 0x15;
 
-    va = (OptionalHeader->ImageBase + RVA(Image.IAT.exit));
+    va = (OptionalHeader->ImageBase + RVA(IAT[1]));
     memcpy(p, &va, sizeof(ULONG));
     
-    memcpy(&Image.OptionalHeader.MajorOperatingSystemVersion, "Hello", sizeof("Hello"));
+#ifndef MAKE_DLL
+    memcpy(&Image.Hello, "Hello", sizeof("Hello") - 1);
+#else
+    // This overwrites Subsystem which we have to leave alone for an .exe.
+    memcpy(&Section->PointerToRelocations, "Hello", sizeof("Hello") - 1);
+#endif
     memcpy(&Image.OptionalHeader.DllCharacteristics, "puts", sizeof("puts"));
-    memcpy(&Image.OptionalHeader.BaseOfCode, "msvcrt", sizeof("msvcrt"));
+    memcpy(&Image.OptionalHeader.MajorOperatingSystemVersion, "msvcrt", sizeof("msvcrt"));
     memcpy((3 + ((PBYTE) &Image.OptionalHeader.SizeOfStackReserve)), "exit", sizeof("exit"));
 
-    Image.IAT.puts = (RVA(Image.OptionalHeader.DllCharacteristics) - 2);
-    Image.IAT.exit = (RVA(Image.OptionalHeader.SizeOfStackReserve) + 3 - 2);
+    IAT[0] = (RVA(Image.OptionalHeader.DllCharacteristics) - 2);
+    IAT[1] = (RVA(Image.OptionalHeader.SizeOfStackReserve) + 3 - 2);
+    IAT[2] = 0;
 
-    ImportDescriptors[0].Name = RVA(Image.OptionalHeader.BaseOfCode);
-    ImportDescriptors[0].FirstThunk = RVA(Image.IAT);
+    ImportDescriptors[0].Name = RVA(Image.OptionalHeader.MajorOperatingSystemVersion);
+    ImportDescriptors[0].FirstThunk = RVA(Image.FileHeader.TimeDateStamp);
     ImportDescriptors[0].OriginalFirstThunk = ImportDescriptors[0].FirstThunk;
 
     OptionalHeader->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress = RVA(*ImportDescriptors);
