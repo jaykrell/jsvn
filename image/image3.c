@@ -1,3 +1,4 @@
+#pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
 #define _WIN32_WINNT ~0u
 #define _CRT_SECURE_NO_DEPRECATE
 #define Reserved1 Win32VersionValue /* compat with older headers */
@@ -5,7 +6,6 @@
 #if (_MSC_VER < 1000)
 #pragma warning(disable:4244 4057 4115)
 #pragma warning(disable:4226) /* nonstandard extension: __export */
-#pragma warning(disable:4201) /* nonstandard extension: nameless struct/union */
 #pragma warning(disable:4214) /* nonstandard extension: bitfields other than int */
 #pragma warning(disable:4209) /* nonstandard extension: benign retypedef */
 #pragma warning(disable:4514) /* unused inline function removed */
@@ -58,12 +58,6 @@ PWSTR GetErrorString(int Error)
     return Buffer;
 }
 
-size_t RoundUp(size_t a, size_t b)
-{
-    a += (b - 1);
-    return (a - (a % b));
-}
-
 int
 __cdecl
 wmain()
@@ -104,6 +98,9 @@ wmain()
                 WORD    MinorOperatingSystemVersion; // section name "msvcrt"
                 WORD    MajorImageVersion; // section name "msvcrt"
                 WORD    MinorImageVersion; // section name "msvcrt" 1 byte unused
+                // subsystemversion is very constrained for .exes but for .dlls
+                // merely major or minor must be non-zero, therefore these 4 bytes are available
+                // for use in the .dll
                 WORD    MajorSubsystemVersion; // section virtualsize
                 WORD    MinorSubsystemVersion; // section virtualsize
                 DWORD   Win32VersionValue; // section virtualaddress
@@ -147,55 +144,37 @@ wmain()
 #endif
     } Image;
 #define RVA(x) ((ULONG) (((size_t) &x) - (size_t) &Image))
-#define VA(x) (RVA(x) + OptionalHeader->ImageBase)
+#define VA(x) (RVA(x) + BASE)
     ULONG va;
     FILE* FileHandle = { 0 };
     HMODULE DllHandle = { 0 };
     DWORD Error = { 0 };
     PWSTR ErrorString = { 0 };
     int Result = 1;
-    IMAGE_DOS_HEADER* Dos = (IMAGE_DOS_HEADER*) &Image;
-    IMAGE_NT_HEADERS* Nt = (IMAGE_NT_HEADERS*) &Image.PeSignature;
-    IMAGE_OPTIONAL_HEADER* OptionalHeader = (IMAGE_OPTIONAL_HEADER*) &Image.OptionalHeader;
-    IMAGE_FILE_HEADER* FileHeader = (IMAGE_FILE_HEADER*) &Image.FileHeader;
-    IMAGE_SECTION_HEADER* Section = (IMAGE_SECTION_HEADER*) &Image.Section.Name;
-    size_t i = { 0 };
-    size_t j = { 0 };
+    IMAGE_DOS_HEADER* const Dos = (IMAGE_DOS_HEADER*) &Image;
+    IMAGE_NT_HEADERS* const Nt = (IMAGE_NT_HEADERS*) &Image.PeSignature;
+    IMAGE_OPTIONAL_HEADER* const OptionalHeader = (IMAGE_OPTIONAL_HEADER*) &Image.OptionalHeader;
+    IMAGE_FILE_HEADER* const FileHeader = (IMAGE_FILE_HEADER*) &Image.FileHeader;
+    IMAGE_SECTION_HEADER* const Section = (IMAGE_SECTION_HEADER*) &Image.Section.Name;
     PBYTE p = { 0 };
-    DWORD* FirstThunk = { 0 }; /* for compat with old headers */ 
-    IMAGE_IMPORT_DESCRIPTOR* ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->SizeOfHeapReserve;
-    USHORT SizeOfOptionalHeader = { 0 };
-    USHORT SizeOfHeaders = { 0 };
-    USHORT SizeOfRawData = { 0 };
-    USHORT SectionAlignment = { 0 };
-    PDWORD IAT = (PDWORD) &Image.FileHeader.TimeDateStamp;
+    IMAGE_IMPORT_DESCRIPTOR* const ImportDescriptors = (IMAGE_IMPORT_DESCRIPTOR*) &OptionalHeader->SizeOfHeapReserve;
+    USHORT const SizeOfOptionalHeader = sizeof(Image.Section.OptionalHeaderPad);
+    USHORT const SizeOfHeaders = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
+    PDWORD const IAT = (PDWORD) &Image.FileHeader.TimeDateStamp;
 
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
     ZeroMemory(&Image, sizeof(Image));
 
-    SectionAlignment = ((SECTION_ALIGN < FILE_ALIGN) ? FILE_ALIGN : SECTION_ALIGN);
-    OptionalHeader->SectionAlignment = SectionAlignment;
+    Dos->e_magic = IMAGE_DOS_SIGNATURE;
+    Dos->e_lfanew = DOS_HEADER_SIZE; // this overlaps with FileAlignment or SectionAlignment
+    Nt->Signature = IMAGE_NT_SIGNATURE;
+    OptionalHeader->SectionAlignment = SECTION_ALIGN;
     OptionalHeader->FileAlignment = FILE_ALIGN;
     OptionalHeader->ImageBase = BASE;
-
-    OptionalHeader->NumberOfRvaAndSizes = (IMAGE_DIRECTORY_ENTRY_IMPORT + 1);
-
-    SizeOfOptionalHeader = sizeof(Image.Section.OptionalHeaderPad);
-    Section = (IMAGE_SECTION_HEADER*) (SizeOfOptionalHeader + (PBYTE) OptionalHeader);
-    SizeOfHeaders = (DOS_HEADER_SIZE + 4 + sizeof(IMAGE_FILE_HEADER) + SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
-
-    Section->Misc.VirtualSize = 0x1000;
-    SizeOfRawData = 0x1000;
-    Section->SizeOfRawData = SizeOfRawData;
-    Section->VirtualAddress = RoundUp(SizeOfHeaders, SectionAlignment);
-    Section->PointerToRawData = RoundUp(SizeOfHeaders, FILE_ALIGN);
-
+    Section->VirtualAddress = SizeOfHeaders;
+    Section->PointerToRawData = SizeOfHeaders;
     FileHeader->SizeOfOptionalHeader = SizeOfOptionalHeader;
-    OptionalHeader->SizeOfHeaders = SizeOfHeaders;
-
-    Dos->e_magic = IMAGE_DOS_SIGNATURE;
-    Dos->e_lfanew = DOS_HEADER_SIZE;
     FileHeader->Machine = IMAGE_FILE_MACHINE_I386;
     FileHeader->NumberOfSections = 1;
 
@@ -204,16 +183,18 @@ wmain()
     FileHeader->Characteristics |= IMAGE_FILE_DLL;
 #endif
     FileHeader->Characteristics |= IMAGE_FILE_RELOCS_STRIPPED;
-    Nt->Signature = IMAGE_NT_SIGNATURE;
 
     OptionalHeader->Magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
     OptionalHeader->AddressOfEntryPoint = RVA(OptionalHeader->MajorLinkerVersion);
 
-    // when overlaying import_descriptor onto optional_header, this is the name of the second descriptor and must be 0.?
+#ifdef MAKE_DLL
+    OptionalHeader->MajorSubsystemVersion = 1;
+#else
     OptionalHeader->MajorSubsystemVersion = 3;
     OptionalHeader->MinorSubsystemVersion = 10;
+#endif
     OptionalHeader->Subsystem = IMAGE_SUBSYSTEM_WINDOWS_CUI;
-    OptionalHeader->SizeOfImage = RoundUp(Section->VirtualAddress + Section->Misc.VirtualSize, SectionAlignment);
+    OptionalHeader->SizeOfImage = (Section->VirtualAddress + Section->Misc.VirtualSize);
 
     p = (PBYTE) &OptionalHeader->MajorLinkerVersion;
 
