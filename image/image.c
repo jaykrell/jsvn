@@ -51,28 +51,28 @@
 
 // This works very often.
 // Saves 52 bytes.
-//#define OVERLAY_PE_AND_DOS_HEADER 1
+#define OVERLAY_PE_AND_DOS_HEADER 1
 
 // Costs around 48 bytes
 // not necessarily maintained for all combinations
-#define RELOCATABLE 1
+//#define RELOCATABLE 1
 
 // saves 20 bytes, always works, simple
-//#define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
+#define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
 
-//#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
+#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
-#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
+//#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x1000 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN TARGET_PAGE_SIZE
 
 // section align cannot be less than file align and will be increased to match */
 //#define SECTION_ALIGN 0x1 /* can be any power of two but usually page size */
+#define SECTION_ALIGN 0x4
 //#define SECTION_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
-#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
+//#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
 //#define SECTION_ALIGN TARGET_PAGE_SIZE
-//#define SECTION_ALIGN 0x4
 
 // if section_align < pagesize, then section_align must equal file_align
 // That is not enforced here currently.
@@ -93,11 +93,11 @@
 #endif
 
 // This is an aggressive multiple-independent-part tricky option that saves many bytes.
-//#define REUSE_HEADERS 1
+#define REUSE_HEADERS 1
 
-//#define CODE_IN_HEADERS
+#define CODE_IN_HEADERS
 
-//#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
+#define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
 #if defined(OMIT_DOS_HEADER)
 #define DOS_HEADER_SIZE 0
