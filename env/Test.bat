@@ -15,7 +15,7 @@ call :CompileAndLink MS\CE\410\mipsii_fp clmips /nologo /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\mipsiv clmips /nologo /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\mipsiv_fp clmips /nologo /Zi /EHs || exit /b 1
 call :Compile MS\CE\410\thumb clthumb /nologo /c /Zi /EHs || exit /b 1
-call :Compile MS\CE\410\sh4 clsh /nologo /c /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\410\sh4 clsh /nologo /Zi /EHs || exit /b 1
 call :Compile MS\CE\410\x86 cl /nologo /c /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\armv4i clarm /nologo /Zi /EHs || exit /b 1
 
