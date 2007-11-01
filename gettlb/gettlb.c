@@ -1,6 +1,6 @@
 //
 // Extract a resource of type "TYPELIB" from the specified file outputing to the specified file.
-// cl  /Wp64 /MD /Zi /W4 /WX gettlb.c
+// cl /Wp64 /MD /Zi /W4 /WX gettlb.c
 //
 // ? Enumerate to determine the language?
 // ? Enumerate of id is 0 or unspecified, take the first, error if more than one?
