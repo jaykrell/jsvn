@@ -97,8 +97,8 @@ call :CompileAndLinkAndRun MinGWin mingw32-g++ -g || exit /b 1
 @rem WinDDK x86 (Microsoft Visual C++)
 @rem ----------------------------------------------------------------------
 
-call :CompileAndLinkAndRun MS\WinDDK\3790\2000\x86 cl /nologo /MD /Zi /EHs || exit /b 1
-call :CompileAndLinkAndRun MS\WinDDK\3790\xp\x86 cl /nologo /MD /Zi /EHs || exit /b 1
+call :CompileAndLinkAndRun MS\WinDDK\3790\2000\x86 cl "/nologo /MD /Zi /EHs" || exit /b 1
+call :CompileAndLinkAndRun MS\WinDDK\3790\xp\x86 cl "/nologo /MD /Zi /EHs" || exit /b 1
 call :CompileAndLinkAndRun MS\WinDDK\3790\2003\x86 cl /nologo /MD /Zi /EHs || exit /b 1
 
 @rem ----------------------------------------------------------------------
@@ -153,7 +153,8 @@ if errorlevel 1 (
     exit /b 1
 )
 del a.exe 1.exe 2>nul
-copy %a%.exe a.exe >nul
+ren %a%.exe a.exe >nul
+if exist %a%.exe.manifest ren %a%.exe.manifest a.exe.manifest
 call a.exe >nul 2>&1
 if errorlevel 1 call :Error %1
 if errorlevel 1 exit /b 1
@@ -239,7 +240,7 @@ exit /b 0
 @rem Its caller should.
 @rem
 
-echo %1 %2 %3 %4 %5 %6 %7 %8 %9
+rem echo %1 %2 %3 %4 %5 %6 %7 %8 %9
 
 set a=%1 %2 %3 %4 %5 %6 %7 %8 %9
 set a=%a: =%
@@ -274,12 +275,17 @@ if errorlevel 1 exit /b 1
 @rem echo LIB is %LIB%
 @rem echo INCLUDE is %INCLUDE%
 
+set command=%2 %3 %4 %5 %6 %7 1.cpp
+set command=%command:"=%
+
 @rem handle symlinks
-if /i "%1" == "Cygwin" (
-  set command=sh -c "%2 %3 %4 %5 %6 %7 1.cpp"
-) else (
-  set command=%2 %3 %4 %5 %6 %7 1.cpp
-)
+if /i "%1" == "Cygwin" set command=sh -c "%2 %3 %4 %5 %6 %7 1.cpp"
+
+set command=%command:  = %
+set command=%command:  = %
+set command=%command:  = %
+
+echo %1 %command%
 call %command% >nul 2>&1
 if errorlevel 1 (
     call %command%
