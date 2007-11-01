@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define ITERATIONS 100000000
+#define ITERATIONS 10000000
 #define TIME_REGULAR_HEAP 0 /* too many iterations make this too slow */
 #define TIME_HEAP_CREATE 1
 
@@ -399,6 +399,71 @@ BigLifoHeapLikeStack(
   no_opt = a;
   no_opt = b;
   LifoHeapLikeStack_Free(Heap, a, BIG_ALLOCATION_SIZE);
+}
+
+unsigned long __readfsdword(unsigned long Offset);
+#pragma intrinsic(__readfsdword)
+
+__declspec(naked)
+void*
+_chkstk(
+    void/*size_t Size*/
+    )
+{
+__asm
+{
+#if 0 // original
+    push    ecx
+    lea     ecx,[esp+4]
+    sub     ecx,eax
+    sbb     eax,eax
+    not     eax
+    and     ecx,eax
+    mov     eax,esp
+    and     eax,0x0FFFFF000
+
+L1:
+    cmp     ecx,eax
+    jb L2
+
+    mov     eax,ecx
+    pop     ecx
+    xchg    eax,esp
+    mov     eax,dword ptr [eax]
+    mov     dword ptr [esp],eax
+    ret
+
+L2:
+    sub     eax,0x1000
+    test    dword ptr [eax],eax
+    jmp     L1
+#else
+    push    ecx
+    lea     ecx,[esp+4]
+    sub     ecx,eax
+    sbb     eax,eax
+    not     eax
+    and     ecx,eax
+    mov     eax,esp
+    and     eax,0x0FFFFF000
+
+L1:
+    cmp     ecx,eax
+    jb L2
+
+    mov     eax,ecx
+    pop     ecx
+    xchg    eax,esp
+    mov     eax,dword ptr [eax]
+    mov     dword ptr [esp],eax
+    ret
+
+L2:
+    sub     eax,0x1000
+    test    dword ptr [eax],eax
+    jmp     L1
+#endif
+}
 }
 
 volatile UINT64 Duration;
