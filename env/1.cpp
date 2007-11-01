@@ -10,6 +10,10 @@
 
 #include <stdio.h>
 
+#if defined(_WIN32) || defined(_M_MPPC)
+__declspec(dllexport) void Export1(void) { }
+#endif
+
 /* make sure templates work */
 #if !defined(_MSC_VER) || (_MSC_VER > 800)
 
