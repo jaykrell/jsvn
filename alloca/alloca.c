@@ -12,7 +12,7 @@
 //#define BIG_ALLOCATION_SIZE 16000
 //#define BIG_ALLOCATION_SIZE 60000
 //#define BIG_ALLOCATION_SIZE 0x10000
-#define BIG_ALLOCATION_SIZE 0xf000
+#define BIG_ALLOCATION_SIZE 0x10000
 
 #define STACK_SIZE 0
 //#define STACK_SIZE 0x10000
@@ -33,7 +33,29 @@ void * volatile no_opt;
 size_t
 GetStackReserve(
     void
-    );
+    )
+{
+    size_t Size = 0;
+    void* AllocationBase;
+    MEMORY_BASIC_INFORMATION Info;
+
+    VirtualQuery(&Info, &Info, sizeof(Info));
+
+    Info.RegionSize = 0;
+    AllocationBase = Info.AllocationBase;
+    Info.BaseAddress = AllocationBase;
+
+    while (TRUE)
+    {
+        if (!VirtualQuery((char*) Info.BaseAddress + Info.RegionSize, &Info, sizeof(Info)))
+            break;
+        if (Info.AllocationBase == AllocationBase)
+            Size += Info.RegionSize;
+        else
+            break;
+    }
+    return Size;
+}
 
 void SmallStack(void)
 {
@@ -126,7 +148,7 @@ LifoHeapLikeStack_Create(
     BOOL Result = FALSE;
 
     *OutHeap = Heap;
-#if 1
+#if 1 // either work
     Heap.Reserve = GetStackReserve();
     Heap.PageSize = GetPageSize();
     Heap.CommitGrowthSize = (Heap.PageSize * 16);
@@ -185,10 +207,13 @@ LifoHeapLikeStack_Alloc(
     Size = ((Size + ALLOCATION_GRANULARITY - 1) & ~ALLOCATION_GRANULARITY);
 
     if ((Current + Size) <= Commit)
-    {
+    { // fast path
         Heap->Current = (Current + Size);
         return (Block + Current);
     }
+
+    // slow path
+
     CommitGrowthSize = Heap->CommitGrowthSize;
     NextCommitBlock = NULL;
     if (Size <= CommitGrowthSize)
@@ -197,7 +222,7 @@ LifoHeapLikeStack_Alloc(
     }
     if (NextCommitBlock == NULL)
     {
-        // fallback to allocating a block of the requested size
+        // fallback to allocating a block of the requested size, be it larger or smaller than CommitGrowthSize
         size_t AllocationGranularity = GetAllocationGranularity();
         CommitGrowthSize = Size;
         CommitGrowthSize = (CommitGrowthSize + AllocationGranularity - 1);
@@ -222,6 +247,9 @@ LifoHeapLikeStack_Free(
     Heap->Current -= Size;
 }
 
+#if 0 // unfinished, LifoHeap that doesn't require one large up front VirtualAlloc
+      // but instead delegates to an underlying heap
+
 typedef struct LifoHeapBlock_t {
     char* Block;
     size_t Size;
@@ -234,38 +262,14 @@ typedef struct LifoHeap_t {
     size_t Current;
 } LifoHeap_t;
 
-size_t
-GetStackReserve(
-    void
-    )
-{
-    size_t Size = 0;
-    void* AllocationBase;
-    MEMORY_BASIC_INFORMATION Info;
-
-    VirtualQuery(&Info, &Info, sizeof(Info));
-
-    Info.RegionSize = 0;
-    AllocationBase = Info.AllocationBase;
-    Info.BaseAddress = AllocationBase;
-
-    while (TRUE)
-    {
-        if (!VirtualQuery((char*) Info.BaseAddress + Info.RegionSize, &Info, sizeof(Info)))
-            break;
-        if (Info.AllocationBase == AllocationBase)
-            Size += Info.RegionSize;
-        else
-            break;
-    }
-    return Size;
-}
+#endif
 
 void
 CommitStack(
     void
     )
 {
+#if 0
     // This is wrong. Don't use in production.
     void* AllocationBase;
     MEMORY_BASIC_INFORMATION Info;
@@ -285,6 +289,7 @@ CommitStack(
         else
             break;
     }
+#endif
 }
 
 size_t
@@ -296,6 +301,8 @@ GetCurrentStackCommit(
     VirtualQuery(&Info, &Info, sizeof(Info));
     return Info.RegionSize;
 }
+
+#if 0 // unfinished
 
 void
 LifoHeap_Create(
@@ -377,6 +384,8 @@ LifoHeap_Free(
     }
 }
 
+#endif
+
 void
 SmallLifoHeapLikeStack(
     LifoHeapLikeStack_t* Heap
@@ -400,6 +409,8 @@ BigLifoHeapLikeStack(
   no_opt = b;
   LifoHeapLikeStack_Free(Heap, a, BIG_ALLOCATION_SIZE);
 }
+
+#if 0 // unfinished here -- an alloca that starts the loop at StackLimit
 
 unsigned long __readfsdword(unsigned long Offset);
 #pragma intrinsic(__readfsdword)
@@ -465,6 +476,8 @@ L2:
 #endif
 }
 }
+
+#endif
 
 volatile UINT64 Duration;
 volatile HANDLE DoneEvent;
