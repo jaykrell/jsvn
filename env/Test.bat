@@ -60,8 +60,6 @@ call :Compile MS\CE\300\thumb clthumb /nologo /c /Zi /GF /GX || exit /b 1
 call :Compile MS\CE\300\arm clarm /nologo /c /Zi /GF /GX || exit /b 1
 call :Compile MS\CE\300\x86 cl /nologo /c /Zi /GF /GX || exit /b 1
 
-exit /b 0
-
 call :CompileAndLink MS\CE\410\mipsii clmips /nologo /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\mipsii_fp clmips /nologo /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\mipsiv clmips /nologo /Zi /EHs || exit /b 1
