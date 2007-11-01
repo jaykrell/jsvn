@@ -10,6 +10,58 @@ call \dev2\j\env\clearenv
 @rem 4.10, 4.20, x86, mips, thumb, sh
 @rem ----------------------------------------------------------------------
 
+call :Compile MS\CE\200\mipsii clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\200\mipsii_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\200\mipsiv clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\200\mipsiv_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\200\ppc clppc /nologo /c /Zi /GF /EHsc || exit /b 1
+call :Compile MS\CE\200\sh shcl /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\200\x86 cl /nologo /c /Zi /GF /GX || exit /b 1
+
+call :Compile MS\CE\201\mipsii clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\201\mipsii_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\201\mipsiv clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\201\mipsiv_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\201\sh shcl /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\201\x86 cl /nologo /c /Zi /GF /GX || exit /b 1
+
+call :Compile MS\CE\210\mipsii clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\210\mipsii_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\210\mipsiv clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\210\mipsiv_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\210\sh shcl /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\210\ppc clppc /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\210\x86 cl /nologo /c /Zi /GF /GX || exit /b 1
+
+call :Compile MS\CE\211\mipsii clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\211\mipsii_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\211\mipsiv clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\211\mipsiv_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\211\sh shcl /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\211\ppc clppc /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\211\x86 cl /nologo /c /Zi /GF || exit /b 1
+
+call :Compile MS\CE\212\mipsii clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\212\mipsii_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\212\mipsiv clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\212\mipsiv_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\212\sh shcl /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\212\ppc clppc /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\212\thumb clthumb /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\212\x86 cl /nologo /c /Zi /GF /GX || exit /b 1
+
+call :Compile MS\CE\300\mipsii clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\300\mipsii_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\300\mipsiv clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\300\mipsiv_fp clmips /nologo /c /Zi /GF || exit /b 1
+call :Compile MS\CE\300\sh shcl /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\300\ppc clppc /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\300\thumb clthumb /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\300\arm clarm /nologo /c /Zi /GF /GX || exit /b 1
+call :Compile MS\CE\300\x86 cl /nologo /c /Zi /GF /GX || exit /b 1
+
+exit /b 0
+
 call :CompileAndLink MS\CE\410\mipsii clmips /nologo /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\mipsii_fp clmips /nologo /Zi /EHs || exit /b 1
 call :CompileAndLink MS\CE\410\mipsiv clmips /nologo /Zi /EHs || exit /b 1
