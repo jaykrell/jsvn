@@ -15,4 +15,4 @@ set _LINK_=/subsystem:windowsce
 Title CE/%~n0/%1
 
 @rem reset errorlevel
-dir > nul
+@dir > nul

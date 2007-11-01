@@ -12,7 +12,7 @@ set LIB=\msdev\ce\420\lib\%1;\msdev\ce\500\lib\%1;%LIB%
 
 set _LINK_=/subsystem:windowsce
 
-Title CE/420/%1
+Title CE/%~n0/%1
 
 @rem reset errorlevel
 @dir > nul
