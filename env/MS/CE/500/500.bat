@@ -6,7 +6,7 @@
 
 call \dev2\j\env\clearenv
 
-set PATH=\msdev\ce\420\bin;%PATH%
+set PATH=\msdev\ce\500\bin;%PATH%
 set INCLUDE=\msdev\ce\500\Include;%INCLUDE%
 set LIB=\msdev\ce\500\lib\%1;%LIB%
 
