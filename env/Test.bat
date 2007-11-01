@@ -6,8 +6,7 @@ setlocal
 call \dev2\j\env\clearenv
 
 @rem ----------------------------------------------------------------------
-@rem Microsoft C++ for Windows CE
-@rem 4.10, 4.20, x86, mips, thumb, sh
+@rem Microsoft C++ for Windows CE, various versions and processors
 @rem ----------------------------------------------------------------------
 
 call :Compile MS\CE\200\mipsii clmips /nologo /c /Zi /GF || exit /b 1
