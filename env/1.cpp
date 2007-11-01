@@ -1,14 +1,12 @@
-/* Windows CE support */
-#ifdef _MSC_VER
-#ifdef _M_IX86
-#define _JBLEN 16
-#endif
-#if defined(_M_SH) || defined(_M_MRX000)
-#define _JBLEN 32
-#endif
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#include <stdio.h>
+int printf(const char* a, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #if defined(_WIN32) || defined(_M_MPPC)
 __declspec(dllexport) void Export1(void) { }
