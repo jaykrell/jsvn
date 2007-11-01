@@ -1,3 +1,10 @@
+#ifdef _M_IX86
+#define _JBLEN 16
+#endif
+#if defined(_M_SH) || defined(_M_MRX000)
+#define _JBLEN 32
+#endif
+
 #include <stdio.h>
 
 /* make sure templates work */
@@ -18,7 +25,7 @@ void template_printf(const char* t)
 
 #endif
 
-int main()
+void Main(void)
 {
 #if !defined(_MSC_VER) || defined(_CPPUNWIND)
     try
@@ -34,5 +41,21 @@ int main()
         template_printf("caught exception\n");
     }
 #endif
+}
+
+int main()
+{
+    Main();
     return 0;
 }
+
+#if (_MSC_VER > 800) && !defined(__WATCOMC__)
+
+/* for Windows CE */
+
+void __stdcall WinMain(void)
+{
+    Main();
+}
+
+#endif

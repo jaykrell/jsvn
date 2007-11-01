@@ -6,6 +6,38 @@ setlocal
 call \dev2\j\env\clearenv
 
 @rem ----------------------------------------------------------------------
+@rem Microsoft C++ for Windows CE
+@rem 4.10, 4.20, x86, mips, thumb, sh
+@rem ----------------------------------------------------------------------
+
+call :CompileAndLink MS\CE\410\mipsii clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\410\mipsii_fp clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\410\mipsiv clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\410\mipsiv_fp clmips /nologo /Zi /EHs || exit /b 1
+call :Compile MS\CE\410\thumb clthumb /nologo /c /Zi /EHs || exit /b 1
+call :Compile MS\CE\410\sh4 clsh /nologo /c /Zi /EHs || exit /b 1
+call :Compile MS\CE\410\x86 cl /nologo /c /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\410\armv4i clarm /nologo /Zi /EHs || exit /b 1
+
+call :CompileAndLink MS\CE\420\mipsii clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\420\mipsii_fp clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\420\mipsiv clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\420\mipsiv_fp clmips /nologo /Zi /EHs || exit /b 1
+call :Compile MS\CE\420\thumb clthumb /nologo /c /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\420\sh4 clsh /nologo /Zi /EHs || exit /b 1
+call :Compile MS\CE\420\x86 cl /nologo /c /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\420\armv4i clarm /nologo /Zi /EHs || exit /b 1
+
+call :CompileAndLink MS\CE\500\mipsii clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\500\mipsii_fp clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\500\mipsiv clmips /nologo /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\500\mipsiv_fp clmips /nologo /Zi /EHs || exit /b 1
+call :Compile MS\CE\500\thumb clthumb /nologo /c /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\500\sh4 clsh /nologo /Zi /EHs || exit /b 1
+call :Compile MS\CE\500\x86 cl /nologo /c /Zi /EHs || exit /b 1
+call :CompileAndLink MS\CE\500\armv4i clarm /nologo /Zi /EHs || exit /b 1
+
+@rem ----------------------------------------------------------------------
 @rem Microsoft Visual C++ 16 bit
 @rem ----------------------------------------------------------------------
 
