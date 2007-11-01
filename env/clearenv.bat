@@ -31,7 +31,10 @@ set _NT_SYMBOL_PATH=SRV*c:\symbols*\\jay-drive1\public\symbols*http://msdl.micro
 @set PATHEXT=.COM;.EXE;.BAT;.CMD
 @set PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH
 @set PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.RB;.RBW
-set _NT_SYMBOL_PATH=SRV*c:\symbols*\\jay-drive1\public\symbols*http://msdl.microsoft.com/download/symbols
+if not defined _NT_SYMBOL_PATH (
+    set _NT_SYMBOL_PATH=SRV*c:\symbols*http://msdl.microsoft.com/download/symbols
+    if exist \\jay-drive1\public\symbols set _NT_SYMBOL_PATH=SRV*c:\symbols*\\jay-drive1\public\symbols*http://msdl.microsoft.com/download/symbols
+)
 @goto :Common
 
 :DosBox
