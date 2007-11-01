@@ -1,8 +1,11 @@
+/* Windows CE support */
+#ifdef _MSC_VER
 #ifdef _M_IX86
 #define _JBLEN 16
 #endif
 #if defined(_M_SH) || defined(_M_MRX000)
 #define _JBLEN 32
+#endif
 #endif
 
 #include <stdio.h>
