@@ -11,7 +11,7 @@ install: all
  copy /y *.pdb \windows\system32
 
 clean:
- del hardlink.exe.manifest vc*pdb hardlink.exe *.obj *.pdb
+ del hardlink.exe.manifest vc*pdb hardlink.exe *.obj *.pdb *.opt *.ncb *.map *.dsp *.dsw
 
 .cpp.exe:
  cl /DDYNAMIC_LINK_CREATEHARDLINK /MD /Z7 /GX $< /link /incremental:no /entry:Entry /subsystem:console shell32.lib kernel32.lib msvcrt.lib /opt:ref /nod /merge:.rdata=.text
