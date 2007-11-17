@@ -43,7 +43,7 @@
 //#define MAKE_DLL
 
 // always seems ok either way, saves 2 bytes per import (could possibly reuse those)
-//#define ZERO_HINTS 1
+#define ZERO_HINTS 1
 
 // kernel32 paths not maintained
 //#define USE_TERMINATE_PROCESS 1
@@ -51,28 +51,28 @@
 
 // This works very often.
 // Saves 52 bytes.
-#define OVERLAY_PE_AND_DOS_HEADER 1
+//#define OVERLAY_PE_AND_DOS_HEADER 1
 
 // Costs around 48 bytes
 // not necessarily maintained for all combinations
-//#define RELOCATABLE 1
+#define RELOCATABLE 1
 
 // saves 20 bytes, always works, simple
-#define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
+//#define OPTIMIZE_NOT_BINDABLE 1 /* 1 or 0, works either way */
 
-#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
+//#define FILE_ALIGN 0x4 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
-//#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
+#define FILE_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN 0x1000 /* popular values are 0x1000 and 0x200 */
 //#define FILE_ALIGN TARGET_PAGE_SIZE
 
 // section align cannot be less than file align and will be increased to match */
 //#define SECTION_ALIGN 0x1 /* can be any power of two but usually page size */
-#define SECTION_ALIGN 0x4
+//#define SECTION_ALIGN 0x4
 //#define SECTION_ALIGN 0x100 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x200 /* popular values are 0x1000 and 0x200 */
 //#define SECTION_ALIGN 0x1000 /* can be any power of two but usually page size */
-//#define SECTION_ALIGN TARGET_PAGE_SIZE
+#define SECTION_ALIGN TARGET_PAGE_SIZE
 
 // if section_align < pagesize, then section_align must equal file_align
 // That is not enforced here currently.
@@ -86,16 +86,16 @@
 // Can we get this to work?
 //#define OMIT_TRAILING_ZEROS
 
-//#define LINK_DUMP_COMPATIBLE
+#define LINK_DUMP_COMPATIBLE
 
 #ifdef LINK_DUMP_COMPATIBLE
 #undef OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 #endif
 
 // This is an aggressive multiple-independent-part tricky option that saves many bytes.
-#define REUSE_HEADERS 1
+//#define REUSE_HEADERS 1
 
-#define CODE_IN_HEADERS
+//#define CODE_IN_HEADERS
 
 #define OMIT_TRAILING_NULL_IMPORT_IMPORT_DESCRIPTOR
 
@@ -106,6 +106,8 @@
 #else
 #define DOS_HEADER_SIZE 64
 #endif
+
+#define USE_STDIO 0
 
 #if DOS_HEADER_SIZE == 4
 // This size dos header leads to dos_header.e_lfanew overlaying SectionAlign.
@@ -368,6 +370,21 @@ wmain()
     size_t FileAlignPadSize = { 0 };
 #if !defined(CODE_IN_HEADERS) && !defined(LINK_DUMP_COMPATIBLE)
     size_t CodeSizeBeforeSection = { 0 };
+#endif
+#ifdef MAKE_DLL
+#if USE_STDIO
+    const static  CHAR FilePathA[] =  "1.dll";
+#endif
+    const static WCHAR FilePathW[] = L"1.dll";
+#else
+#if USE_STDIO
+    const static  CHAR FilePathA[] =  "1.exe";
+#endif
+    const static WCHAR FilePathW[] = L"1.exe";
+#endif
+#if !USE_STDIO
+    ULONG NumberOfBytesWritten = { 0 };
+    ULONG FilePointerHigh = { 0 };
 #endif
 
     SetErrorMode(SEM_FAILCRITICALERRORS);
@@ -819,19 +836,25 @@ wmain()
     //Section->VirtualAddress -= 4;
     //Nt->FileHeader.SizeOfOptionalHeader -= 4;
 
-#ifdef MAKE_DLL
-    DeleteFileW(L"1.dll");
-    FileHandle = fopen("1.dll", "wb");
-#else
-    DeleteFileW(L"1.exe");
-    FileHandle = fopen("1.exe", "wb");
-#endif
+    SetFileAttributesW(FilePathW, 0);
+    DeleteFileW(FilePathW);
+#if USE_STDIO
+    FileHandle = fopen(FilePathA, "wb");
     if (FileHandle == NULL)
     {
         Result = errno;
         wprintf(L"fopen error %d %hs\n", Result, strerror(Result));
         goto Exit;
     }
+#else
+    FileHandle = CreateFileW(FilePathW, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (FileHandle == INVALID_HANDLE_VALUE)
+    {
+        Result = GetLastError();
+        wprintf(L"CreateFile error %d\n");
+        goto Exit;
+    }
+#endif
 
     i = (Dos->e_lfanew + 4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader + sizeof(IMAGE_SECTION_HEADER));
 
@@ -882,25 +905,66 @@ wmain()
     i = 0;
 #ifndef OMIT_DOS_HEADER
     j = sizeof(*Dos);
+#if USE_STDIO
     fwrite(Dos, j, 1, FileHandle);
+#else
+    WriteFile(FileHandle, Dos, j, &NumberOfBytesWritten, NULL);
+#endif
 #ifdef OVERLAY_PE_AND_DOS_HEADER
     ((ULONG*)Nt)[14] = Dos->e_lfanew;
+#if USE_STDIO
     fseek(FileHandle, Dos->e_lfanew, SEEK_SET);
+#else
+    SetFilePointer(FileHandle, Dos->e_lfanew, NULL, FILE_BEGIN);
+#endif
 #endif
 #endif
     i = Dos->e_lfanew;
     j = (4 + sizeof(IMAGE_FILE_HEADER) + Header.Nt.FileHeader.SizeOfOptionalHeader);
     i += j;
+#if USE_STDIO
     fwrite(Nt, j, 1, FileHandle);
-    j = sizeof(*Section);
-    fwrite(Section, j, 1, FileHandle);
-    i += j;
-    fwrite(&FileAlign, FileAlignPadSize, 1, FileHandle);
+#else
+    WriteFile(FileHandle, Nt, j, &NumberOfBytesWritten, NULL);
 #endif
+    j = sizeof(*Section);
+#if USE_STDIO
+    fwrite(Section, j, 1, FileHandle);
+#else
+    WriteFile(FileHandle, Section, j, &NumberOfBytesWritten, NULL);
+#endif
+    i += j;
+#if USE_STDIO
+    fwrite(&FileAlign, FileAlignPadSize, 1, FileHandle);
+#else
+    WriteFile(FileHandle, &FileAlign, FileAlignPadSize, &NumberOfBytesWritten, NULL);
+#endif
+#endif
+
+#if USE_STDIO
 
     fwrite(&Data, Section->SizeOfRawData, 1, FileHandle);
 
     fclose(FileHandle);
+
+#else
+
+    WriteFile(FileHandle, &Data, Section->SizeOfRawData, &NumberOfBytesWritten, NULL);
+
+    FilePointerHigh = 0;
+    SetFilePointer(FileHandle, 1UL << 31, &FilePointerHigh, FILE_BEGIN);
+    FilePointerHigh = 0;
+    SetFilePointer(FileHandle, 1UL << 31, &FilePointerHigh, FILE_CURRENT);
+
+    //
+    // If you change this this to -2, it works.
+    //
+    SetFilePointer(FileHandle, -1, NULL, FILE_CURRENT);
+    WriteFile(FileHandle, "", 1, &NumberOfBytesWritten, NULL);
+
+    CloseHandle(FileHandle);
+
+#endif
 
 #ifdef MAKE_DLL
     DllHandle = LoadLibraryW(L"1.dll");
