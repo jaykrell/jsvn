@@ -1,20 +1,12 @@
-@if "%_echo%" == "" @echo off
-
 call \dev2\j\env\clearenv
 
-call "\Program Files\Microsoft Visual Studio .NET\Common7\Tools\vsvars32"
-call \msdev\70\common7\tools\vsvars32
+@echo on
 
-@set DevEnvDir=
-@set FrameworkDir=
-@set FrameworkSDKDir=
-@set FrameworkVersion=
-@set MSVCDir=
-@set LIBPATH=
-@set VCINSTALLDIR=
-@set VSINSTALLDIR=
+set INCLUDE=C:\msdev\70\VC7\ATLMFC\include;C:\msdev\70\VC7\include;C:\msdev\70\Vc7\PlatformSDK\include
+set LIB=C:\msdev\70\VC7\ATLMFC\lib;C:\msdev\70\VC7\lib;C:\msdev\70\Vc7\PlatformSDK\lib
+set PATH=C:\msdev\70\VC7\bin;C:\msdev\70\Common7\IDE;%PATH%
 
 @rem reset errorlevel
-dir > nul
+@dir > nul
 
 Title VC70
