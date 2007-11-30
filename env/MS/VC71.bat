@@ -1,20 +1,12 @@
-@if "%_echo%" == "" @echo off
+@call \dev2\j\env\clearenv
 
-call \dev2\j\env\clearenv
+@echo on
 
-call "\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\SetEnv"
-call \msdev\71\vcvars32
-
-@set DevEnvDir=
-@set FrameworkDir=
-@set FrameworkSDKDir=
-@set FrameworkVersion=
-@set MSVCDir=
-@set LIBPATH=
-@set VCINSTALLDIR=
-@set VSINSTALLDIR=
+set INCLUDE=C:\msdev\71\include;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Include
+set LIB=C:\msdev\71\lib;C:\Program Files\Microsoft Platform SDK for Windows Server 2003 R2\Lib
+set PATH=C:\msdev\71\BIN;%PATH%
 
 @rem reset errorlevel
-dir > nul
+@dir > nul
 
-Title VC71
+@Title VC71
