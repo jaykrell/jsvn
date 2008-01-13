@@ -10,14 +10,16 @@
 @setlocal
 @set a=%~n1
 @set a=%a:cm3.=%
-@endlocal & call :set_vc_and_cm3_path %0 %1 %a%
+@endlocal & call :set_c_and_cm3_path %0 %1 %a%
 @goto :eof
 
-:set_vc_and_cm3_path
+:set_c_and_cm3_path
 @if exist %~dp1..\Microsoft\%3.cmd @call %~dp1..\Microsoft\%3.cmd
 @if exist %~dp1..\Microsoft\%3.bat @call %~dp1..\Microsoft\%3.bat
 @if exist %~dp1..\MS\%3.cmd        @call %~dp1..\MS\%3.cmd
 @if exist %~dp1..\MS\%3.bat        @call %~dp1..\MS\%3.bat
+@if exist %~dp1..\%3.cmd        @call %~dp1..\%3.cmd
+@if exist %~dp1..\%3.bat        @call %~dp1..\%3.bat
 @echo on
 @call :set_cm3_env %2
 @Title cm3/%3
