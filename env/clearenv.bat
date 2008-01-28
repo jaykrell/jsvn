@@ -23,17 +23,21 @@
 @rem UNDONE Win9x
 @rem
 @set PATH=
-set _NT_SYMBOL_PATH=SRV*c:\symbols*\\jay-drive1\public\symbols*http://msdl.microsoft.com/download/symbols
+set _NT_SYMBOL_PATH=SRV*%SystemDrive%\symbols*\\jay-drive1\public\symbols*http://msdl.microsoft.com/download/symbols
 @goto :Dos
 
 :NT
-@set PATH=%WINDIR%\system32;%WINDIR%;%WINDIR%\System32\Wbem;c:\bin
+@set PATH=%WINDIR%\system32;%WINDIR%;%WINDIR%\System32\Wbem;%SystemDrive%\bin
 @set PATHEXT=.COM;.EXE;.BAT;.CMD
 @set PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH
 @set PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.RB;.RBW
+@if exist %SystemDrive%\Python25 (
+    @set PATHEXT=%PATHEXT%;.py;.pyw
+    @set PATH=%PATH%;%SystemDrive%\Python25
+)
 if not defined _NT_SYMBOL_PATH (
-    set _NT_SYMBOL_PATH=SRV*c:\symbols*http://msdl.microsoft.com/download/symbols
-    if exist \\jay-drive1\public\symbols set _NT_SYMBOL_PATH=SRV*c:\symbols*\\jay-drive1\public\symbols*http://msdl.microsoft.com/download/symbols
+    set _NT_SYMBOL_PATH=SRV*%SystemDrive%\symbols*http://msdl.microsoft.com/download/symbols
+    if exist \\jay-drive1\public\symbols set _NT_SYMBOL_PATH=SRV*%SystemDrive%\symbols*\\jay-drive1\public\symbols*http://msdl.microsoft.com/download/symbols
 )
 @goto :Common
 

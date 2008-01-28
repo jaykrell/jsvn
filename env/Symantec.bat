@@ -2,8 +2,8 @@
 
 call \dev2\j\env\clearenv
 
-set path=c:\sc\bin;%path%
-set help=c:\sc\help;%help%
+set path=%SystemDrive%\sc\bin;%path%
+set help=%SystemDrive%\sc\help;%help%
 
 @rem reset errorlevel
 dir > nul

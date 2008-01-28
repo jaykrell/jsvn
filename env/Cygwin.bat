@@ -2,7 +2,7 @@
 
 call \dev2\j\env\clearenv
 
-set PATH=c:\cygwin\bin;%PATH%
+set PATH=%SystemDrive%\cygwin\bin;%PATH%
 
 @rem reset errorlevel
 dir > nul

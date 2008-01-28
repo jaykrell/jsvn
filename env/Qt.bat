@@ -2,9 +2,9 @@
 
 call \dev2\j\env\clearenv
 
-set QTDIR=C:\Qt\4.2.1
-set PATH=C:\Qt\4.2.1\bin;%PATH%
-set PATH=C:\MinGW\bin;%PATH%
+set QTDIR=%SystemDrive%\Qt\4.2.1
+set PATH=%SystemDrive%\Qt\4.2.1\bin;%PATH%
+set PATH=%SystemDrive%\MinGW\bin;%PATH%
 set QMAKESPEC=win32-g++
 
 if not "%1" == "compile_debug" goto END

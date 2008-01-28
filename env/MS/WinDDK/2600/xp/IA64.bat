@@ -1,6 +1,6 @@
 @if "%_echo%" == "" @echo off
 pushd .
-call C:\WINDDK\2600.1106\bin\setenv C:\WINDDK\2600.1106 fre 64
+call %SystemDrive%\WINDDK\2600.1106\bin\setenv %SystemDrive%\WINDDK\2600.1106 fre 64
 popd
 if errorlevel 1 goto :eof
 set INCLUDE=%CRT_INC_PATH%;%INCLUDE%

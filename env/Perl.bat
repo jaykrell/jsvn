@@ -1,1 +1,1 @@
-set PATH=C:\Perl\bin;%PATH%
+set PATH=%SystemDrive%\Perl\bin;%PATH%
