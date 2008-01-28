@@ -12,16 +12,16 @@ set P4CLIENT=YOURCLIENT
 set P4PASSWD=YourPassword
 
 @rem Change this to point to your Open Watcom source tree - must be an 8.3 name!
-set OWROOT=c:\ow
+set OWROOT=%SystemDrive%\ow
 
 @rem Change this to point to your existing Open Watcom installation
-set WATCOM=c:\watcom
+set WATCOM=%SystemDrive%\watcom
 
 @rem placeholder
 @rem placeholder
 
 @rem Change this to the install location of GhostScript for PDF creation (optional)
-set GHOSTSCRIPT=c:\gs\gs7.04
+set GHOSTSCRIPT=%SystemDrive%\gs\gs7.04
 
 @rem Modifications beyond this point should not be necessary
 

@@ -2,7 +2,7 @@
 
 call \dev2\j\env\clearenv
 
-set PATH=C:\MinGW\bin;%PATH%
+set PATH=%SystemDrive%\MinGW\bin;%PATH%
 
 Title MinGW
 

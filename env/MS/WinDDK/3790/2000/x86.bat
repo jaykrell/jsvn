@@ -1,6 +1,6 @@
 @if "%_echo%" == "" @echo off
 pushd .
-call \WINDDK\3790\bin\setenv C:\WINDDK\3790 w2k f
+call \WINDDK\3790\bin\setenv %SystemDrive%\WINDDK\3790 w2k f
 popd
 
 rem Errorlevel is set here upon success so we cannot check it.

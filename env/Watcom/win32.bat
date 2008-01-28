@@ -2,7 +2,7 @@
 
 call \dev2\j\env\clearenv
 
-@set WATCOM=C:\WATCOM
+@set WATCOM=%SystemDrive%\WATCOM
 @set PATH=%WATCOM%\BINNT;%WATCOM%\BINW;%PATH%
 @set EDPATH=%WATCOM%\EDDAT
 @set INCLUDE=%WATCOM%\H;%WATCOM%\H\NT

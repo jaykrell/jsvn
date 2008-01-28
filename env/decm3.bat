@@ -1,1 +1,1 @@
-set PATH=c:\modula-3\bin;%PATH%
+set PATH=%SystemDrive%\modula-3\bin;%PATH%

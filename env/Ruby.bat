@@ -1,1 +1,1 @@
-set PATH=C:\Ruby\bin;%PATH%
+set PATH=%SystemDrive%\Ruby\bin;%PATH%
