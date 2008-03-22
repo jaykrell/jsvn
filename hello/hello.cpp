@@ -1,4 +1,7 @@
+#include <stdlib.h>
+#include <setjmpex.h>
 #include <stdio.h>
+#include <windows.h>
 
 void template_printf(const char* t)
 {
@@ -7,6 +10,8 @@ void template_printf(const char* t)
 
 int main()
 {
+    printf("%x\n", sizeof(jmp_buf));
+    exit(1);
 #if !defined(_MSC_VER) || defined(_CPPUNWIND)
     try
     {
