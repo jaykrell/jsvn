@@ -79,7 +79,7 @@ char* ReadEntireFile(const char* FilePath)
     while ((BytesRead = fread((Buffer + Size - ChunkSize), 1, ChunkSize, File)) == ChunkSize)
     {
         Size += ChunkSize;
-        NextBuffer = realloc(Buffer, Size);
+        NextBuffer = (char*) realloc(Buffer, Size);
         if (NextBuffer == NULL)
             goto Exit;
         Buffer = NextBuffer;
