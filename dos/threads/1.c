@@ -83,7 +83,7 @@ Thread_t* GetCurrentThread(void)
         : /* no inputs */
     );
     return ret;
-}
+}a
 
 void Scheduler_Yield()
 {
@@ -124,8 +124,10 @@ void Thread_Init(Thread_t* t)
     Context.jb[0].__eip = (size_t) _Thread_Start;
     Context.jb[0].__fs = __dpmi_create_alias_descriptor(Context.jb[0].__ds);
     __dpmi_get_descriptor(Context.jb[0].__fs, &d);
+    printf("size %x Limit1 %x Base1 %x Base2 %x Type %x S %x DPL %x P %x Limit2 %x AVL %x Reserved %x DB %x G %x Base3 %x ", sizeof(d), d.Limit1, d.Base1, d.Base2, d.Type, d.S, d.DPL, d.P, d.Limit2, d.AVL, d.Reserved, d.DB, d.G, d.Base3);
+    printf("base %x limit %x ", x86descriptor_get_base(&d), x86descriptor_get_limit(&d));
     d.G = 0;
-    x86descriptor_set_limit(&d, 0x22);
+    x86descriptor_set_limit(&d, 0x21);
     x86descriptor_set_base(&d, (size_t) t);
     t->Context = Context;
 }
