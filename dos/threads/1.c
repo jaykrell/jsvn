@@ -26,9 +26,17 @@ struct Context_t
     /* http://www.delorie.com/djgpp/doc/ug/asm/calling.html */
     UINT32 ebx,esi,edi,ebp;
 
+    /* future
+    UINT32 eax,ecx,edx
+    */
+
     /* other */
     UINT32 esp;
     UINT16 fs; /* thread, like NT */
+
+    /* We must depend on setjmp/longjmp details in order for preemptive threads to work, since
+    we depend on underlying DJGPP support for setitimer.*/
+    jmp_buf jb;
 };
 
 /*
