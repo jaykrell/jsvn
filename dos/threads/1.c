@@ -1,18 +1,27 @@
+#include <assert.h>
 #include <dpmi.h>
 #include <stdlib.h>
 #include <string.h>
-#include <setjmp.h>
 #include <stdio.h>
+
+typedef unsigned char UINT8;
+typedef unsigned short UINT16;
+typedef unsigned long UINT32;
 
 struct x86descriptor_t; typedef struct x86descriptor_t x86descriptor_t;
 struct Context_t; typedef struct Context_t Context_t;
 struct Thread_t; typedef struct Thread_t Thread_t;
 
+Thread_t* GetCurrentThread(void);
+UINT32 GetContext(Context_t*);
+void   SetContext(const Context_t*);
+UINT32 GetDS(void);
+
 struct Context_t
 {
-    jmp_buf jb;
+    UINT32 eip,ebx,ecx,edx,ebp,edi,esi,esp;
+    UINT16 fs;
 };
-
 
 /*
 http://www.informit.com/articles/article.aspx?p=167857&seqNum=3
@@ -73,27 +82,36 @@ struct Thread_t
     unsigned Exited : 1;
 };
 
-Thread_t* GetCurrentThread(void)
+/* winnt.h */
+__inline__ Thread_t * GetCurrentThread(void)
 {
-    /* winnt.h */
-    Thread_t* ret;
+    Thread_t *ret;
+
     __asm__ __volatile__ (
         "mov{l} {%%fs:0x18,%0|%0,%%fs:0x18}\n"
         : "=r" (ret)
         : /* no inputs */
     );
+
     return ret;
-}a
+}
 
 void Scheduler_Yield()
 {
+    Thread_t* t = GetCurrentThread();
+    if (GetContext(&t->Context))
+        return;
+    /* obviously need work here to pick next thread */
+    SetContext(&t->Next->Context);
 }
 
 char* Thread1_Entry(char* a)
 {
-    while (1)
+    unsigned b;
+    for (b = 0 ; b != 20 ; ++b)
     {
-        printf("thread 1\n");
+        printf("thread 1 %x ", a);
+        fflush(stdout);
         Scheduler_Yield();
     }
     return 0;
@@ -101,17 +119,22 @@ char* Thread1_Entry(char* a)
 
 char* Thread2_Entry(char* a)
 {
-    while (1)
+    unsigned b;
+    for (b = 0 ; b != 20 ; ++b)
     {
-        printf("thread 2\n");
+        printf("thread 2 %x ", a);
+        fflush(stdout);
         Scheduler_Yield();
     }
     return 0;
 }
 
-char* _Thread_Start(char * a)
+void _Thread_Entry(Thread_t* t)
 {
-    return a + 1;
+    t->ExitValue = t->Entry(t->Parameter);
+    printf("thread end\n");
+    /* need work here */
+    exit(2);
 }
 
 void Thread_Init(Thread_t* t)
@@ -119,22 +142,31 @@ void Thread_Init(Thread_t* t)
     Context_t Context;
     x86descriptor_t d;
 
-    setjmp(Context.jb);
-    Context.jb[0].__esp = (size_t) calloc(1, 1UL << 16);
-    Context.jb[0].__eip = (size_t) _Thread_Start;
-    Context.jb[0].__fs = __dpmi_create_alias_descriptor(Context.jb[0].__ds);
-    __dpmi_get_descriptor(Context.jb[0].__fs, &d);
-    printf("size %x Limit1 %x Base1 %x Base2 %x Type %x S %x DPL %x P %x Limit2 %x AVL %x Reserved %x DB %x G %x Base3 %x ", sizeof(d), d.Limit1, d.Base1, d.Base2, d.Type, d.S, d.DPL, d.P, d.Limit2, d.AVL, d.Reserved, d.DB, d.G, d.Base3);
-    printf("base %x limit %x ", x86descriptor_get_base(&d), x86descriptor_get_limit(&d));
-    d.G = 0;
-    x86descriptor_set_limit(&d, 0x21);
-    x86descriptor_set_base(&d, (size_t) t);
+    t->Self = t;
+    GetContext(&Context);
+    Context.esp = (size_t) calloc(1, 1UL << 16);
+    Context.esp += ((1UL << 16) - 4);
+    *((UINT32*)Context.esp) = (UINT32) t;
+    Context.esp -= 4;
+    *((UINT32*)Context.esp) = (UINT32) _Thread_Entry;
+    Context.esp -= 4;
+    Context.fs = __dpmi_create_alias_descriptor(GetDS());
+    __dpmi_get_descriptor(Context.fs, &d);
+    assert(d.G == 0);
+    x86descriptor_set_limit(&d, 0x18+3);
+    x86descriptor_set_base(&d, x86descriptor_get_base(&d) + (size_t) t);
+    __dpmi_set_descriptor(Context.fs, &d);
+/*
+    Context.fs = __dpmi_allocate_ldt_descriptors(1);
+    __dpmi_set_segment_base_address(Context.fs, (size_t) t);
+    __dpmi_set_segment_limit(Context.fs, 0x18 + 3);
+*/
     t->Context = Context;
 }
 
 void Thread_Run(Thread_t* t)
 {
-    longjmp(t->Context.jb, 1);
+    SetContext(&t->Context);
 }
 
 int main()
@@ -147,8 +179,10 @@ int main()
     Thread2.Next = &Thread1;
     Thread2.Entry = Thread2_Entry;
 
-    Thread1.Parameter = (char*) (size_t) 123;
+    Thread1.Parameter = (char*) (size_t) 0x123;
+    Thread2.Parameter = (char*) (size_t) 0x456;
     Thread_Init(&Thread1);
+    Thread_Init(&Thread2);
     Thread_Run(&Thread1);
 
     return 0;
