@@ -14,7 +14,7 @@ struct Thread_t; typedef struct Thread_t Thread_t;
 
 Thread_t* GetCurrentThread(void);
 UINT32 GetContext(Context_t*);
-void   SetContext(const Context_t*);
+void   SetContext(Context_t*);
 UINT32 GetDS(void);
 
 struct Context_t
@@ -102,7 +102,8 @@ void Scheduler_Yield()
     if (GetContext(&t->Context))
         return;
     /* obviously need work here to pick next thread */
-    SetContext(&t->Next->Context);
+    t = t->Next;
+    SetContext(&t->Context);
 }
 
 char* Thread1_Entry(char* a)
@@ -148,8 +149,9 @@ void Thread_Init(Thread_t* t)
     Context.esp += ((1UL << 16) - 4);
     *((UINT32*)Context.esp) = (UINT32) t;
     Context.esp -= 4;
-    *((UINT32*)Context.esp) = (UINT32) _Thread_Entry;
-    Context.esp -= 4;
+    /* *((UINT32*)Context.esp) = (UINT32) _Thread_Entry; */
+    Context.esp -= 4; /* why? */
+    Context.eip = (UINT32) _Thread_Entry;
     Context.fs = __dpmi_create_alias_descriptor(GetDS());
     __dpmi_get_descriptor(Context.fs, &d);
     assert(d.G == 0);
