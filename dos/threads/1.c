@@ -1,18 +1,27 @@
+#include <dpmi.h>
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
 #include <stdio.h>
 
+struct x86descriptor_t; typedef struct x86descriptor_t x86descriptor_t;
+struct Context_t; typedef struct Context_t Context_t;
+struct Thread_t; typedef struct Thread_t Thread_t;
+
+struct Context_t
+{
+    jmp_buf jb;
+};
+
+
 /*
 http://www.informit.com/articles/article.aspx?p=167857&seqNum=3
 */
-struct x86descriptor_t;
-typedef struct x86descriptor_t x86descriptor_t;
 struct x86descriptor_t
 {
     unsigned Limit1 : 16;
     unsigned Base1 : 16;
-    unsigned Base2 : 16;
+    unsigned Base2 : 8;
     unsigned Type : 4;
     unsigned S : 1;
     unsigned DPL : 2;
@@ -25,32 +34,30 @@ struct x86descriptor_t
     unsigned Base3 : 8;
 };
 
-unsigned x86descriptor_get_limit(x86descriptor* a)
+unsigned x86descriptor_get_limit(x86descriptor_t* a)
 {
     return ((a->Limit2 << 16) | a->Limit1);
 }
 
-void x86descriptor_set_limit(x86descriptor* a, unsigned b)
+void x86descriptor_set_limit(x86descriptor_t* a, unsigned b)
 {
     a->Limit2 = (b >> 16);
     a->Limit1 = b;
 }
 
-unsigned x86descriptor_get_base(x86descriptor* a)
+unsigned x86descriptor_get_base(x86descriptor_t* a)
 {
-    return ((a->Base3 << << 32) | (a->Base2 << 16) | (a->Base1));
+    return ((a->Base3 << 24) | (a->Base2 << 16) | (a->Base1));
 }
 
-void x86descriptor_set_base(x86descriptor* a, unsigned b)
+void x86descriptor_set_base(x86descriptor_t* a, unsigned b)
 {
-    a->Base3 = (b >> 32);
+    a->Base3 = (b >> 24);
     a->Base2 = (b >> 16);
     a->Base1 = b;
 }
 
-typedef struct Thread_t Thread_t;
-
-typedef struct Thread_t
+struct Thread_t
 {
     /* winnt.h */
     /* 0 */ size_t EH;
@@ -59,12 +66,12 @@ typedef struct Thread_t
     /* 12,16,20 */ size_t Reserved[3];
     /* 24 */ Thread_t * Self;
     Thread_t* Next;
-    char* (*Start)(char* Parameter);
+    char* (*Entry)(char* Parameter);
     char* Parameter;
-    jmp_buf Context;
+    Context_t Context;
     char* ExitValue;
     unsigned Exited : 1;
-} Thread_t;
+};
 
 Thread_t* GetCurrentThread(void)
 {
@@ -76,6 +83,10 @@ Thread_t* GetCurrentThread(void)
         : /* no inputs */
     );
     return ret;
+}
+
+void Scheduler_Yield()
+{
 }
 
 char* Thread1_Entry(char* a)
@@ -98,43 +109,45 @@ char* Thread2_Entry(char* a)
     return 0;
 }
 
-extern Thread_t Thread2;
-Thread_t Thread1 = { &Thread2, Thread1_Entry };
-Thread_t Thread2 = { &Thread1, Thread2_Entry };
-
-void Thread_Init(void)
+char* _Thread_Start(char * a)
 {
-    jmp_buf jb;
-    x86descriptor_t sel;
+    return a + 1;
+}
 
-    setjmp(jb);
-    /*
-    jb.__eax = 0;
-    jb.__ebx = 0;
-    jb.__edx = 0;
-    jb.__esi = 0;
-    jb.__edi = 0;
-    jb.__ebp = 0;
-    */
-    jb.__esp = (size_t) calloc(1, 1UL << 16);
-    jb.__eip = _Thread_Start;
-    __dpmi_get_descriptor(jb.ds, &sel);
+void Thread_Init(Thread_t* t)
+{
+    Context_t Context;
+    x86descriptor_t d;
+
+    setjmp(Context.jb);
+    Context.jb[0].__esp = (size_t) calloc(1, 1UL << 16);
+    Context.jb[0].__eip = (size_t) _Thread_Start;
+    Context.jb[0].__fs = __dpmi_create_alias_descriptor(Context.jb[0].__ds);
+    __dpmi_get_descriptor(Context.jb[0].__fs, &d);
+    d.G = 0;
+    x86descriptor_set_limit(&d, 0x22);
+    x86descriptor_set_base(&d, (size_t) t);
+    t->Context = Context;
+}
+
+void Thread_Run(Thread_t* t)
+{
+    longjmp(t->Context.jb, 1);
 }
 
 int main()
 {
-    Thread_t t;
+    Thread_t Thread1 = { 0 };
+    Thread_t Thread2 = { 0 };
 
-    memset(&t, 0, sizeof(t));
-    try
-    {
-        t.Start = &ThreadMain;
-        t.Parameter = (char*) (size_t) 123;
-        Thread_Run(&t);
-    }
-    catch (...)
-    {
-        exit(2);
-    }
+    Thread1.Next = &Thread2;
+    Thread1.Entry = Thread1_Entry;
+    Thread2.Next = &Thread1;
+    Thread2.Entry = Thread2_Entry;
+
+    Thread1.Parameter = (char*) (size_t) 123;
+    Thread_Init(&Thread1);
+    Thread_Run(&Thread1);
+
     return 0;
 }
