@@ -19,8 +19,16 @@ UINT32 GetDS(void);
 
 struct Context_t
 {
-    UINT32 eip,ebx,ecx,edx,ebp,edi,esi,esp;
-    UINT16 fs;
+    /* for now since context switch occurs at function call boundary
+    and not at instruction/interrupt boundary, only save the non-volatile registers */
+
+    /* non-volatile registers */
+    /* http://www.delorie.com/djgpp/doc/ug/asm/calling.html */
+    UINT32 ebx,esi,edi,ebp;
+
+    /* other */
+    UINT32 esp;
+    UINT16 fs; /* thread, like NT */
 };
 
 /*
@@ -108,7 +116,7 @@ void Scheduler_Yield()
 
 char* Thread1_Entry(char* a)
 {
-    unsigned b;
+    volatile unsigned b;
     for (b = 0 ; b != 20 ; ++b)
     {
         printf("thread 1 %x ", a);
@@ -120,7 +128,7 @@ char* Thread1_Entry(char* a)
 
 char* Thread2_Entry(char* a)
 {
-    unsigned b;
+    volatile unsigned b;
     for (b = 0 ; b != 20 ; ++b)
     {
         printf("thread 2 %x ", a);
@@ -149,9 +157,8 @@ void Thread_Init(Thread_t* t)
     Context.esp += ((1UL << 16) - 4);
     *((UINT32*)Context.esp) = (UINT32) t;
     Context.esp -= 4;
-    /* *((UINT32*)Context.esp) = (UINT32) _Thread_Entry; */
-    Context.esp -= 4; /* why? */
-    Context.eip = (UINT32) _Thread_Entry;
+    Context.esp -= 4; /* simulated room for return address from Thread_Entry */
+    *((UINT32*)Context.esp) = (UINT32) _Thread_Entry;
     Context.fs = __dpmi_create_alias_descriptor(GetDS());
     __dpmi_get_descriptor(Context.fs, &d);
     assert(d.G == 0);
