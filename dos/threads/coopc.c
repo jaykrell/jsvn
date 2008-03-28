@@ -33,10 +33,6 @@ struct Context_t
     /* other */
     UINT32 esp;
     UINT16 fs; /* thread, like NT */
-
-    /* We must depend on setjmp/longjmp details in order for preemptive threads to work, since
-    we depend on underlying DJGPP support for setitimer.*/
-    jmp_buf jb;
 };
 
 /*
