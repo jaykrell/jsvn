@@ -17,6 +17,8 @@ UINT32 GetContext(Context_t*);
 void   SetContext(Context_t*);
 UINT32 GetDS(void);
 
+/*#define MANIPULATE_DESCRIPTOR*/
+
 struct Context_t
 {
     /* for now since context switch occurs at function call boundary
@@ -35,6 +37,7 @@ struct Context_t
     UINT16 fs; /* thread, like NT */
 };
 
+#ifdef MANIPULATE_DESCRIPTOR
 /*
 http://www.informit.com/articles/article.aspx?p=167857&seqNum=3
 */
@@ -77,6 +80,8 @@ void x86descriptor_set_base(x86descriptor_t* a, unsigned b)
     a->Base2 = (b >> 16);
     a->Base1 = b;
 }
+
+#endif
 
 struct Thread_t
 {
@@ -153,7 +158,11 @@ void _Thread_Entry(Thread_t* t)
 void Thread_Init(Thread_t* t)
 {
     Context_t Context;
+#ifndef MANIPULATE_DESCRIPTOR
+    unsigned long dbase;
+#else
     x86descriptor_t d;
+#endif
 
     t->Self = t;
     GetContext(&Context);
@@ -163,17 +172,19 @@ void Thread_Init(Thread_t* t)
     Context.esp -= 4;
     Context.esp -= 4; /* simulated room for return address from Thread_Entry */
     *((UINT32*)Context.esp) = (UINT32) _Thread_Entry;
+#ifdef MANIPULATE_DESCRIPTOR
     Context.fs = __dpmi_create_alias_descriptor(GetDS());
     __dpmi_get_descriptor(Context.fs, &d);
     assert(d.G == 0);
     x86descriptor_set_limit(&d, 0x18+3);
     x86descriptor_set_base(&d, x86descriptor_get_base(&d) + (size_t) t);
     __dpmi_set_descriptor(Context.fs, &d);
-/*
+#else
     Context.fs = __dpmi_allocate_ldt_descriptors(1);
-    __dpmi_set_segment_base_address(Context.fs, (size_t) t);
+    __dpmi_get_segment_base_address(GetDS(), &dbase);
+    __dpmi_set_segment_base_address(Context.fs, dbase + (size_t) t);
     __dpmi_set_segment_limit(Context.fs, 0x18 + 3);
-*/
+#endif
     t->Context = Context;
 }
 
