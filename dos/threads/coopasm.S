@@ -6,6 +6,11 @@ _GetDS:
 	movw %ds,%ax
 	ret
 
+.globl _GetCurrentThread
+_GetCurrentThread:
+    xor %fs:0x18,%eax
+	ret
+
 .globl _GetContext
 _GetContext:
     movl 4(%esp),%eax
