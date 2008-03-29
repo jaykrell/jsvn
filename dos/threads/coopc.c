@@ -99,7 +99,9 @@ struct Thread_t
     unsigned Exited : 1;
 };
 
-/* winnt.h */
+#if 0 /* some versions of gas don't like this, so we'll do it
+in simpler gas directly, losing the optimizations */
+/* winnt.h *
 __inline__ Thread_t * GetCurrentThread(void)
 {
     Thread_t *ret;
@@ -112,6 +114,7 @@ __inline__ Thread_t * GetCurrentThread(void)
 
     return ret;
 }
+#endif
 
 void Scheduler_Yield()
 {
