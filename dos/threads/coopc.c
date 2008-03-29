@@ -99,9 +99,10 @@ struct Thread_t
     unsigned Exited : 1;
 };
 
-#if 0 /* some versions of gas don't like this, so we'll do it
-in simpler gas directly, losing the optimizations */
-/* winnt.h *
+#if 0
+// some versions of gas don't like this, so we'll do it
+// in simpler gas directly, possibly losing optimization
+/* winnt.h */
 __inline__ Thread_t * GetCurrentThread(void)
 {
     Thread_t *ret;
