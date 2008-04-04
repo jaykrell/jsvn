@@ -2,6 +2,7 @@
 
 call \dev2\j\env\clearenv
 
+set PATH=%SystemDrive%\cygwin\usr\X11R6\bin;%PATH%
 set PATH=%SystemDrive%\cygwin\bin;%PATH%
 set CYGWIN=server
 

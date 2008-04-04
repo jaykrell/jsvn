@@ -1,3 +1,3 @@
-CVS_RSH=ssh
-CVSROOT=:ext:jkrell@www.elegosoft.com:/usr/cvs
-export CVS_RSH CVSROOT
+export CVS_RSH=ssh
+export CVSROOT=:ext:jkrell@www.elegosoft.com:/usr/cvs
+
