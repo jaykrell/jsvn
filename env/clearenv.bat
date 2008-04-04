@@ -35,6 +35,9 @@ set _NT_SYMBOL_PATH=SRV*%SystemDrive%\symbols*\\jay-drive1\public\symbols*http:/
     @set PATHEXT=%PATHEXT%;.py;.pyw
     @set PATH=%PATH%;%SystemDrive%\Python25
 )
+@if exist %SystemDrive%\cygwin\usr\X11R6\bin (
+    @set PATH=%PATH%;%SystemDrive%\cygwin\usr\X11R6\bin
+)
 @if exist %SystemDrive%\cygwin\bin (
     @set PATH=%PATH%;%SystemDrive%\cygwin\bin
 )

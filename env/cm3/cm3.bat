@@ -34,7 +34,12 @@ set INCLUDE=%INCLUDE%
 set CVS_RSH=ssh
 set CVSROOT=:ext:jkrell@m3.elegosoft.com:/usr/cvs
 
-set CM3_OSTYPE=
+set CM3_GCC_BACKEND=
+set CM3_OSTYPE=WIN32
+set CM3_TARGET=NT386
 set OMIT_GCC=yes
+set CM3_ROOT=c:\dev2\cm3.2
+set CM3_INSTALL=c:\cm3
+set M3CONFIG=c:\dev2\cm3.2\m3-sys\cminstall\src\config\NT386
 
 @goto :eof
