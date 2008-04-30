@@ -1,6 +1,6 @@
 @if "%_echo%" == "" @echo off
 
-call \dev2\j\env\clearenv
+call %SystemDrive%\dev2\j\env\clearenv
 
 set PATH=%SystemDrive%\MinGW\bin;%PATH%
 
