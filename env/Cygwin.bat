@@ -1,6 +1,6 @@
 @if "%_echo%" == "" @echo off
 
-call \dev2\j\env\clearenv
+call %SystemDrive%\dev2\j\env\clearenv
 
 set PATH=%SystemDrive%\cygwin\usr\X11R6\bin;%PATH%
 set PATH=%SystemDrive%\cygwin\bin;%PATH%
