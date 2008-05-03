@@ -38,8 +38,9 @@ set CM3_GCC_BACKEND=
 set CM3_OSTYPE=WIN32
 set CM3_TARGET=NT386
 set OMIT_GCC=yes
-set CM3_ROOT=%SystemDrive%\dev2\cm3.2
+set CM3_ROOT=%SystemDrive%\dev2\cm3
+if exist %SystemDrive%\dev2\cm3.2 set CM3_ROOT=%SystemDrive%\dev2\cm3.2
 set CM3_INSTALL=%SystemDrive%\cm3
-set M3CONFIG=%SystemDrive%\dev2\cm3.2\m3-sys\cminstall\src\config\NT386
+set M3CONFIG=%CM3_ROOT%\m3-sys\cminstall\src\config\NT386
 
 @goto :eof
