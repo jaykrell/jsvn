@@ -4,12 +4,13 @@ import os
 from os.path import join, getsize
 import re
 
-re1 = re.compile("-[0-9][0-9][0-9].zip$")
+re1 = re.compile("(^.+)-[0-9][0-9][0-9](\.(?:zip|tgz|txt|README|txt~))$")
 
 for root, dirs, files in os.walk("."):
     for name in files:
-        if re1.search(name):
-            name0 = name[:len(name) - 8] + ".zip"
+        match = re1.search(name)
+        if match:
+            name0 = match.group(1) + match.group(2)
             if name0 in files:
                 name = os.path.join(root, name)
                 name0 = os.path.join(root, name0)
