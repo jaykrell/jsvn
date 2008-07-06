@@ -1,6 +1,7 @@
 #
 #
 # convert.tgz, .tar.gz, .tbz, .tar.bz2 files to .tlz (.tar.lzma)
+# reprocess .tlz files to make sure the files are all world-readable
 #
 #
 
@@ -35,6 +36,10 @@ CreateDirectoryCommand = "mkdir -pv -- "
 if os.name == "nt":
     CreateDirectoryCommand = "mkdir "
 
+DeleteFileCommand = "rm -- "
+if os.name == "nt":
+    DeleteFileCommand = "del "
+
 def Unzip(File):
 
     TemporaryDirectory = mkdtemp()
@@ -56,6 +61,9 @@ def Unzip(File):
         Command = "cacls . /t /e /g " + os.environ["USERDOMAIN"] + "\\" + os.environ["USERNAME"] + ":F"
         print(Command)
         os.system(Command)
+        Command = "cacls . /t /e /g Everyone:R"
+        print(Command)
+        os.system(Command)
     print(ChdirCommand + PreviousDirectory)
     os.chdir(PreviousDirectory)
     return TemporaryDirectory
@@ -75,7 +83,7 @@ def ArchiveDirectory(ArchiveDirectory, Directory):
     TemporaryArchive = os.path.join(os.pardir, os.path.basename(ArchiveDirectory))
     # This should work, but doesn't.
     #TemporaryArchive = os.path.join(Directory, os.path.basename(ArchiveDirectory))
-    Command = "tar --lzma -cf " + TemporaryArchive + " ."
+    Command = "tar --lzma -vcf " + TemporaryArchive + " ."
     print(Command)
     ExitCode = os.system(Command)
     if ExitCode != 0:
@@ -88,7 +96,7 @@ def ArchiveDirectory(ArchiveDirectory, Directory):
     os.chdir(PreviousDirectory)
 
 
-def EnsureOutputDoesNotExist(Base):
+def CheckOutput(Base):
 
     #
     # I am not sure we reliably know what the output (or intermediate) file is.
@@ -98,13 +106,19 @@ def EnsureOutputDoesNotExist(Base):
     for a in ["", ".tlz", ".tar"]:
         b = Base + a
         if os.path.isfile(b):
-            print("ERROR: " + b + " already exists")
-            sys.exit(1)
+            print("WARNING: " + b + " already exists")
+            return True
+    return False
 
 def ConvertZipToTlz(CurrentDirectory, Root, BaseName, Extension):
 
-    EnsureOutputDoesNotExist(join(CurrentDirectory, Root, BaseName))
     Path = join(CurrentDirectory, Root, BaseName + Extension)
+
+    if CheckOutput(join(CurrentDirectory, Root, BaseName)):
+        print(DeleteFileCommand + Path)
+        os.unlink(Path)
+        return
+
     TemporaryDirectory = Unzip(Path)
     ArchiveDirectory(join(CurrentDirectory, Root, BaseName + ".tlz"), TemporaryDirectory)
     #
@@ -113,17 +127,20 @@ def ConvertZipToTlz(CurrentDirectory, Root, BaseName, Extension):
     Command = DeleteDirectoryRecursiveCommand + TemporaryDirectory
     print(Command)
     os.system(Command)
-    print("del " + Path)
+    print(DeleteFileCommand + Path)
     os.unlink(Path)
 
 def ConvertCompressedTarToTlz(CurrentDirectory, Root, BaseName, Extension):
+
+    if CheckOutput(join(CurrentDirectory, Root, BaseName)):
+        print(DeleteFileCommand + Path)
+        os.unlink(Path)
+        return
 
     Directory = join(CurrentDirectory, Root)
     PreviousDirectory = os.getcwd()
     print(ChdirCommand + Directory)
     os.chdir(Directory)
-
-    EnsureOutputDoesNotExist(BaseName)
 
     TarFiles = ["", ""]
 
