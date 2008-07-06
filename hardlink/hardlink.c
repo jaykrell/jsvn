@@ -263,6 +263,9 @@ int Main(int argc, wchar_t** argv)
     }
     else if (Exists1 && Exists2)
     {
+        /*
+        BUG: delete the one with only one link
+        */
         SetFileAttributesW(argv[2], 0);
         DeleteFileW(argv[2]);
         wprintf(L"del /f /a %ls\n", Qargv2);
