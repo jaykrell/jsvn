@@ -27,7 +27,7 @@ import shutil
 # These variables let you manually control incrementality after failed runs.
 #
 
-DoCleanSource = False
+DoCleanSource = True
 
 #
 # steps per package
@@ -40,57 +40,74 @@ DoCleanSource = False
 #
 # We need some loops here.
 #
+# However the combined tree reduces the obvious need for loops, at least for gcc/binutils/gmp/mpfr.
+#  (We should really still build gmp/mpfr independently so we can install them independently/shared).
+#
 
-DoClean1Gmp = False
-DoClean1Mpfr = False
-DoClean1Binutils = False
-DoClean1Gcc = False
-DoClean12Binutils = True
-DoClean12Gcc = True
-DoClean2Gmp = True
-DoClean2Mpfr = True
-DoClean2Binutils = True
-DoClean2Gcc = True
 
-DoConfigure1Gmp = False
-DoConfigure1Mpfr = False
-DoConfigure1Binutils = False
-DoConfigure1Gcc = False
-DoConfigure12Gcc = True
-DoConfigure12Binutils = True
-DoConfigure2Gmp = True
-DoConfigure2Mpfr = True
-DoConfigure2Binutils = True
-DoConfigure2Gcc = True
+#
+# a fully combined tree builds much more than necessary
+#
+# D:\obj\gcc>for %a in ( libiberty.a libgmp.a libmpfr.a ) do dir /s/b %a
+#
+#
+# We only need two of these (first two are the same? but much different in size, I think I know why.).
+#
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\gmp\.libs\libgmp.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\gmp\.libs\libgmp.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\gmp\.libs\libgmp.a
+#
+# And two of these (first two are the same? but much different in size, I think I know why.).
+#
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\mpfr\.libs\libmpfr.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\mpfr\.libs\libmpfr.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\mpfr\.libs\libmpfr.a
+#
+# And two of these (ok, multilibs showing here too, three of these if you allow that,
+# and this is still building, might build more?):
+#
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\build-i686-pc-cygwin\libiberty\libiberty.a
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\i686-pc-cygwin\libiberty\libiberty.a
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\libiberty\libiberty.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\build-i686-pc-cygwin\libiberty\libiberty.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\libiberty\libiberty.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\sparc-sun-solaris2.10\libiberty\libiberty.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparcv9\libiberty\libiberty.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\build-i686-pc-cygwin\libiberty\libiberty.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\libiberty\libiberty.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparc-sun-solaris2.10\libiberty\libiberty.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparcv9\libiberty\libiberty.a
+#
+# We only need six .libs among all of these, not counting mulitlibs, not 17 or more.
+# We also get 10 libgcc.a (including mulitlib), when just 2 should suffice, or 3 with multilib.
+# Some of these might be copies/links, but there is still more than necessary.
+#
+#
+DoClean1 = True
+DoClean12 = True
+DoClean2 = True
 
-DoMake1Gmp = False
-DoMake1Mpfr = False
-DoMake1Binutils = False
-DoMake1Gcc = False
-DoMake12Binutils = True
-DoMake12Gcc = True
-DoMake2Gmp = True
-DoMake2Mpfr = True
-DoMake2Binutils = True
-DoMake2Gcc = True
+DoConfigure1 = True
+DoConfigure12 = True
+DoConfigure2 = True
 
-DoInstall1Gmp = False
-DoInstall1Mpfr = False
-DoInstall1Binutils = False
-DoInstall1Gcc = False
-DoInstall12Binutils = True
-DoInstall12Gcc = True
-DoInstall2Gmp = True
-DoInstall2Mpfr = True
-DoInstall2Binutils = True
-DoInstall2Gcc = True
+DoMake1 = True
+DoMake12 = True
+DoMake2 = True
 
+DoInstall1 = True
+DoInstall12 = True
+DoInstall2 = True
+
+#
+# FUTURE need to split notion of "package name" from "package version"
+#
 VersionGcc = "gcc-4.3.1"
 VersionMpfr = "mpfr-2.3.1"
 VersionGmp = "gmp-4.2.2"
 VersionBinutils = "binutils-2.18"
 
-ObjRoot = "/obj"
+ObjRoot = "/obj/gcc"
 
 #
 # use canonical names including version
@@ -161,6 +178,7 @@ ConfigCommon += " -without-libiconv-prefix "
 # Keep everything in English, and don't waste time otherwise.
 #
 ConfigCommon += " -disable-nls "
+ConfigCommon += " -disable-intl "
 
 ConfigCommon += " -with-gnu-as "
 ConfigCommon += " -with-gnu-ld "
@@ -205,12 +223,19 @@ ConfigCommon += " -disable-win32-registry "
 #
 # Similar to -enable-all-targets, for 32bit binutils.
 #
-ConfigCommon += " -enable-64-bit-bfd "
+# ConfigCommon += " -enable-64-bit-bfd "
 
 #
-# Multilib takes a lot longer to build and is popular for people to disable.
+# This is a nice speed up, but it might take away ability for 32 bit and 64 bit
+# to target each other.
 #
-# ConfigCommon += " -disable-multilib "
+ConfigCommon += " -disable-multilib "
+
+#
+# random speeds ups, some people will want these
+#
+ConfigCommon += " -disable-libgomp "
+ConfigCommon += " -disable-libssp "
 
 #
 # This is probably a losing battle, but for now we use identical
@@ -232,7 +257,9 @@ Prefix = " "
 Sysroot = " "
 WithGmp = " -with-gmp=" + DestDir1 + Prefix0 + " "
 WithMpfr = " -with-mpfr=" + DestDir1 + Prefix0 + " "
-Config1 = ConfigCommon + Host + Target + Sysroot + WithGmp + WithMpfr + Prefix + " -enable-languages=all  "
+WithGmp = " "
+WithMpfr = " "
+Config1 = ConfigCommon + Host + Target + Sysroot + WithGmp + WithMpfr + Prefix + " -enable-languages=all "
 Config1 = re.sub(" +", " ", Config1)
 
 #
@@ -241,14 +268,14 @@ Config1 = re.sub(" +", " ", Config1)
 
 Host = " -host " + Platform1
 Target = " -target " + Platform2
-Prefix = " -prefix " + Prefix0 + " "
+# Prefix = " -prefix " + Prefix0 + " "
 Prefix = " "
+# WithGmp = " -with-gmp=" + DestDir12 + Prefix0 + " "
+# WithMpfr = " -with-mpfr=" + DestDir12 + Prefix0 + " "
 WithGmp = " "
 WithMpfr = " "
-WithGmp = " -with-gmp=" + DestDir12 + Prefix0 + " "
-WithMpfr = " -with-mpfr=" + DestDir12 + Prefix0 + " "
 Sysroot = " -with-sysroot "
-Config12 = ConfigCommon + Host + Target + Sysroot + WithGmp + WithMpfr + Prefix + " -enable-languages=c,c++  "
+Config12 = ConfigCommon + Host + Target + Sysroot + WithGmp + WithMpfr + Prefix + " -enable-languages=c,c++ "
 Config12 = re.sub(" +", " ", Config12)
 
 #
@@ -257,82 +284,50 @@ Config12 = re.sub(" +", " ", Config12)
 
 Host = " -host " + Platform2
 Target = " -target " + Platform2 + " "
-Prefix = " -prefix " + Prefix0 + " "
+# Prefix = " -prefix " + Prefix0 + " "
 Prefix = " "
-WithGmp = " -with-gmp=" + DestDir2 + Prefix0 + " "
-WithMpfr = " -with-mpfr=" + DestDir2 + Prefix0 + " "
+# WithGmp = " -with-gmp=" + DestDir2 + Prefix0 + " "
+# WithMpfr = " -with-mpfr=" + DestDir2 + Prefix0 + " "
+WithGmp = " "
+WithMpfr = " "
 Sysroot = " "
 Config2 = ConfigCommon + Host + Target + Sysroot + WithGmp + WithMpfr + Prefix + " -enable-languages=c,c++ "
 Config2 = re.sub(" +", " ", Config2)
 
 
 #
-# due to frequent occurences of "error: can't allocate lock", all this
-# threading, which often works, is not used, alas
+# Some of this could be multithreaded/overlapped, but I get a lot of:
+#   "error: can't allocate lock", when I try to use threads in Python (Cygwin?)
 #
-if False:
 
-    def _ThreadMain(Dependents, Directory, Command):
-        for Dependent in Dependents:
-            Wait(Dependent)
-        if Directory != ".":
-            print("cd " + Directory + " && " + Command)
-        else:
-            print(Command)
+def Run(Dependents, Directory, Command):
+    if Directory != ".":
+        print("cd " + Directory + " && " + Command)
+    else:
+        print(Command)
+    PreviousDirectory = os.getcwd()
+    os.chdir(Directory)
 
-        IgnoreError = False
-        if Command[0] == '-':
-            IgnoreError = True
-            Command = Command[1:]
+    IgnoreError = False
+    if Command[0] == '-':
+        IgnoreError = True
+        Command = Command[1:]
 
-        if os.name == "nt":
-            Command = "sh -c \"" + Command + "\""
-        Proces = Popen(Command, cwd = Directory, shell = True)
-        ExitCode = Proces.wait()
+    ExitCode = 0
+    if os.name == "nt":
+        Command = "sh -c \"" + Command + "\""
+    ExitCode = os.system(Command)
+    os.chdir(PreviousDirectory)
 
-        if not IgnoreError:
-            if ExitCode != 0:
-                sys.exit(ExitCode) # Why doesn't this work?
+    if not IgnoreError:
+        if ExitCode != 0:
+            sys.exit(ExitCode)
 
-    def Run(Dependents, Directory, Command):
-        t = Thread(target = _ThreadMain, args = (Dependents, Directory, Command))
-        t.start()
-        return t
+    return True
 
-    def Wait(a):
-        if a is None:
-            return
-        a.join()
 
-else:
-
-    def Run(Dependents, Directory, Command):
-        if Directory != ".":
-            print("cd " + Directory + " && " + Command)
-        else:
-            print(Command)
-        PreviousDirectory = os.getcwd()
-        os.chdir(Directory)
-
-        IgnoreError = False
-        if Command[0] == '-':
-            IgnoreError = True
-            Command = Command[1:]
-
-        ExitCode = 0
-        if os.name == "nt":
-            Command = "sh -c \"" + Command + "\""
-        ExitCode = os.system(Command)
-        os.chdir(PreviousDirectory)
-
-        if not IgnoreError:
-            if ExitCode != 0:
-                sys.exit(ExitCode)
-
-        return True
-
-    def Wait(a):
-        return a
+def Wait(a):
+    return a
 
 
 def DeleteRoot(a):
@@ -340,23 +335,25 @@ def DeleteRoot(a):
         print("rmdir /q/s " + a)
         if os.path.isdir(a):
             shutil.rmtree(a)
-        CreateDirectory(a)
     else:
         #
         # workaround Win32 Python + Cygwin symlinks?
         #
         Wait(Run([None], ".", "rm -rf " + a + "/*"))
 
-def DeleteDir(a):
-    if False and os.name == "nt":
-        DeleteRoot(a)
-    else:
-        #
-        # workaround Win32 Python + Cygwin symlinks?
-        #
-        Wait(Run([None], ".", "rm -rf " + a))
+def EmptyDir(clean, a):
+    if clean:
+        if False and os.name == "nt":
+            DeleteRoot(a)
+        else:
+            #
+            # workaround Win32 Python + Cygwin symlinks?
+            #
+            Wait(Run([None], ".", "rm -rf " + a))
+    CreateDirectories(a)
 
-def CreateDirectory(a):
+
+def CreateDirectories(a):
     if False and os.name == "nt":
         print("mkdir " + a)
         if not os.path.isdir(a):
@@ -378,15 +375,20 @@ def Extract(Directory, File):
     #
     # Make these more portable by running bzcat, gzcat, etc. directly.
     #
-    for ext in ["", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz"]:
+    CreateDirectories(Directory);
+    for ext in [".tar.gz", ".tgz"]:
         if os.path.exists(File + ext):
-            return Run([None], Directory, "tar xf " + File + ext)
+            return Run([None], Directory, "tar --strip-components=1 -zxf " + File + ext)
+
+    for ext in [".tar.bz2", ".tbz"]:
+        if os.path.exists(File + ext):
+            return Run([None], Directory, "tar --strip-components=1 -jxf " + File + ext)
 
     for ext in [".tlz", ".tar.lzma"]:
         if os.path.exists(File + ext):
-            return Run([None], Directory, "tar --lzma -xf " + File + ext)
+            return Run([None], Directory, "tar --strip-components=1 --lzma -xf " + File + ext)
 
-    return Run([None], Directory, "tar xf " + File)
+    return Run([None], Directory, "tar tar --strip-components=1 -xf " + File)
 
 #
 # These represent processes, that can be waited on.
@@ -398,21 +400,9 @@ ExtractGmp = None
 ExtractMpfr = None
 ExtractBinutils = None
 ExtractGcc = None
-
-ConfigureGmp = None
-ConfigureMpfr = None
-ConfigureBinutils = None
-ConfigureGcc = None
-
-MakeGmp = None
-MakeMpfr = None
-MakeBinutils = None
-MakeGcc = None
-
-InstallGmp = None
-InstallMpfr = None
-InstallBinutils = None
-InstallGcc = None
+Configure = None
+Make = None
+Install = None
 
 print("set -e")
 print("set -x")
@@ -424,209 +414,75 @@ print("set -x")
 #
 
 #
-# extract source
+# extract source -- note we carefully extract into a "combined" tree
 #
 
+EmptyDir(DoCleanSource, "/src/gcc")
 if DoCleanSource:
-    DeleteRoot("/src")
-    CreateDirectory("/src")
-    ExtractGmp = Extract("/src", "/net/distfiles/" + VersionGmp)
-    ExtractMpfr = Extract("/src", "/net/distfiles/" + VersionMpfr)
-    ExtractBinutils = Extract("/src", "/net/distfiles/" + VersionBinutils)
-    ExtractGcc = Extract("/src", "/net/distfiles/" + VersionGcc)
+    #
+    # binutils must precede gcc so that gcc replaces common files
+    #
+    ExtractBinutils = Extract("/src/gcc", "/net/distfiles/" + VersionBinutils)
+    ExtractGcc = Extract("/src/gcc", "/net/distfiles/" + VersionGcc)
+    ExtractGmp = Extract("/src/gcc/gmp", "/net/distfiles/" + VersionGmp)
+    ExtractMpfr = Extract("/src/gcc/mpfr", "/net/distfiles/" + VersionMpfr)
 
 #
 # create output directories
 #
 
-Platforms = Platform1 + "/" + Platform1
-
-if DoClean1Gmp:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionGmp)
-if DoClean1Mpfr:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionMpfr)
-if DoClean1Binutils:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionBinutils)
-if DoClean1Gcc:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionGcc)
-
-Platforms = Platform1 + "/" + Platform2
-
-if DoClean12Binutils:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionBinutils)
-if DoClean12Gcc:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionGcc)
-
-Platforms = Platform2 + "/" + Platform2
-
-if DoClean2Gmp:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionGmp)
-if DoClean2Mpfr:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionMpfr)
-if DoClean2Binutils:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionBinutils)
-if DoClean2Gcc:
-    DeleteDir(ObjRoot + "/" + Platforms + "/" + VersionGcc)
-
-for a in ["/src",
-          ObjRoot + "/" + Platform1 + "/" + Platform1 + "/" + VersionGmp,
-          ObjRoot + "/" + Platform1 + "/" + Platform1 + "/" + VersionMpfr,
-          ObjRoot + "/" + Platform1 + "/" + Platform1 + "/" + VersionBinutils,
-          ObjRoot + "/" + Platform1 + "/" + Platform1 + "/" + VersionGcc,
-
-          ObjRoot + "/" + Platform1 + "/" + Platform2 + "/" + VersionBinutils,
-          ObjRoot + "/" + Platform1 + "/" + Platform2 + "/" + VersionGcc,
-
-          ObjRoot + "/" + Platform2 + "/" + Platform2 + "/" + VersionGmp,
-          ObjRoot + "/" + Platform2 + "/" + Platform2 + "/" + VersionMpfr,
-          ObjRoot + "/" + Platform2 + "/" + Platform2 + "/" + VersionBinutils,
-          ObjRoot + "/" + Platform2 + "/" + Platform2 + "/" + VersionGcc]:
-    CreateDirectory(a)
+EmptyDir(DoClean1, ObjRoot + "/" + Platform1 + "/" + Platform1)
+EmptyDir(DoClean12, ObjRoot + "/" + Platform1 + "/" + Platform2)
+EmptyDir(DoClean2, ObjRoot + "/" + Platform2 + "/" + Platform2)
 
 #
 # bring native libs/tools up to date
 #
 
-# gmp
-
-Platforms = Platform1 + "/" + Platform1
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionGmp
-if DoConfigure1Gmp:
-    ConfigureGmp = Run([ExtractGmp], Obj, "/src/" + VersionGmp + "/configure " + Config1)
-if DoMake1Gmp:
-    MakeGmp = Run([ConfigureGmp], Obj, "make")
-    Wait(Run([MakeGmp], Obj, "make check"))
-if DoInstall1Gmp:
-    InstallGmp = Run([MakeGmp], Obj, "make install")
-
-# mfpr
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionMpfr
-if DoConfigure1Mpfr:
-    ConfigureMpfr = Run([ExtractMpfr, InstallGmp], Obj, "/src/" + VersionMpfr + "/configure " + Config1)
-if DoMake1Mpfr:
-    MakeMpfr = Run([ConfigureMpfr], Obj, "make")
-if DoInstall1Mpfr:
-    InstallMpfr = Run([MakeMpfr], Obj, "make install")
-
-# binutils
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionBinutils
-if DoConfigure1Binutils:
-    ConfigureBinutils = Run([ExtractBinutils], Obj, "/src/" + VersionBinutils + "/configure " + Config1)
-if DoMake1Binutils:
-    MakeBinutils = Run([ConfigureBinutils], Obj, "make")
-if DoInstall1Binutils:
-    InstallBinutils = Run([MakeGcc, MakeBinutils], Obj, "make install")
-
-# gcc
-# must wait for gmp and mpfr to install
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionGcc
-if DoConfigure1Gcc:
-    ConfigureGcc = Run([ExtractGcc, InstallGmp, InstallMpfr, InstallBinutils], Obj, "/src/" + VersionGcc + "/configure " + Config1)
-if DoMake1Gcc:
-    MakeGcc = Run([ConfigureGcc], Obj, "make")
-if DoInstall1Gcc:
-    InstallGcc = Run([MakeGcc, MakeBinutils], Obj, "make install")
-Wait(InstallGcc)
+Obj = ObjRoot + "/" + Platform1 + "/" + Platform1
+if DoConfigure1:
+    Configure = Run([ExtractGcc, ExtractGmp, ExtractMpfr, ExtractBinutils], Obj, "/src/gcc/configure " + Config1)
+if DoMake1:
+    Make = Run([Configure], Obj, "make")
+if DoInstall1:
+    Install = Run([Make], Obj, "make install")
+Wait(Install)
 
 
 #
 # hosted on Platform1, targeting Platform2
 #
 
-ConfigureBinutils = None
-ConfigureGcc = None
-MakeBinutils = None
-MakeGcc = None
-InstallGmp = None
-InstallMpfr = None
-InstallBinutils = None
-InstallGcc = None
-Platforms = Platform1 + "/" + Platform2
+Configure = None
+Make = None
+Install = None
+Obj = ObjRoot + "/" + Platform1 + "/" + Platform2
 
-# binutils
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionBinutils
-if DoConfigure12Binutils:
-    ConfigureBinutils = Run([ExtractBinutils], Obj, "/src/" + VersionBinutils + "/configure " + Config12)
-if DoMake12Binutils:
-    MakeBinutils = Run([ConfigureBinutils], Obj, "make")
-if DoInstall12Binutils:
-    InstallBinutils = Run([MakeGcc, MakeBinutils], Obj, "make install")
-
-# gcc
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionGcc
-if DoConfigure12Gcc:
-    ConfigureGcc = Run([ExtractGcc, InstallGmp, InstallMpfr, InstallBinutils], Obj, "/src/" + VersionGcc + "/configure " + Config12)
-if DoMake12Gcc:
-    MakeGcc = Run([ConfigureGcc], Obj, "make")
-if DoInstall12Gcc:
-    InstallGcc = Run([MakeGcc], Obj, "make install")
-Wait(InstallGcc)
+if DoConfigure12:
+    Configure = Run([ExtractGcc, ExtractGmp, ExtractMpfr, ExtractBinutils], Obj, "/src/gcc/configure " + Config12)
+if DoMake12:
+    Make = Run([Configure], Obj, "make")
+if DoInstall12:
+    Install = Run([Make], Obj, "make install")
+Wait(Install)
 
 
 #
 # Platform2
 #
 
-ConfigureGmp = None
-ConfigureMpfr = None
-ConfigureBinutils = None
-ConfigureGcc = None
-MakeGmp = None
-MakeMpfr = None
-MakeBinutils = None
-MakeGcc = None
-InstallGmp = None
-InstallMpfr = None
-InstallBinutils = None
-InstallGcc = None
-Platforms = Platform2 + "/" + Platform2
+Configure = None
+Make = None
+Install = None
+Obj = ObjRoot + "/" + Platform2 + "/" + Platform2
 
-# gmp
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionGmp
-if DoConfigure2Gmp:
-    ConfigureGmp = Run([ExtractGmp], Obj, "/src/" + VersionGmp + "/configure " + Config2)
-if DoMake2Gmp:
-    MakeGmp = Run([ConfigureGmp], Obj, "make")
-if DoInstall2Gmp:
-    InstallGmp = Run([MakeGmp], Obj, "make install DESTDIR=" + DestDir2)
-
-# mpfr
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionMpfr
-if DoConfigure2Mpfr:
-    ConfigureMpfr = Run([ExtractMpfr, InstallGmp], Obj, "/src/" + VersionMpfr + "/configure " + Config2)
-if DoMake2Mpfr:
-    MakeMpfr = Run([ConfigureMpfr], Obj, "make")
-if DoInstall2Mpfr:
-    InstallMpfr = Run([MakeMpfr], Obj, "make install DESTDIR=" + DestDir2)
-
-# binutils
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionBinutils
-if DoConfigureBinutils2:
-    ConfigureBinutils = Run([ExtractBinutils], Obj, "/src/" + VersionBinutils + "/configure " + Config2)
-if DoMakeBinutils2:
-    MakeBinutils = Run([ConfigureBinutils], Obj, "make")
-if DoInstallBinutils2:
-    InstallBinutils = Run([MakeBinutils], Obj, "make install DESTDIR=" + DestDir2)
-
-# gcc
-
-Obj = ObjRoot + "/" + Platforms + "/" + VersionGcc
-if DoConfigure2Gcc:
-    ConfigureGcc = Run([ExtractGcc, InstallGmp, InstallMpfr, InstallBinutils], Obj, "/src/" + VersionGcc + "/configure " + Config2)
-if DoMake2Gcc:
-    MakeGcc = Run([ConfigureGcc], Obj, "make")
-if DoInstall2Gcc:
-    InstallGcc = Run([MakeGcc], Obj, "make install DESTDIR=" + DestDir2)
-Wait(InstallGcc)
+if DoConfigure2:
+    Configure = Run([ExtractGcc, ExtractGmp, ExtractMpfr, ExtractBinutils], Obj, "/src/gcc/configure " + Config2)
+if DoMake2:
+    Make = Run([Configure], Obj, "make")
+if DoInstall2:
+    Install = Run([Make], Obj, "make install DESTDIR=" + DestDir2)
+Wait(Install)
 
 
 print("Success; copy " + DestDir2 + " to your " + Platform2 + " machine")
