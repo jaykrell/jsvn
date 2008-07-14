@@ -475,7 +475,7 @@ ConfigCommon += " -disable-win32-registry "
 #
 # Similar to -enable-targets=all, for 32bit binutils.
 #
-# ConfigCommon += " -enable-64-bit-bfd "
+ConfigCommon += " -enable-64-bit-bfd "
 
 #
 # This is a nice speed up, but it might take away ability for 32 bit and 64 bit
