@@ -53,11 +53,21 @@ DoCleanSource = True
 #
 # We only need two of these (first two are the same? but much different in size, I think I know why.).
 #
-# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\gmp\.libs\libgmp.a
-# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\gmp\.libs\libgmp.a
-# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\gmp\.libs\libgmp.a
 #
-# And two of these (first two are the same? but much different in size, I think I know why.).
+#   --build=i686-pc-cygwin
+#   --host=none-pc-cygwin
+#   --target=none-pc-cygwin
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\gmp\.libs\libgmp.a
+#
+#   --build=i686-pc-cygwin
+#   --host=none-pc-cygwin
+#   --target=none-pc-cygwin
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\gmp\.libs\libgmp.a
+#
+#   --build=i686-pc-cygwin
+#   --host=none-sun-solaris2.10
+#   --target=none-sun-solaris2.10
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\gmp\.libs\libgmp.a
 #
 # D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\mpfr\.libs\libmpfr.a
 # D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\mpfr\.libs\libmpfr.a
@@ -66,24 +76,76 @@ DoCleanSource = True
 # And two of these (ok, multilibs showing here too, three of these if you allow that,
 # and this is still building, might build more?):
 #
-# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\build-i686-pc-cygwin\libiberty\libiberty.a
-# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\i686-pc-cygwin\libiberty\libiberty.a
-# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\libiberty\libiberty.a
+#
+# These are all build=host=target=i686-pc-cygwin
+#   D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\build-i686-pc-cygwin\libiberty\libiberty.a
+#   D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\i686-pc-cygwin\libiberty\libiberty.a
+#   D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\libiberty\libiberty.a
+#
+#    --build=i686-pc-cygwin
+#    --host=i686-pc-cygwin
+#    --target=sparc-sun-solaris2.10
 # D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\build-i686-pc-cygwin\libiberty\libiberty.a
+#
+
+#
+#    --build=i686-pc-cygwin
+#    --host=i686-pc-cygwin
+#    --target=sparc-sun-solaris2.10
 # D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\libiberty\libiberty.a
+#
+
+#   --build=i686-pc-cygwin
+#   --host=sparc-sun-solaris2.10
+#   --target=sparc-sun-solaris2.10
 # D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\sparc-sun-solaris2.10\libiberty\libiberty.a
+
 # D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparcv9\libiberty\libiberty.a
+#
 # D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\build-i686-pc-cygwin\libiberty\libiberty.a
+
+#
+#   --build=i686-pc-cygwin
+#   --host=sparc-sun-solaris2.10
+#   --target=sparc-sun-solaris2.10
 # D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\libiberty\libiberty.a
+#
 # D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparc-sun-solaris2.10\libiberty\libiberty.a
 # D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparc-sun-solaris2.10\sparcv9\libiberty\libiberty.a
 #
-# We only need six .libs among all of these, not counting mulitlibs, not 17 or more.
-# We also get 10 libgcc.a (including mulitlib), when just 2 should suffice, or 3 with multilib.
-# Some of these might be copies/links, but there is still more than necessary.
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\opcodes\libopcodes.a
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\opcodes\.libs\libopcodes.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\opcodes\libopcodes.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\opcodes\.libs\libopcodes.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\opcodes\libopcodes.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\opcodes\.libs\libopcodes.a
 #
+#
+#   --build=i686-pc-cygwin
+#   --host=i686-pc-cygwin
+#   --target=i686-pc-cygwin
+#
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\bfd\libbfd.a
+# D:\obj\gcc\i686-pc-cygwin\i686-pc-cygwin\bfd\.libs\libbfd.a
+#
+#   --build=i686-pc-cygwin
+#   --host=i686-pc-cygwin
+#   --target=sparc-sun-solaris2.10
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\bfd\libbfd.a
+# D:\obj\gcc\i686-pc-cygwin\sparc-sun-solaris2.10\bfd\.libs\libbfd.a
+#
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\bfd\libbfd.a
+# D:\obj\gcc\sparc-sun-solaris2.10\sparc-sun-solaris2.10\bfd\.libs\libbfd.a
 #
 DoClean1 = True
+DoClean1Gmp = True
+DoClean1Mpfr = True
+DoClean1Libiberty = True
+DoClean1Ld = True
+DoClean1Gas = True
+DoClean1LibBfd = True
+DoClean1LibOpcodes = True
+
 DoClean12 = True
 DoClean2 = True
 
@@ -99,6 +161,10 @@ DoInstall1 = True
 DoInstall12 = True
 DoInstall2 = True
 
+# -enable-static=gmp,mpfr,libgcc -disable-shared=gmp,mpfr -enable-shared=libgcc
+
+# -enable-static=gmp,mpfr -disable-shared=gmp,mpfr
+
 #
 # FUTURE need to split notion of "package name" from "package version"
 #
@@ -106,6 +172,190 @@ VersionGcc = "gcc-4.3.1"
 VersionMpfr = "mpfr-2.3.1"
 VersionGmp = "gmp-4.2.2"
 VersionBinutils = "binutils-2.18"
+
+#
+# reading configure.ac, what we are most interested in is
+# build_libs
+#   libiberty
+# build_tools
+#   fixincludes
+# host_tools
+#   binutils
+#   gas
+#   ld
+#   fixincludes
+#   gcc
+# host_libs (needed by host_tools)
+#   libiberty
+#   opcodes
+#   bfd
+#   libcpp
+#   libdecnumber
+#   gmp
+#   mpfr
+# target_libraries
+#   libgcc
+#   libiberty
+#   libstdc++-v3
+#
+# In future we will want to add more.
+#
+#
+# opcodes to bfd dependencies:
+#   Makefile:BFD_H = ../bfd/bfd.h
+#   Makefile:  ../bfd/bfd_stdint.h
+#   Makefile:  ../bfd/bfd_stdint.h
+#   Makefile:  ../bfd/bfd_stdint.h
+#   Makefile:  ../bfd/bfd_stdint.h
+#   Makefile:  ../bfd/bfd_stdint.h
+#
+# $ mkdir ../bfd
+#
+# jay@jay-win9 /obj/opcodes/1
+# $ cp /obj/bfd/1/*.h ../bfd
+#
+# Remove some from targets.c and archures.c that don't compile.
+#
+#	&tic30_aout_vec,
+#	&tic30_coff_vec,
+#	&tic54x_coff0_beh_vec,
+#	&tic54x_coff0_vec,
+#	&tic54x_coff1_beh_vec,
+#	&tic54x_coff1_vec,
+#	&tic54x_coff2_beh_vec,
+#	&tic54x_coff2_vec,
+#	&tic80coff_vec,
+#
+#   &bfd_tic30_arch,
+#   &bfd_tic4x_arch,
+#   &bfd_tic54x_arch,
+#   &bfd_tic80_arch,
+#
+Package_gmp = {
+    "name" : "gmp",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_mpfr = {
+    "name" : "mpfr",
+    "dependencies" : [ Package_gmp ],
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_libdecnumber = {
+    "name" : "libdecnumber",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_libiberty = {
+    "name" : "libiberty",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_bfd = {
+    "name" : "bfd",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_opcodes = {
+    "name" : "opcodes",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    "dependencies" : [ Package_bfd ],
+    }
+Package_zlib = {
+    "name" : "zlib",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_binutils = {
+    "name" : "binutils",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    "dependencies" : [ Package_bfd, Package_opcodes ],
+    }
+Package_ld = {
+    "name" : "ld",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    "dependencies" : [ Package_bfd, Package_opcodes ],
+    }
+Package_gas = {
+    "name" : "gas",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    "dependencies" : [ Package_bfd, Package_opcodes ],
+    }
+Package_libcpp = {
+    "name" : "libcpp",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_gcc = {
+    "name" : "gcc",
+    "target-dependent" : True,
+    "runs-on-target" : False,
+    "dependencies" : [ Package_gmp, Package_mpfr, Package_libcpp, Package_libiberty, Package_libdecnumber ],
+    }
+Package_libjava = {
+    "name" : "gcc",
+    "target-dependent" : True,
+    "runs-on-target" : True,
+    "dependencies" : [ Package_zlib ],
+    }
+Package_gprof = {
+    "name" : "gprof",
+    "target-dependent" : False,
+    "runs-on-target" : False,
+    }
+Package_libobjc = {
+    "name" : "libobjc",
+    "target-dependent" : False,
+    "runs-on-target" : True,
+    }
+Package_libada = {
+    "name" : "libada",
+    "target-dependent" : False,
+    "runs-on-target" : True,
+    "language" : "ada",
+    }
+Package_libssp = {
+    "name" : "libssp",
+    "target-dependent" : False,
+    "runs-on-target" : True,
+    }
+Package_libstdcppv3 = {
+    "name" : "libstd++-v3",
+    "target-dependent" : False,
+    "runs-on-target" : True,
+    "language" : "c++",
+    }
+Package_boehmgc = {
+    "name" : "boehm-gc",
+    "target-dependent" : False,
+    "runs-on-target" : True,
+    }
+Package_gnattools = {
+    "name" : "boehm-gc",
+    "target-dependent" : False,
+    "runs-on-target" : True,
+    "language" : "ada",
+    }
+
+Packages = [
+    Package_gmp,
+    Package_mpfr,
+    Package_libdecnumber
+    Package_libiberty,
+    Package_bfd
+    Package_opcodes
+    Package_zlib
+    Package_mpfr
+    Package_binutils
+    Package_ld
+    Package_gas
+    Package_gcc
+    ];
 
 ObjRoot = "/obj/gcc"
 
@@ -164,8 +414,8 @@ ConfigCommon = ""
 # as i686-pc-cygwin and athlon64-pc-cygwin. Specifying it prevents the sniffing
 # and it varying.
 #
-# ConfigCommon += " -build " + Platform1 + " "
 
+ConfigCommon += " -build " + Platform1 + " "
 ConfigCommon += " -verbose "
 
 #
@@ -179,6 +429,7 @@ ConfigCommon += " -without-libiconv-prefix "
 #
 ConfigCommon += " -disable-nls "
 ConfigCommon += " -disable-intl "
+ConfigCommon += " -disable-po "
 
 ConfigCommon += " -with-gnu-as "
 ConfigCommon += " -with-gnu-ld "
@@ -212,8 +463,9 @@ ConfigCommon += " -disable-checking "
 #
 # On some platforms, enable targeting multiple targets with one toolset, typically
 # for 32bit/64bit pairs like on PowerPC, SPARC, and x86.
+# This also appears to enable gas/ld to support "everthing".
 #
-ConfigCommon += " -enable-all-targets "
+ConfigCommon += " -enable-targets=all "
 
 #
 # Cygwin uses this. It sounds good.
@@ -221,7 +473,7 @@ ConfigCommon += " -enable-all-targets "
 ConfigCommon += " -disable-win32-registry "
 
 #
-# Similar to -enable-all-targets, for 32bit binutils.
+# Similar to -enable-targets=all, for 32bit binutils.
 #
 # ConfigCommon += " -enable-64-bit-bfd "
 
@@ -261,6 +513,10 @@ WithGmp = " "
 WithMpfr = " "
 Config1 = ConfigCommon + Host + Target + Sysroot + WithGmp + WithMpfr + Prefix + " -enable-languages=all "
 Config1 = re.sub(" +", " ", Config1)
+
+#
+# Future: Languages should be configurable
+#
 
 #
 # hosted on Platform1, targeting Platform2 ("cross")
