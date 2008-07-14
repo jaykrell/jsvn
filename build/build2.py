@@ -7,6 +7,7 @@ import re
 import os.path
 from os.path import dirname, isdir, isfile, splitext, getsize, getmtime
 import stat
+from shutil import copy2
 
 #
 # more later
@@ -16,6 +17,12 @@ RecognizedPlatforms = [
     "sparc-sun-solaris2.10"
     ]
 
+Prefix0 = "/usr/local"
+# Prefix0 = "/usr"
+
+Build = ""
+Host = ""
+Target = ""
 
 Platform_Build = 0
 Platform_Host = 1
@@ -44,12 +51,13 @@ def Run(Directory, Command):
 
     if not IgnoreError:
         if ExitCode != 0:
+            print("exiting")
             sys.exit(ExitCode)
 
     return True
 
-def Configure_default(Package, Platform, Build, Host, Target):
-    return ""
+def Configure_default(Package, Platform, Build, Host, Target, Config):
+    return Config
 
 
 def PatchAfterConfigure_default(Package, SourceDir, ObjDir):
@@ -66,7 +74,9 @@ def IsAlreadyBuilt(Package, ObjDir):
 
 def CreateDirectories(a):
     if not isdir(a):
+        print("mkdir " + a)
         os.makedirs(a)
+
 
 def CheckCygwinLink(a):
 #
@@ -86,7 +96,7 @@ def CheckCygwinLink(a):
         return False
     return True
 
-def FixPath2(a, b):
+def unused_FixPath2(a, b):
 #
 # This function handles varying path conventions.
 # Win32 foo.exe vs. Posix foo
@@ -131,53 +141,84 @@ def FixPath2(a, b):
                 return [Trya, Tryb]
     return [a, b]
 
-def FixPath1(a):
-    return FixPath2(a, None)[0]
+#def FixPath1(a):
+#    return FixPath2(a, None)[0]
 
 def FileExists(a):
-    return os.path.isfile(a) or os.path.isfile(a + ".exe") or os.path.isfile(a + ".lnk")
+    return isfile(a) or isfile(a + ".exe") or isfile(a + ".lnk")
 
-def MyCopyFile(From, To):
+def MyCopyFile_IfExists(From, To):
     if From == To:
         return
-    CreateDirectories(dirname(To))
-    if ((splitext(From)[1] == ""
-            and splitext(To)[1] == "")
-            and isfile(From + ".exe")):
-        From += ".exe"
-        To += ".exe"
-    elif (splitext(From)[1].lower() == ".exe"
-            and splitext(To)[1].lower() == ".exe"
-            and isfile(splitext(From)[0])):
-        From = splitext(From)[0]
-        To = splitext(To)[0]
+    CreatedDir = False
+    for Ext in ["", ".exe", ".lnk"]:
+        FromExt = From + Ext
+        if isfile(FromExt):
+            #print(FromExt + " exists")
+            ToExt = To + Ext
+            if not CreatedDir:
+                CreateDirectories(dirname(To))
+                CreatedDir = True
+            print("copy " + FromExt + " " + ToExt)
+            try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
+                copy2(FromExt, ToExt)
+            except:
+                pass
 
-    print("copy " + From + " " + To)
-    shutil.copy2(From, To)
-
-
-def MyCopyFileIncrementalByTime(From, To):
-    [From, To] = FixPath2(From, To)
-    if not isfile(To):
-        print(To + " does not exist")
-    elif getmtime(From) > getmtime(To):
-        print(From + " newer than " + To)
-    else:
+def MyCopyFile_IncrementalByTime(From, To):
+    if From == To:
         return
-    MyCopyFile(From, To)
+    CreatedDir = False
+    for Ext in ["", ".exe", ".lnk"]:
+        FromExt = From + Ext
+        if isfile(FromExt):
+            #print(FromExt + " exists")
+            ToExt = To + Ext
+            if not isfile(ToExt):
+                #print(ToExt + " does not exist")
+                pass
+            elif (getmtime(FromExt) - getmtime(ToExt)) > 4.76837158204e-7:
+                #print(FromExt + " newer than " + ToExt + " ( " + str(getmtime(FromExt)) + ", " + str(getmtime(ToExt)) + ", " + str(getmtime(FromExt) - getmtime(ToExt)) + ")")
+                pass
+            else:
+                continue
+            if not CreatedDir:
+                CreateDirectories(dirname(ToExt))
+                CreatedDir = True
+            print("copy " + FromExt + " " + ToExt)
+            try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
+                copy2(FromExt, ToExt)
+            except:
+                pass
 
-def MyCopyFileIncrementalByTimeAndSize(From, To):
-    [From, To] = FixPath2(From, To)
-    if not isfile(To):
-        print(To + " does not exist")
-    elif (getmtime(From) - getmtime(To)) > 4.76837158204e-7:
-        print(From + " newer than " + To + " ( " + str(getmtime(From)) + ", " + str(getmtime(To)) + ", " + str(getmtime(From) - getmtime(To)) + ")")
-    elif getsize(From) != getsize(To):
-        print(From + " different size than than " + To)
-    else:
+def MyCopyFile_IncrementalByTimeAndSize(From, To):
+    if From == To:
         return
-    MyCopyFile(From, To)
-
+    CreatedDir = False
+    for Ext in ["", ".exe", ".lnk"]:
+        FromExt = From + Ext
+        if isfile(FromExt):
+            #print(FromExt + " exists")
+            ToExt = To + Ext
+            if not isfile(ToExt):
+                #print(To + " does not exist")
+                pass
+            elif (getmtime(FromExt) - getmtime(ToExt)) > 4.76837158204e-7:
+                #print(FromExt + " newer than " + ToExt + " ( " + str(getmtime(FromExt)) + ", " + str(getmtime(ToExt)) + ", " + str(getmtime(FromExt) - getmtime(ToExt)) + ")")
+                pass
+            elif getsize(FromExt) != getsize(ToExt):
+                #print(FromExt + " different size than than " + ToExt)
+                pass
+            else:
+                continue
+            if not CreatedDir:
+                CreateDirectories(dirname(To))
+                CreatedDir = True
+            print("copy " + FromExt + " " + ToExt)
+            try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
+                copy2(FromExt, ToExt)
+            except:
+                pass
 
 def Make_default(Package, Platform, Build, Host, Target):
     ObjDir = GetReducedObjectDirectory(Package, Platform, Build, Host, Target)
@@ -196,9 +237,11 @@ def Export_default(Package, Platform, Build, Host, Target):
     ObjDir2 = GetExpectedObjectDirectory(Package, Platform, Build, Host, Target)
     print("copying exports from " + ObjDir1 + " to " + ObjDir2)
     CreateDirectories(ObjDir2)
-    for Export in Package.Exports + Package.OptionalExports:
+    for Export in Package.Exports:
+        MyCopyFile_IncrementalByTimeAndSize(ObjDir1  + "/" + Export, ObjDir2  + "/" + Export)
+    for Export in Package.OptionalExports:
         if FileExists(ObjDir1  + "/" + Export):
-            MyCopyFileIncrementalByTimeAndSize(ObjDir1  + "/" + Export, ObjDir2  + "/" + Export)
+            MyCopyFile_IncrementalByTimeAndSize(ObjDir1  + "/" + Export, ObjDir2  + "/" + Export)
 
     
 class Package():
@@ -215,6 +258,7 @@ class Package():
         self.Export = Export_default
         self.Exports = [ ]
         self.OptionalExports = [ ]
+        self.TargetDependent = False
 
 
 class SourcePackage():
@@ -243,12 +287,24 @@ p.Directory = "gmp"
 p.Dependencies = [ SourcePackage_gcc ]
 
 
+def Configure_mpfr(Package, Platform, Build, Host, Target, Config):
+    #
+    # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
+    #
+    gmpsrc = GetSourceDirectory(Package_gmp)
+    gmpobj = GetReducedObjectDirectory(Package_gmp, Platform, Build, Host, Target)
+    if isdir(gmpobj) and isdir(gmpsrc):
+        Config += " -with-gmp-build=" + gmpobj
+    return Config
+
+
 p = SourcePackage()
 SourcePackage_mpfr = p
 p.Name = "mpfr"
 p.Version = "2.3.1"
 p.Directory = "mpfr"
 p.Dependencies = [ SourcePackage_gcc ]
+p.Configure = Configure_mpfr
 
 
 p = SourcePackage()
@@ -290,12 +346,11 @@ p.Host = True
 p.Target = True
 p.Build = True
 
-
 p = Package()
 Package_fixincludes = p
 p.Name = "fixincludes"
 p.Dependencies = [ Package_libiberty ]
-p.Exports = [ "fixincl" ]
+p.Exports = [ "fixincl", "fixinc.sh" ]
 p.SourcePackage = SourcePackage_gcc
 p.Build = True
 
@@ -319,8 +374,13 @@ def GetReducedObjectDirectory(Package, Platform, Build, Host, Target):
     # If package runs in build, and build != host and build != target, then
     #  ObjRoot/Build or ObjRoot/build-Build
     #
-    if Package.Name == "gcc" or Package.Name == "gas":
-        return ObjRoot + "/" + Host + "/" + Target + "/" + Package.Name
+    if Package.TargetDependent:
+        if Platform == Platform_Host:
+            return ObjRoot + "/" + Host + "/" + Target + "/" + Package.Name
+        else:
+            return ObjRoot + "/" + Host + "/" + Target + "/" + Target + "/" + Package.Name
+    elif Platform == Platform_Build:
+        return ObjRoot + "/" + Build + "/" + Package.Name
     elif Platform == Platform_Host:
         return ObjRoot + "/" + Host + "/" + Package.Name
     else:
@@ -380,7 +440,7 @@ def PatchAfterConfigure_bfd(Package, SourceDir, ObjDir):
     Run(ObjDir, "make targmatch.h")
 
     for a in ["archures.c", "targets.c"]:
-        MyCopyFileIncrementalByTime(SourceDir + "/" + a, ObjDir + "/" + a)
+        MyCopyFile_IncrementalByTime(SourceDir + "/" + a, ObjDir + "/" + a)
 
     for FileName in ["archures.c", "targets.c", "targmatch.h"]:
         FilePath = ObjDir + "/" + FileName
@@ -407,6 +467,33 @@ def PatchAfterConfigure_bfd(Package, SourceDir, ObjDir):
             print("patching " + FilePath)
             file(FilePath, "w").writelines(NewLines)
 
+
+def PatchAfterConfigure_RemoveLibIconv(Package, SourceDir, ObjDir):
+
+    #
+    # More variations need testing here likely.
+    #
+
+    return
+
+    #
+    # also need to patch config.h
+    #
+
+    for FileName in ["Makefile"]:
+        FilePath = ObjDir + "/" + FileName
+        OldLines = file(FilePath).readlines()
+        NewLines = [ ]
+        Changed = False
+        for OldLine in OldLines:
+            NewLine = OldLine
+            if NewLine == "LIBICONV = -liconv\n":
+                NewLine = "LIBICONV = \n"
+                Changed = True
+            NewLines += NewLine
+        if Changed:
+            print("patching libiconv out of " + FilePath)
+            file(FilePath, "w").writelines(NewLines)
 
 def PatchAfterConfigure_binutils(Package, SourceDir, ObjDir):
     #
@@ -459,11 +546,21 @@ p = Package()
 Package_binutils = p
 p.Dependencies = [ Package_bfd, Package_opcodes ]
 p.Name = "binutils"
+# NOTE binutils exports sh scripts AND .exes
 p.Exports = ["addr2line", "ar", "nm-new", "objcopy", "objdump", "ranlib", "size", "strip-new"]
+p.Exports += [".libs/" + a for a in p.Exports]
 p.OptionalExports = ["coffdump", "cxxfilt", "dlltool", "dllwrap", "nlmconv", "readelf", "srconv", "strings", "sysdump", "sysinfo", "windmc", "windres"]
+p.OptionalExports += [".libs/" + a for a in p.OptionalExports]
 p.PatchAfterConfigure = PatchAfterConfigure_binutils
 p.SourcePackage = SourcePackage_binutils
 p.Host = True
+p.Install = True
+
+
+def Configure_gas(Package, Platform, Build, Host, Target, Config):
+    Config = Config.replace(" --enable-targets=all ", " ")
+    Config = Config.replace(" -enable-targets=all ", " ")
+    return Config
 
 
 p = Package()
@@ -471,16 +568,20 @@ Package_gas = p
 p.Name = "gas"
 p.SourcePackage = SourcePackage_binutils
 p.Dependencies = [ Package_bfd ]
-p.Exports = [ "as-new.exe"  ]
+p.Exports = [ "as-new"  ]
 p.Host = True
+p.TargetDependent = True # seems like a bug
+p.Configure = Configure_gas
+p.Install = True
 
 
 p = Package()
 Package_ld = p
 p.Name = "ld"
 p.SourcePackage = SourcePackage_binutils
-p.Exports = [ "ld-new"  ]
+p.Exports = ["ld-new"]
 p.Host = True
+p.Install = True
 
 
 p = Package()
@@ -507,30 +608,45 @@ p.SourcePackage = SourcePackage_gcc
 p.Exports = [ "libgcc.a"  ]
 p.OptionalExports = [ "libgcc_eh.a", "libgcc_s.so"  ]
 p.Target = True
+p.TargetDependent = True # seems like a bug, because it uses gcc's libgcc.mvars.
+p.Install = True
+
+
+def Configure_gcc(Package, Platform, Build, Host, Target, Config):
+    gmpsrc = GetSourceDirectory(Package_gmp)
+    gmpobj = GetReducedObjectDirectory(Package_gmp, Platform, Build, Host, Target)
+    mpfrsrc = GetSourceDirectory(Package_mpfr)
+    mpfrobj = GetReducedObjectDirectory(Package_mpfr, Platform, Build, Host, Target)
+    if isdir(gmpobj) and isdir(gmpsrc) and isdir(mpfrobj) and isdir(mpfrsrc):
+        gmplibs = " -L" + gmpobj + "/.libs -L" + gmpobj + "/_libs -L" + mpfrobj + "/.libs -L" + mpfrobj + "/_libs -lmpfr -lgmp"
+        gmpinc = " -I" + gmpobj + " -I" + gmpsrc + " -I" + mpfrobj + " -I" + mpfrsrc
+        Config = " GMPLIBS='" + gmplibs + "' GMPINC='" + gmpinc + "' "
+    return Config
 
 
 p = Package()
 Package_gcc = p
 p.Name = "gcc"
-p.Dependencies = [ Package_gmp, Package_mpfr, Package_libiberty, Package_libdecnumber, Package_libcpp ]
+p.Dependencies = [ Package_gmp, Package_mpfr, Package_libiberty, Package_libdecnumber, Package_libcpp, Package_fixincludes ]
 p.OptionalDependencies = [ Package_gas, Package_ld ]
 p.SourcePackage = SourcePackage_gcc
 p.Host = True
 p.Exports = [ "xgcc"  ]
 p.OptionalExports = [ "gcc-cross" ]
 p.TargetDependent = True
-
+p.Configure = Configure_gcc
+p.Install = True
 
 p = Package()
-Package_libstdxx = p
-p.Name = "libstdxx"
+Package_libstdcpp = p
+p.Name = "libstdc++-v3"
 p.OptionalDependencies = [ Package_gcc, Package_libgcc ]
 p.SourcePackage = SourcePackage_gcc
-p.Exports = [ "libstdc++.a" ]
-p.OptionalExports = [ "libstdc++.la", "libstdc++.so"  ]
+p.Exports = [ "src/libstdc++.la", "src/.libs/libstdc++.a", "src/.libs/libstdc++.la" ]
+p.OptionalExports = [ "src/.libs/libstdc++.so", "src/.libs/libstdc++.so.6","src/.libs/libstdc++.so.6.0.10" ]
 p.Target = True
-p.Languages = [ "c++" ]
-
+p.Languages = [ "c++" ] # not yet handled
+p.Install = True
 
 Packages = [
     Package_libiberty,
@@ -544,8 +660,12 @@ Packages = [
     Package_libdecnumber,
     Package_libcpp,
     Package_gcc,
-    Package_libstdxx,
-    Package_libgcc
+    Package_libstdcpp,
+    Package_libgcc,
+    #
+    # TBD
+    # zlib, libfortran, libgomp, libssp, libjava, libada, gnattools
+    #
     ];
 
 
@@ -573,9 +693,7 @@ def ExtractSource(Package):
 
 
 def GetExpectedObjectDirectory(Package, Platform, Build, Host, Target):
-    if Package.Name == "gcc":
-        return ObjRoot + "/" + Host + "/" + Target + "/" + Package.Name
-    elif Platform == Platform_Build:
+    if Platform == Platform_Build:
         return ObjRoot + "/" + Host + "/" + Target + "/" + "build-" + Build + "/" + Package.Name
     elif Platform == Platform_Host:
         return ObjRoot + "/" + Host + "/" + Target + "/" + Package.Name
@@ -607,7 +725,7 @@ ConfigCommon += " -enable-64-bit-bfd "
 ConfigCommon += " -disable-multilib "
 ConfigCommon += " -disable-libgomp "
 ConfigCommon += " -disable-libssp "
-ConfigCommon += " -enable-languages=c,c++ "
+ConfigCommon += " -enable-languages=c,c++ " # need to change this to all, at least sometimes
 ConfigCommon += " -enable-static "
 # ConfigCommon += " -enable-shared=libgcc,libstdc++,libffi,zlib,boehm-gc,ada,libada,libjava,libobjc "
 ConfigCommon = re.sub(" +", " ", ConfigCommon)
@@ -631,35 +749,30 @@ def Configure(Package, Platform, Build, Host, Target):
     Config += " -build " + Build
     Config += " -host " + Host
     Config += " -target " + Target
-    Config += Package.Configure(Package, Platform, Build, Host, Target)
-
-    #
-    # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
-    # This could be done in Configure_gcc if desired.
-    #
-    gmpsrc = GetSourceDirectory(Package_gmp)
-    gmpobj = GetReducedObjectDirectory(Package_gmp, Platform, Build, Host, Target)
-    mpfrsrc = GetSourceDirectory(Package_mpfr)
-    mpfrobj = GetReducedObjectDirectory(Package_mpfr, Platform, Build, Host, Target)
-    if isdir(gmpobj) and isdir(gmpsrc) and isdir(mpfrobj) and isdir(mpfrsrc):
-        gmplibs = " -L" + gmpobj + "/.libs -L" + gmpobj + "/_libs -L" + mpfrobj + "/.libs -L" + mpfrobj + "/_libs -lmpfr -lgmp"
-        gmpinc = " -I" + gmpobj + " -I" + gmpsrc + " -I" + mpfrobj + " -I" + mpfrsrc
-        Config += " GMPLIBS='" + gmplibs + "' GMPINC='" + gmpinc + "'"
-
-    #
-    # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
-    # This could be done in Configure_mpfr if desired.
-    #
-    if isdir(gmpobj) and isdir(gmpsrc):
-        Config += " -with-gmp-build=" + gmpobj
-
-    if Package.Name == "gas":
-        Config = Config.replace(" --enable-targets=all ", " ")
-        Config = Config.replace(" -enable-targets=all ", " ")
-
-    Config += " -cache-file " + dirname(ObjDir) + "/config.cache"
+    Config += " -cache-file " + dirname(ObjDir) + "/config.cache "
+    Config = Package.Configure(Package, Platform, Build, Host, Target, Config)
 
     Run(ObjDir, GetSourceDirectory(Package) + "/" + "configure " + Config)
+
+
+def PatchAfterConfigure_RemoveSubDir(Package, SourceDir, ObjDir, SubDir):
+    for FileName in ["Makefile"]:
+        FilePath = ObjDir + "/" + FileName
+        OldLines = file(FilePath).readlines()
+        NewLines = [ ]
+        Changed = False
+        for OldLine in OldLines:
+            NewLine = OldLine
+            if NewLine.startswith("SUBDIRS = "):
+                OldLine = OldLine.replace("\n", " \n")
+                NewLine = OldLine
+                NewLine = NewLine.replace(" " + SubDir + " ", " ")
+                if NewLine != OldLine:
+                    Changed = True
+            NewLines += NewLine
+        if Changed:
+            print("patching subdir " + SubDir + " out of " + FilePath)
+            file(FilePath, "w").writelines(NewLines)
 
 
 def PatchAfterConfigure(Package, Platform, Build, Host, Target):
@@ -673,29 +786,10 @@ def PatchAfterConfigure(Package, Platform, Build, Host, Target):
     SourceDir = GetSourceDirectory(Package)
     Package.PatchAfterConfigure(Package, SourceDir, ObjDir)
 
-    #
-    # Really don"t build doc and po.
-    #
+    for SubDir in ["doc", "po", "testsuite"]:
+        PatchAfterConfigure_RemoveSubDir(Package, SourceDir, ObjDir, SubDir)
 
-    for FileName in ["Makefile"]:
-        FilePath = ObjDir + "/" + FileName
-        OldLines = file(FilePath).readlines()
-        NewLines = [ ]
-        Changed = False
-        for OldLine in OldLines:
-            NewLine = OldLine
-            if NewLine.startswith("SUBDIRS = "):
-                OldLine = OldLine.replace("\n", " \n")
-                NewLine = OldLine
-                NewLine = NewLine.replace(" doc ", " ")
-                NewLine = NewLine.replace(" po ", " ")
-                NewLine = NewLine.replace(" testsuite ", " ")
-                if NewLine != OldLine:
-                    Changed = True
-            NewLines += NewLine
-        if Changed:
-            print("patching " + FilePath)
-            file(FilePath, "w").writelines(NewLines)
+    PatchAfterConfigure_RemoveLibIconv(Package, SourceDir, ObjDir)
 
 def Build(Package, Platform, Build, Host, Target):
     Package.Make(Package, Platform, Build, Host, Target)
@@ -707,23 +801,27 @@ def Build(Package, Platform, Build, Host, Target):
 
 
 def Install(Package, Platform, Build, Host, Target):
+
     if Package.Install:
         print("installing " + Package.Name)
         ObjDir = GetReducedObjectDirectory(Package, Platform, Build, Host, Target)
-        Run(ObjDir, "make install")
 
+        if Build == Host:
+            Run(ObjDir, "make install")
+        else:
+            Run(ObjDir, "make install DESTDIR=" + Prefix0 + "/" + Host + "/install")
 
-Steps = [ ]
+BuildSteps = [ ]
 
 def ShouldBuild(Package, Platform):
     Result = (
         (Platform == Platform_Build and Package.Build)
         or (Platform == Platform_Host and Package.Host)
         or (Platform == Platform_Target and Package.Target))
-    # print("ShouldBuild " + Package.Name + " " + str(Platform) + " => " + str(Result))
+    print("ShouldBuild " + Package.Name + " " + str(Platform) + " => " + str(Result))
     return Result
 
-def Dependencies(Package, Platform, Build, Host, Target):
+def BuildDependencies(Package, Platform, Build, Host, Target):
 
     #
     # optional, formerly "bootstrap" dependencies are optional
@@ -733,24 +831,24 @@ def Dependencies(Package, Platform, Build, Host, Target):
     # before upper levels.
     #
 
-    # print("Dependencies " + Package.Name + " " + str(Platform))
+    # print("BuildDependencies " + Package.Name + " " + str(Platform))
 
     for p in Package.OptionalDependencies:
         if isdir(GetSourceDirectory(p)):
             for DepPlatform in Platforms:
                 if ShouldBuild(p, DepPlatform):
-                    for Step in Steps:
+                    for Step in BuildSteps:
                         Step(p, DepPlatform, Build, Host, Target)
 
     for p in Package.Dependencies:
         for DepPlatform in Platforms:
             if ShouldBuild(p, DepPlatform):
-                for Step in Steps:
+                for Step in BuildSteps:
                     if DepPlatform <= Platform:
                         Step(p, DepPlatform, Build, Host, Target)
 
-Steps = [
-    Dependencies,
+BuildSteps = [
+    BuildDependencies,
     Configure,
     PatchAfterConfigure,
     Build,
@@ -778,34 +876,33 @@ for Package in PackagesToBuild:
 Build = "i686-pc-cygwin"
 Host = "i686-pc-cygwin"
 Target = "i686-pc-cygwin"
+print(Build + "/" + Host + "/" + Target)
 
 for Platform in Platforms:
     for Package in PackagesToBuild:
         if ShouldBuild(Package, Platform):
-            for Step in Steps:
+            for Step in BuildSteps:
                 Step(Package, Platform, Build, Host, Target)
 
 Build = "i686-pc-cygwin"
 Host = "i686-pc-cygwin"
 Target = "sparc-sun-solaris2.10"
+print(Build + "/" + Host + "/" + Target)
 
 for Platform in Platforms:
     for Package in PackagesToBuild:
         if ShouldBuild(Package, Platform):
-            for Step in Steps:
+            for Step in BuildSteps:
                 Step(Package, Platform, Build, Host, Target)
-
-sys.exit(0)
-
-# install destdir not implemented
 
 Build = "i686-pc-cygwin"
 Host = "sparc-sun-solaris2.10"
 Target = "sparc-sun-solaris2.10"
+print(Build + "/" + Host + "/" + Target)
 
 
 for Platform in Platforms:
     for Package in PackagesToBuild:
         if ShouldBuild(Package, Platform):
-            for Step in Steps:
+            for Step in BuildSteps:
                 Step(Package, Platform, Build, Host, Target)
