@@ -1,5 +1,16 @@
 #! /usr/bin/env python
 
+#
+# This is a wrapper for building gcc, ld, gas, etc.
+# It's goals include:
+#   minimizing rebuilds
+#   minimizing rebuilds when building multiple toolsets
+#   maximizing autoconf's cache
+#   build multiple toolsets in one go
+#
+# It duplicates parts of the topleve configure and makefile.
+#
+
 import sys
 import os
 import shutil
@@ -14,19 +25,19 @@ from shutil import copy2
 #
 RecognizedPlatforms = [
     "i686-pc-cygwin",
-    "sparc-sun-solaris2.10"
+    "sparc-sun-solaris2.10",
+    "i586-pc-msdosdjgpp"
     ]
 
 Prefix0 = "/usr/local"
 # Prefix0 = "/usr"
 
-Build = ""
-Host = ""
-Target = ""
 
+# order is important
 Platform_Build = 0
 Platform_Host = 1
 Platform_Target = 2
+# order is important
 Platforms = [ Platform_Build, Platform_Host, Platform_Target ]
 
 
@@ -74,7 +85,10 @@ def IsAlreadyBuilt(Package, ObjDir):
 
 def CreateDirectories(a):
     if not isdir(a):
-        print("mkdir " + a)
+        if os.name == "nt":
+            print("mkdir " + a)
+        else:
+            print("mkdir -pv -- " + a)
         os.makedirs(a)
 
 
@@ -159,7 +173,10 @@ def MyCopyFile_IfExists(From, To):
             if not CreatedDir:
                 CreateDirectories(dirname(To))
                 CreatedDir = True
-            print("copy " + FromExt + " " + ToExt)
+            if os.name == "nt":
+                print("copy " + FromExt + " " + ToExt)
+            else:
+                print("cp " + FromExt + " " + ToExt)
             try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
                 copy2(FromExt, ToExt)
             except:
@@ -185,7 +202,10 @@ def MyCopyFile_IncrementalByTime(From, To):
             if not CreatedDir:
                 CreateDirectories(dirname(ToExt))
                 CreatedDir = True
-            print("copy " + FromExt + " " + ToExt)
+            if os.name == "nt":
+                print("copy " + FromExt + " " + ToExt)
+            else:
+                print("cp " + FromExt + " " + ToExt)
             try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
                 copy2(FromExt, ToExt)
             except:
@@ -214,7 +234,10 @@ def MyCopyFile_IncrementalByTimeAndSize(From, To):
             if not CreatedDir:
                 CreateDirectories(dirname(To))
                 CreatedDir = True
-            print("copy " + FromExt + " " + ToExt)
+            if os.name == "nt":
+                print("copy " + FromExt + " " + ToExt)
+            else:
+                print("cp " + FromExt + " " + ToExt)
             try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
                 copy2(FromExt, ToExt)
             except:
@@ -258,17 +281,18 @@ class Package():
         self.Export = Export_default
         self.Exports = [ ]
         self.OptionalExports = [ ]
-        self.TargetDependent = False
+        self.HostTarget = False
 
 
 class SourcePackage():
     def __init__(self):
         self.Extracted = False
-        self.Directory = None
+        self.Directory = "."
         self.Dependencies = [ ]
 
     
 SourceRoot = "/src/gcc"
+DistFiles = "/net/distfiles"
 ObjRoot = "/obj/3"
 CreateDirectories(ObjRoot)
 
@@ -287,24 +311,12 @@ p.Directory = "gmp"
 p.Dependencies = [ SourcePackage_gcc ]
 
 
-def Configure_mpfr(Package, Platform, Build, Host, Target, Config):
-    #
-    # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
-    #
-    gmpsrc = GetSourceDirectory(Package_gmp)
-    gmpobj = GetReducedObjectDirectory(Package_gmp, Platform, Build, Host, Target)
-    if isdir(gmpobj) and isdir(gmpsrc):
-        Config += " -with-gmp-build=" + gmpobj
-    return Config
-
-
 p = SourcePackage()
 SourcePackage_mpfr = p
 p.Name = "mpfr"
 p.Version = "2.3.1"
 p.Directory = "mpfr"
 p.Dependencies = [ SourcePackage_gcc ]
-p.Configure = Configure_mpfr
 
 
 p = SourcePackage()
@@ -329,12 +341,25 @@ SourcePackages = [
 #   OptionalExports: copy all of these
 #
 
+
+def Configure_Force_EnableStatic_DisableShared(Config):
+    for enable in ["enable", "disable"]:
+        for shared in ["shared", "static"]:
+            for dash in ["-", "--"]:
+                Config = Config.replace(" " + dash + enable + shared + " ", " ")
+    Config += " -enable-static -disable-shared "
+    return Config
+
+def Configure_gmp(Package, Platform, Build, Host, Target, Config):
+    return Configure_Force_EnableStatic_DisableShared(Config)
+
 p = Package()
 Package_gmp = p
 p.Name = "gmp"
 p.Exports = [ "libgmp.la", ".libs/libgmp.a", ".libs/libgmp.la" ]
 p.SourcePackage = SourcePackage_gmp
 p.Host = True
+p.Configure = Configure_gmp
 
 
 p = Package()
@@ -374,17 +399,34 @@ def GetReducedObjectDirectory(Package, Platform, Build, Host, Target):
     # If package runs in build, and build != host and build != target, then
     #  ObjRoot/Build or ObjRoot/build-Build
     #
-    if Package.TargetDependent:
-        if Platform == Platform_Host:
-            return ObjRoot + "/" + Host + "/" + Target + "/" + Package.Name
-        else:
-            return ObjRoot + "/" + Host + "/" + Target + "/" + Target + "/" + Package.Name
-    elif Platform == Platform_Build:
-        return ObjRoot + "/" + Build + "/" + Package.Name
-    elif Platform == Platform_Host:
-        return ObjRoot + "/" + Host + "/" + Package.Name
+    Path = ObjRoot
+    if Package.HostTarget:
+        Path += "/" + Host + "/" + Target + "/"
+        if Platform == Platform_Target:
+            # This is inefficient. It caters to libgcc reaching into gcc, and
+            # contributes to building libgcc more than necessary.
+            Path += Target + "/"
+        Path += Package.Name
     else:
-        return ObjRoot + "/" + Target + "/" + Package.Name
+        # Voila: This is the point. Just list one platform, that which
+        # the code will run on.
+        Path += "/" + [Build, Host, Target][Platform]
+    Path += "/" + Package.Name
+    return Path
+
+
+def Configure_mpfr(Package, Platform, Build, Host, Target, Config):
+    #
+    # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
+    #
+    gmpsrc = GetSourceDirectory(Package_gmp)
+    gmpobj = GetReducedObjectDirectory(Package_gmp, Platform, Build, Host, Target)
+    if isdir(gmpobj) and isdir(gmpsrc):
+        Config += " -with-gmp-build=" + gmpobj
+
+    Config = Configure_Force_EnableStatic_DisableShared(Config)
+
+    return Config
 
 
 p = Package()
@@ -393,6 +435,7 @@ p.Name = "mpfr"
 p.Dependencies = [ Package_gmp ]
 p.Exports = [ "libmpfr.la", ".libs/libmpfr.a", ".libs/libmpfr.la" ]
 p.SourcePackage = SourcePackage_mpfr
+p.Configure = Configure_mpfr
 p.Host = True
 
 
@@ -546,7 +589,8 @@ p = Package()
 Package_binutils = p
 p.Dependencies = [ Package_bfd, Package_opcodes ]
 p.Name = "binutils"
-# NOTE binutils exports sh scripts AND .exes
+# NOTE binutils exports sh scripts AND executables, with
+# the same names, except on NT where the names vary (foo vs. foo.exe)
 p.Exports = ["addr2line", "ar", "nm-new", "objcopy", "objdump", "ranlib", "size", "strip-new"]
 p.Exports += [".libs/" + a for a in p.Exports]
 p.OptionalExports = ["coffdump", "cxxfilt", "dlltool", "dllwrap", "nlmconv", "readelf", "srconv", "strings", "sysdump", "sysinfo", "windmc", "windres"]
@@ -570,7 +614,7 @@ p.SourcePackage = SourcePackage_binutils
 p.Dependencies = [ Package_bfd ]
 p.Exports = [ "as-new"  ]
 p.Host = True
-p.TargetDependent = True # seems like a bug
+p.HostTarget = True # seems like a bug
 p.Configure = Configure_gas
 p.Install = True
 
@@ -584,13 +628,16 @@ p.Host = True
 p.Install = True
 
 
+#
+# BUG: This is probably only needed depending on how gcc is configured.
+#
 p = Package()
 Package_libdecnumber = p
 p.Name = "libdecnumber"
 p.SourcePackage = SourcePackage_gcc
 p.Host = True
 p.Exports = [ "libdecnumber.a", "gstdint.h"  ]
-p.Target = True # not always, need to fix this
+p.Target = True
 
 
 p = Package()
@@ -608,11 +655,18 @@ p.SourcePackage = SourcePackage_gcc
 p.Exports = [ "libgcc.a"  ]
 p.OptionalExports = [ "libgcc_eh.a", "libgcc_s.so"  ]
 p.Target = True
-p.TargetDependent = True # seems like a bug, because it uses gcc's libgcc.mvars.
+p.HostTarget = True # seems like a bug, because it uses gcc's libgcc.mvars.
 p.Install = True
 
 
 def Configure_gcc(Package, Platform, Build, Host, Target, Config):
+#
+# We really need to somehow use the toplevel configure, since it knows what
+# platforms support what libraries.
+#
+    #
+    # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
+    #
     gmpsrc = GetSourceDirectory(Package_gmp)
     gmpobj = GetReducedObjectDirectory(Package_gmp, Platform, Build, Host, Target)
     mpfrsrc = GetSourceDirectory(Package_mpfr)
@@ -620,7 +674,8 @@ def Configure_gcc(Package, Platform, Build, Host, Target, Config):
     if isdir(gmpobj) and isdir(gmpsrc) and isdir(mpfrobj) and isdir(mpfrsrc):
         gmplibs = " -L" + gmpobj + "/.libs -L" + gmpobj + "/_libs -L" + mpfrobj + "/.libs -L" + mpfrobj + "/_libs -lmpfr -lgmp"
         gmpinc = " -I" + gmpobj + " -I" + gmpsrc + " -I" + mpfrobj + " -I" + mpfrsrc
-        Config = " GMPLIBS='" + gmplibs + "' GMPINC='" + gmpinc + "' "
+        Config += " GMPLIBS='" + gmplibs + "' GMPINC='" + gmpinc + "' "
+
     return Config
 
 
@@ -633,7 +688,7 @@ p.SourcePackage = SourcePackage_gcc
 p.Host = True
 p.Exports = [ "xgcc"  ]
 p.OptionalExports = [ "gcc-cross" ]
-p.TargetDependent = True
+p.HostTarget = True
 p.Configure = Configure_gcc
 p.Install = True
 
@@ -666,39 +721,48 @@ Packages = [
     # TBD
     # zlib, libfortran, libgomp, libssp, libjava, libada, gnattools
     #
-    ];
+    ]
 
 
 def Extract(Directory, File):
     #
     # Make these more portable by running bzcat, gzcat, etc. directly.
     #
-    CreateDirectories(Directory);
+
+    if os.path.isdir(Directory):
+        return
+
+    CreateDirectories(Directory)
     for ext in [".tar.gz", ".tgz"]:
         if isfile(File + ext):
-            return Run([None], Directory, "tar --strip-components=1 -zxf " + File + ext)
+            return Run(Directory, "tar --strip-components=1 -zxf " + File + ext)
 
     for ext in [".tar.bz2", ".tbz"]:
         if isfile(File + ext):
-            return Run([None], Directory, "tar --strip-components=1 -jxf " + File + ext)
+            return Run(Directory, "tar --strip-components=1 -jxf " + File + ext)
 
     for ext in [".tlz", ".tar.lzma"]:
         if isfile(File + ext):
-            return Run([None], Directory, "tar --strip-components=1 --lzma -xf " + File + ext)
+            return Run(Directory, "tar --strip-components=1 --lzma -xf " + File + ext)
 
-    return Run([None], Directory, "tar tar --strip-components=1 -xf " + File)
+    return Run(Directory, "tar tar --strip-components=1 -xf " + File)
 
 def ExtractSource(Package):
-    print("extracting " + Package.Name)
+    if not Package.Extracted:
+        for p in Package.Dependencies:
+            ExtractSource(p)
+        #
+        # FUTURE: Probe for more file names.
+        #
+        Extract(SourceRoot + "/" + Package.Directory, DistFiles + "/" + Package.Name + "-" + Package.Version)
+        Package.Extracted = True
 
 
 def GetExpectedObjectDirectory(Package, Platform, Build, Host, Target):
-    if Platform == Platform_Build:
-        return ObjRoot + "/" + Host + "/" + Target + "/" + "build-" + Build + "/" + Package.Name
-    elif Platform == Platform_Host:
-        return ObjRoot + "/" + Host + "/" + Target + "/" + Package.Name
-    elif Platform == Platform_Target:
-        return ObjRoot + "/" + Host + "/" + Target + "/" + Target + "/" + Package.Name
+    Path = ObjRoot + "/" + Host + "/" + Target
+    Path += ["/build-" + Build, "", "/" + Target][Platform]
+    Path += "/" + Package.Name
+    return Path
 
 
 def IsAlreadyConfigured(Package, ObjDir):
@@ -725,9 +789,7 @@ ConfigCommon += " -enable-64-bit-bfd "
 ConfigCommon += " -disable-multilib "
 ConfigCommon += " -disable-libgomp "
 ConfigCommon += " -disable-libssp "
-ConfigCommon += " -enable-languages=c,c++ " # need to change this to all, at least sometimes
-ConfigCommon += " -enable-static "
-# ConfigCommon += " -enable-shared=libgcc,libstdc++,libffi,zlib,boehm-gc,ada,libada,libjava,libobjc "
+ConfigCommon += " -enable-languages=c,c++ "
 ConfigCommon = re.sub(" +", " ", ConfigCommon)
 
 
@@ -746,9 +808,13 @@ def Configure(Package, Platform, Build, Host, Target):
     CreateDirectories(ObjDir)
 
     Config = ConfigCommon
-    Config += " -build " + Build
-    Config += " -host " + Host
-    Config += " -target " + Target
+    Config += " -host " + [Build, Host, Target][Platform]
+
+    if Package.HostTarget:
+        Config += " -target " + Target # most directories don't care
+    if Host != Target:
+        Config += " -with-sysroot " # most directories don't care
+
     Config += " -cache-file " + dirname(ObjDir) + "/config.cache "
     Config = Package.Configure(Package, Platform, Build, Host, Target, Config)
 
@@ -790,6 +856,7 @@ def PatchAfterConfigure(Package, Platform, Build, Host, Target):
         PatchAfterConfigure_RemoveSubDir(Package, SourceDir, ObjDir, SubDir)
 
     PatchAfterConfigure_RemoveLibIconv(Package, SourceDir, ObjDir)
+
 
 def Build(Package, Platform, Build, Host, Target):
     Package.Make(Package, Platform, Build, Host, Target)
@@ -853,7 +920,7 @@ BuildSteps = [
     PatchAfterConfigure,
     Build,
     Install
-    ];
+    ]
 
 
 PackagesToBuild = [ ]
@@ -861,7 +928,7 @@ NameToPackage = { }
 
 
 for Package in Packages:
-    NameToPackage[Package.Name] = Package;
+    NameToPackage[Package.Name] = Package
  
 for p in sys.argv:
     if p in NameToPackage:
@@ -871,11 +938,14 @@ if not PackagesToBuild:
     PackagesToBuild = Packages
 
 for Package in PackagesToBuild:
-    ExtractSource(Package)
+    ExtractSource(Package.SourcePackage)
+
+
+# native
 
 Build = "i686-pc-cygwin"
-Host = "i686-pc-cygwin"
-Target = "i686-pc-cygwin"
+Host = Build
+Target = Build
 print("building " + Build + "/" + Host + "/" + Target)
 
 for Platform in Platforms:
@@ -884,8 +954,10 @@ for Platform in Platforms:
             for Step in BuildSteps:
                 Step(Package, Platform, Build, Host, Target)
 
+# cross
+
 Build = "i686-pc-cygwin"
-Host = "i686-pc-cygwin"
+Host = Build
 Target = "sparc-sun-solaris2.10"
 print("building " + Build + "/" + Host + "/" + Target)
 
@@ -894,12 +966,54 @@ for Platform in Platforms:
         if ShouldBuild(Package, Platform):
             for Step in BuildSteps:
                 Step(Package, Platform, Build, Host, Target)
+
+
+# cross to native
 
 Build = "i686-pc-cygwin"
 Host = "sparc-sun-solaris2.10"
-Target = "sparc-sun-solaris2.10"
+Target = Host
 print("building " + Build + "/" + Host + "/" + Target)
 
+for Platform in Platforms:
+    for Package in PackagesToBuild:
+        if ShouldBuild(Package, Platform):
+            for Step in BuildSteps:
+                Step(Package, Platform, Build, Host, Target)
+
+
+# cross to cross
+
+Build = "i686-pc-cygwin"
+Host = "sparc-sun-solaris2.10"
+Target = Build
+print("building " + Build + "/" + Host + "/" + Target)
+
+for Platform in Platforms:
+    for Package in PackagesToBuild:
+        if ShouldBuild(Package, Platform):
+            for Step in BuildSteps:
+                Step(Package, Platform, Build, Host, Target)
+
+# cross
+
+Build = "i686-pc-cygwin"
+Host = Build
+Target = "i586-pc-msdosdjgpp"
+print("building " + Build + "/" + Host + "/" + Target)
+
+for Platform in Platforms:
+    for Package in PackagesToBuild:
+        if ShouldBuild(Package, Platform):
+            for Step in BuildSteps:
+                Step(Package, Platform, Build, Host, Target)
+
+# cross to native
+
+Build = "i686-pc-cygwin"
+Host = "i586-pc-msdosdjgpp"
+Target = Host
+print("building " + Build + "/" + Host + "/" + Target)
 
 for Platform in Platforms:
     for Package in PackagesToBuild:
