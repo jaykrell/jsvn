@@ -269,7 +269,7 @@ class SourcePackage():
 
     
 SourceRoot = "/src/gcc"
-ObjRoot = "/obj/2"
+ObjRoot = "/obj/3"
 CreateDirectories(ObjRoot)
 
 
@@ -818,7 +818,7 @@ def ShouldBuild(Package, Platform):
         (Platform == Platform_Build and Package.Build)
         or (Platform == Platform_Host and Package.Host)
         or (Platform == Platform_Target and Package.Target))
-    print("ShouldBuild " + Package.Name + " " + str(Platform) + " => " + str(Result))
+    # print("ShouldBuild " + Package.Name + " " + str(Platform) + " => " + str(Result))
     return Result
 
 def BuildDependencies(Package, Platform, Build, Host, Target):
@@ -876,7 +876,7 @@ for Package in PackagesToBuild:
 Build = "i686-pc-cygwin"
 Host = "i686-pc-cygwin"
 Target = "i686-pc-cygwin"
-print(Build + "/" + Host + "/" + Target)
+print("building " + Build + "/" + Host + "/" + Target)
 
 for Platform in Platforms:
     for Package in PackagesToBuild:
@@ -887,7 +887,7 @@ for Platform in Platforms:
 Build = "i686-pc-cygwin"
 Host = "i686-pc-cygwin"
 Target = "sparc-sun-solaris2.10"
-print(Build + "/" + Host + "/" + Target)
+print("building " + Build + "/" + Host + "/" + Target)
 
 for Platform in Platforms:
     for Package in PackagesToBuild:
@@ -898,7 +898,7 @@ for Platform in Platforms:
 Build = "i686-pc-cygwin"
 Host = "sparc-sun-solaris2.10"
 Target = "sparc-sun-solaris2.10"
-print(Build + "/" + Host + "/" + Target)
+print("building " + Build + "/" + Host + "/" + Target)
 
 
 for Platform in Platforms:
