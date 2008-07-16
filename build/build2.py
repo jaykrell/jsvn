@@ -871,7 +871,7 @@ ConfigCommon += " -disable-multilib "
 ConfigCommon += " -disable-libgomp "
 ConfigCommon += " -disable-libssp "
 ConfigCommon += " -enable-languages=c,c++ "
-ConfigCommon = re.sub(" +", " ", ConfigCommon)
+ConfigCommon = re.sub("  +", " ", ConfigCommon)
 
 
 def GetSourceDirectory(State, Package):
