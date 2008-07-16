@@ -27,12 +27,6 @@ import shutil
 # These variables let you manually control incrementality after failed runs.
 #
 
-DoCleanSource = False
-
-DoClean1 = True
-DoClean12 = True
-DoClean2 = True
-
 DoConfigure1 = True
 DoConfigure12 = True
 DoConfigure2 = True
@@ -63,7 +57,7 @@ ObjRoot = "/obj/gcc.5"
 #  - sometimes they get further canonicalized, sometimes not
 #  - libgcc wants a version in Platform2
 #
-Platform1 = "i686-pc-cygwin"
+Build = "i686-pc-cygwin"
 Platform2 = "sparc-sun-solaris2.10"
 
 Prefix0 = "/usr/local"
@@ -91,19 +85,10 @@ Prefix0 = "/usr/local"
 #
 
 DefaultSysroot = (Prefix0 + "/" + Platform2 + "/sys-root")
-# DefaultSysinclude = (Prefix0 + "/" + Platform2 + "/sys-include")
 
 if not os.path.isdir(DefaultSysroot):
     print("ERROR: Please put appropriate subset of " + Platform2 + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
     exit(1)
-
-DestDir1 = ""
-DestDir12 = ""
-
-#
-# There seems to be no convention here.
-#
-DestDir2 = Prefix0 + "/" + Platform2 + "/install"
 
 ConfigCommon = ""
 
@@ -114,7 +99,7 @@ ConfigCommon = ""
 # and it varying.
 #
 
-ConfigCommon += " -build " + Platform1 + " "
+# ConfigCommon += " -build " + Platform1 + " "
 ConfigCommon += " -verbose "
 
 #
@@ -198,40 +183,7 @@ ConfigCommon += " -enable-64-bit-bfd "
 # usually ignore.
 #
 
-#
-# native
-#
-
-Host = " "
-Target = " "
-Sysroot = " "
-Config1 = ConfigCommon + Host + Target + Sysroot + " -enable-languages=all "
-Config1 = re.sub(" +", " ", Config1)
-
-#
-# Future: Languages should be configurable
-#
-
-#
-# hosted on Platform1, targeting Platform2 ("cross")
-#
-
-Host = " -host " + Platform1
-# Target = " -target " + Platform2
-Target = " "
-Sysroot = " -with-sysroot "
-Config12 = ConfigCommon + Host + Target + Sysroot + " -enable-languages=c,c++ "
-Config12 = re.sub(" +", " ", Config12)
-
-#
-# Platform2 ("Canadian cross, er.. cross native?")
-#
-
-Host = " -host " + Platform2
-Target = " -target " + Platform2 + " "
-Sysroot = " "
-Config2 = ConfigCommon + Host + Target + Sysroot + " -enable-languages=c,c++ "
-Config2 = re.sub(" +", " ", Config2)
+ConfigCommon = re.sub(" +", " ", ConfigCommon)
 
 
 #
@@ -265,40 +217,9 @@ def Run(Directory, Command):
     return True
 
 
-def DeleteRoot(a):
-    if False and os.name == "nt":
-        print("rmdir /q/s " + a)
-        if os.path.isdir(a):
-            shutil.rmtree(a)
-    else:
-        #
-        # workaround Win32 Python + Cygwin symlinks?
-        #
-        Run(".", "rm -rf " + a + "/*")
-
-def EmptyDir(clean, a):
-    if clean:
-        if False and os.name == "nt":
-            DeleteRoot(a)
-        else:
-            #
-            # workaround Win32 Python + Cygwin symlinks?
-            #
-            Run(".", "rm -rf " + a)
-    CreateDirectories(a)
-
-
 def CreateDirectories(a):
-    if False and os.name == "nt":
-        print("mkdir " + a)
-        if not os.path.isdir(a):
-            os.makedirs(a)
-    else:
-        #
-        # workaround Win32 Python + Cygwin symlinks?
-        #
-        Run(".", "-mkdir " + a)
-        Run(".", "-mkdir -pv " + a)
+    if not os.path.isdir(a):
+        os.makedirs(a)
 
 #
 # I have recoded my archives to tar+lzma = .tlz.
@@ -347,90 +268,181 @@ print("set -x")
 # extract source -- note we carefully extract into a "combined" tree
 #
 
-EmptyDir(DoCleanSource, "/src/gcc")
-if DoCleanSource:
+Source = "/src/gcc"
+
+if not os.path.isdir(Source):
     #
     # binutils must precede gcc so that gcc replaces common files
     #
-    Extract("/src/gcc", "/net/distfiles/" + VersionBinutils)
-    Extract("/src/gcc", "/net/distfiles/" + VersionGcc)
-    Extract("/src/gcc/gmp", "/net/distfiles/" + VersionGmp)
-    Extract("/src/gcc/mpfr", "/net/distfiles/" + VersionMpfr)
+    Extract(Source, "/net/distfiles/" + VersionBinutils)
+    Extract(Source, "/net/distfiles/" + VersionGcc)
+    Extract(Source + "/gmp", "/net/distfiles/" + VersionGmp)
+    Extract(Source + "/mpfr", "/net/distfiles/" + VersionMpfr)
 
-#
-# create output directories
-#
 
-EmptyDir(DoClean1, ObjRoot + "/" + Platform1 + "/" + Platform1)
-EmptyDir(DoClean12, ObjRoot + "/" + Platform1 + "/" + Platform2)
-EmptyDir(DoClean2, ObjRoot + "/" + Platform2 + "/" + Platform2)
+def Configure(Obj, Options):
+    if not os.path.isfile(Obj + "/Makefile"):
+        CreateDirectories(Obj)
+        Run(Obj, Source + "/configure " + Options)
+
+
+def Make(Obj):
+    Run(Obj, "make")
+
+
+def Install(Obj, Options = ""):
+    Run(Obj, "make install " + Options)
 
 #
 # bring native libs/tools up to date
 #
 
-Obj = ObjRoot + "/" + Platform1 + "/" + Platform1
-if DoConfigure1:
-    Run(Obj, "/src/gcc/configure " + Config1)
-if DoMake1:
-    Run(Obj, "make")
-if DoInstall1:
-    Run(Obj, "make install")
+def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
+    if Host == None:
+        Host = Build
+    if Target == None:
+        Target = Build
 
-#
-# hosted on Platform1, targeting Platform2
-#
+    #if Host != Build or Host != Target:
+    ExtraConfig += " -enable-languages=c,c++ "
 
-Obj = ObjRoot + "/" + Platform1 + "/" + Platform2
+    print("starting " + Host + "/" + Target)
+    Run(".", "sh -c date")
 
-if DoConfigure12:
-    Run(Obj, "/src/gcc/configure " + Config12 + " -target " + Platform2)
-if DoMake12:
-    Run(Obj, "make")
-if DoInstall12:
-    Run("make install")
+    ExtraInstall = " "
+    DestDir = None
+    if Host != Build:
+        #
+        # There seems to be no convention here.
+        #
+        DestDir = Prefix0 + "/" + Host + "/install"
+        ExtraInstall = " DESTDIR=" + DestDir
 
-#
-# Platform2
-#
+    # Obj = ObjRoot + "/" + Build + "/" + Host + "/" + Target
+    Obj = ObjRoot + "/" + Host + "/" + Target
 
-Obj = ObjRoot + "/" + Platform2 + "/" + Platform2
+    print("configuring " + Host + "/" + Target)
+    Run(".", "sh -c date")
+    Configure(Obj, ConfigCommon + ExtraConfig)
 
-if DoConfigure2:
-    Run(Obj, "/src/gcc/configure " + Config2)
-if DoMake2:
-    Run(Obj, "make")
-if DoInstall2:
-    Run(Obj, "make install DESTDIR=" + DestDir2)
+    print("making " + Host + "/" + Target)
+    Run(".", "sh -c date")
+    Make(Obj)
 
+    print("installing " + Host + "/" + Target)
+    Run(".", "sh -c date")
+    Install(Obj, ExtraInstall)
 
+    if DestDir:
+        print("Success; copy " + DestDir + " to your " + Host + " machine")
 
+Platform1 = Build
 
-# and now djgpp
+DoBuild()
+DoBuild(Platform1, Platform2, " -with-sysroot ")
+DoBuild(Platform2, Platform2)
 
 Platform2 = "i586-pc-djgpp"
-Obj = ObjRoot + "/" + Platform1 + "/" + Platform2
 
-if DoConfigure12:
-    Run(Obj, "/src/gcc/configure " + Config12 + " -target " + Platform2)
-if DoMake12:
-    Run(Obj, "make")
-if DoInstall12:
-    Run(Obj, "make install")
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
-Obj = ObjRoot + "/" + Platform2 + "/" + Platform2
-DestDir2 = Prefix0 + "/" + Platform2 + "/install"
-
-if DoConfigure2:
-    Run(Obj, "/src/gcc/configure " + Config2)
-if DoMake2:
-    Run(Obj, "make")
-if DoInstall2:
-    Run(Obj, "make install DESTDIR=" + DestDir2)
-
-
-print("Success; copy " + DestDir2 + " to your " + Platform2 + " machine")
+#
+# working tools
+#
+# i586-pc-msdosdjgpp
+# sparc64-sun-solaris2.10
+# i686-pc-linux
+# i686-pc-cygwin
+#
+# easily up and running host
+#   i686-pc-cygwin
+#   i686-pc-linux
+#   x86_64-pc-linux
+#   x86_64-pc-cygwin
+#   ppc-apple-darwin
+#
+# owned hardware
+#   i686-pc
+#   i686_64-pc
+#   sparc64-sun
+#   ppc-apple
+#   mips-sgi (not powered up, 64?)
+#
+# planned to purchase
+#   x86_64-apple (darwin)
+#   ppc64-apple (darwin)
+#   itanium (hpux, linux, vms)
+#   alpha (linux, vms, osf)
+#   hppa64 (hpux, linux)
+#   alpha-pc/nt? (linux, osf, nt?)
+#   ppc-pc/nt? (nt?)
+#   mips-pc/nt? (nt?)
+#
+# candidate tools
+#  needs pruning
+#  needs sysroots
+#  needs config.guess, config.sub
+#  needs hardware
+#
+#
+# i686-pc-mingwin
+# i686-apple-darwin
+# i686-sun-solaris
+# i686-unknown-netbsd
+# i686-unknown-freebsd
+# i686-unknown-netbsd
+# i686-unknown-openbsd
+# x86_64-pc-linux
+# x86_64-pc-cygwin
+# x86_64-pc-mingwin
+# x86_64-apple-darwin
+# x86_64-sun-solaris
+# x86_64-unknown-freebsd
+# x86_64-unknown-netbsd
+# x86_64-unknown-openbsd
+# ppc-apple-darwin
+# ppc-unknown-linux
+# ppc-unknown-openbsd
+# ppc-unknown-freebsd
+# ppc-unknown-netbsd
+# ppc-unknown-aix
+# ppc64-apple-darwin
+# ppc64-unknown-linux
+# ppc64-unknown-freebsd
+# ppc64-unknown-netbsd
+# ppc64-unknown-openbsd
+# ppc64-unknown-aix
+# sparc-unknown-linux
+# sparc-unknown-openbsd
+# sparc-unknown-freebsd
+# sparc-unknown-netbsd
+# sparc-sun-solaris
+# sparc64-unknown-linux
+# sparc64-unknown-freebsd
+# sparc64-unknown-netbsd
+# sparc64-unknown-openbsd
+# mips-sgi-irix
+# mips-sgi-linux
+# mips64-sgi-irix
+# mips64-sgi-linux
+# alpha-digital-linux
+# alpha-digital-osf
+# alpha-digital-vms
+# hppa-hp-hpux
+# hppa-hp-linux
+# hppa64-hp-hpux
+# hppa64-hp-linux
+# itanium-unknown-linux
+# itanium-unknown-hpux
+# itanium-unknown-vms
+# vax-unknown-linux
+# vax-unknown-freebsd
+# vax-unknown-netbsd
+# vax-unknown-openbsd
+# vax-unknown-vms
+#
 
 
 #
