@@ -192,23 +192,43 @@ ConfigCommon = re.sub(" +", " ", ConfigCommon)
 #
 
 def Run(Directory, Command):
-    if Directory != ".":
-        print("cd " + Directory + " && " + Command)
-    else:
-        print(Command)
+
+    Command = re.sub("  +", " ", Command)
+
+    sys.stderr.flush()
+    sys.stdout.flush()
+
+    CommandToPrint = Command
+    IgnoreError = False
+
+    while len(Command) != 0 and (Command[0] == "@" or Command[0] == "-"):
+        if Command[0] == '@':
+            CommandToPrint = None
+        if Command[0] == '-':
+            IgnoreError = True
+        Command = Command[1:]
+
+    if CommandToPrint:
+        if Directory != ".":
+            print("cd " + Directory + " && " + CommandToPrint)
+        else:
+            print(CommandToPrint)
+
     PreviousDirectory = os.getcwd()
     os.chdir(Directory)
-
-    IgnoreError = False
-    if Command[0] == '-':
-        IgnoreError = True
-        Command = Command[1:]
 
     ExitCode = 0
     if os.name == "nt":
         Command = "sh -c \"" + Command + "\""
+
+    sys.stderr.flush()
+    sys.stdout.flush()
+
     ExitCode = os.system(Command)
     os.chdir(PreviousDirectory)
+
+    sys.stderr.flush()
+    sys.stdout.flush()
 
     if not IgnoreError:
         if ExitCode != 0:
@@ -308,7 +328,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     ExtraConfig += " -enable-languages=c,c++ "
 
     print("starting " + Host + "/" + Target)
-    Run(".", "sh -c date")
+    Run(".", "@sh -c date")
 
     ExtraInstall = " "
     DestDir = None
@@ -323,15 +343,15 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     Obj = ObjRoot + "/" + Host + "/" + Target
 
     print("configuring " + Host + "/" + Target)
-    Run(".", "sh -c date")
+    Run(".", "@sh -c date")
     Configure(Obj, ConfigCommon + ExtraConfig)
 
     print("making " + Host + "/" + Target)
-    Run(".", "sh -c date")
+    Run(".", "@sh -c date")
     Make(Obj)
 
     print("installing " + Host + "/" + Target)
-    Run(".", "sh -c date")
+    Run(".", "@sh -c date")
     Install(Obj, ExtraInstall)
 
     if DestDir:
