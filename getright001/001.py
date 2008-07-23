@@ -4,21 +4,25 @@ import os
 from os.path import join, getsize
 import re
 
-re1 = re.compile("(^.+)-[0-9][0-9][0-9](\.(?:zip|tgz|txt|README|txt~))$")
+re1 = re.compile("(^.+)-0[0-9][0-9](\.(?:zip|tgz|txt|README|txt~))$")
 
-for root, dirs, files in os.walk("."):
-    for name in files:
-        match = re1.search(name)
-        if match:
-            name0 = match.group(1) + match.group(2)
-            if name0 in files:
-                name = os.path.join(root, name)
-                name0 = os.path.join(root, name0)
-                contents0 = file(name0).read()
-                contents = file(name).read()
-                if contents0 == contents:
-                    os.system("fc " + name + " " + name0)
-                    print("del " + name)
-                    os.unlink(name)
+for Root, Dirs, Files in os.walk("."):
+    for Name in Files:
+        Match = re1.search(Name)
+        if Match:
+            print(Name)
+            Name0 = Match.group(1) + Match.group(2)
+            Path = os.path.join(Root, Name)
+            Path0 = os.path.join(Root, Name0)
+            if Name0 in Files:
+                Contents0 = file(Path0).read()
+                Contents = file(Path).read()
+                if Contents0 == Contents:
+                    os.system("fc " + Path + " " + Path0)
+                    print("del " + Path)
+                    os.unlink(Path)
                 else:
-                    print("rem " + name0)
+                    print("rem " + Path0)
+            else:
+                print("ren " + Path + " " + Name0)
+                os.rename(Path, Path0)
