@@ -180,7 +180,7 @@ def FileExists(a):
 def MyCopyFile_IfExists(From, To):
 #
 # needs work
-# use FixPath and copy CopyFile code
+# use FixPath and common CopyFile code
 #
     if From == To:
         return
@@ -208,7 +208,7 @@ def MyCopyFile_IfExists(From, To):
 def MyCopyFile_IncrementalByTime(From, To):
 #
 # needs work
-# use FixPath and copy CopyFile code
+# use FixPath and common CopyFile code
 #
     if From == To:
         return
@@ -243,7 +243,7 @@ def MyCopyFile_IncrementalByTime(From, To):
 def MyCopyFile_IncrementalByTimeAndSize(From, To):
 #
 # needs work
-# use FixPath and copy CopyFile code
+# use FixPath and common CopyFile code
 #
     if From == To:
         return
