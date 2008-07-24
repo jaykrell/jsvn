@@ -15,42 +15,8 @@
 import os
 import sys
 import re
-from subprocess import Popen
-from threading import Thread
-import shutil
 
-#
-# 1 is native
-# 12 is cross
-# 2 is cross-to-native
-#
-# These variables let you manually control incrementality after failed runs.
-#
-
-DoConfigure1 = True
-DoConfigure12 = True
-DoConfigure2 = True
-
-DoMake1 = True
-DoMake12 = True
-DoMake2 = True
-
-DoInstall1 = True
-DoInstall12 = True
-DoInstall2 = True
-
-# -enable-static=gmp,mpfr,libgcc -disable-shared=gmp,mpfr -enable-shared=libgcc
-# -enable-static=gmp,mpfr -disable-shared=gmp,mpfr
-
-#
-# FUTURE need to split notion of "package name" from "package version"
-#
-VersionGcc = "gcc-4.3.1"
-VersionMpfr = "mpfr-2.3.1"
-VersionGmp = "gmp-4.2.2"
-VersionBinutils = "binutils-2.18"
-
-ObjRoot = "/obj/gcc.5"
+ObjRoot = "/obj/gcc.2"
 
 #
 # use canonical names including version
@@ -90,7 +56,7 @@ if not os.path.isdir(DefaultSysroot):
     print("ERROR: Please put appropriate subset of " + Platform2 + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
     exit(1)
 
-ConfigCommon = ""
+ConfigCommon = " "
 
 #
 # Sometimes it helps to specify -build explicitly, but currently we don't hit these.
@@ -121,13 +87,15 @@ ConfigCommon += " -with-gnu-ld "
 #
 # We already build and install the necessary compilers. Don't build them again.
 #
-#ConfigCommon += " -disable-bootstrap "
+ConfigCommon += " -disable-bootstrap "
 
 #
 # Cygwin defaults -enable-threads to off, but -enable-threads works, so enable it explicitly.
 # However we'll probably have to remove this for DJGPP.
 #
 ConfigCommon += " -enable-threads "
+
+ConfigCommon += " -enable-rpath "
 
 #
 # -enable-cld is a compatibility deoptimization for Linux/x86 and possibly other x86/AMD64 operating systems.
@@ -247,10 +215,13 @@ def CreateDirectories(a):
 # Given gcc-1.2.3 we should also probe for gcc-1.23 and gcc123.
 # We should also support .zip, and try to support the DJGPP names.
 #
-def Extract(Directory, File):
+def Extract(Directory, MarkerDirectory, File):
     #
     # Make these more portable by running bzcat, gzcat, etc. directly.
     #
+    if os.path.isdir(MarkerDirectory):
+        return
+
     CreateDirectories(Directory);
     for ext in [".tar.gz", ".tgz"]:
         if os.path.exists(File + ext):
@@ -267,7 +238,7 @@ def Extract(Directory, File):
             Run(Directory, "tar --strip-components=1 --lzma -xf " + File + ext)
             return
 
-    Run(Directory, "tar tar --strip-components=1 -xf " + File)
+    Run(Directory, "tar --strip-components=1 -xf " + File)
 
 #
 # These represent processes, that can be waited on.
@@ -290,14 +261,13 @@ print("set -x")
 
 Source = "/src/gcc"
 
-if not os.path.isdir(Source):
-    #
-    # binutils must precede gcc so that gcc replaces common files
-    #
-    Extract(Source, "/net/distfiles/" + VersionBinutils)
-    Extract(Source, "/net/distfiles/" + VersionGcc)
-    Extract(Source + "/gmp", "/net/distfiles/" + VersionGmp)
-    Extract(Source + "/mpfr", "/net/distfiles/" + VersionMpfr)
+#
+# binutils must precede gcc so that gcc replaces common files
+#
+Extract(Source, Source + "/binutils", "/net/distfiles/" + "binutils-2.18")
+Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.1")
+Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.2")
+Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
 
 
 def Configure(Obj, Options):
@@ -313,9 +283,6 @@ def Make(Obj):
 def Install(Obj, Options = ""):
     Run(Obj, "make install " + Options)
 
-#
-# bring native libs/tools up to date
-#
 
 def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
@@ -344,7 +311,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     print("configuring " + Host + "/" + Target)
     Run(".", "@sh -c date")
-    Configure(Obj, ConfigCommon + ExtraConfig)
+    Configure(Obj, " -host " + Host + " -target " + Target + " " + ConfigCommon + " " + ExtraConfig)
 
     print("making " + Host + "/" + Target)
     Run(".", "@sh -c date")
@@ -359,14 +326,14 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
 Platform1 = Build
 
-DoBuild()
+DoBuild() # native
 DoBuild(Platform1, Platform2, " -with-sysroot ")
-DoBuild(Platform2, Platform2)
+DoBuild(Platform2, Platform2, " -with-build-sysroot ")
 
-Platform2 = "i586-pc-djgpp"
+Platform2 = "i586-pc-msdosdjgpp"
 
-DoBuild(Platform1, Platform2)
-DoBuild(Platform2, Platform2)
+DoBuild(Platform1, Platform2, " -disable-shared -enable-static -with-headers=" + Prefix0 + "/" + Platform2 + "/include ")
+DoBuild(Platform2, Platform2, " -disable-shared -enable-static -with-headers=" + Prefix0 + "/" + Platform2 + "/include ")
 
 #
 # working tools
