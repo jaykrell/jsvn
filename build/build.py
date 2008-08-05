@@ -16,7 +16,7 @@ import os
 import sys
 import re
 
-ObjRoot = "/obj/gcc.2"
+ObjRoot = "/obj/gcc.1"
 
 #
 # use canonical names including version
@@ -69,12 +69,6 @@ ConfigCommon = " "
 ConfigCommon += " -verbose "
 
 #
-# libiconv is often present on the build machine, but not the later host of the same architecture,
-# for example on Solaris; this should be called -disable-libiconv or -without-libiconv?, but is it not.
-#
-ConfigCommon += " -without-libiconv-prefix "
-
-#
 # Keep everything in English, and don't waste time otherwise.
 #
 ConfigCommon += " -disable-nls "
@@ -95,6 +89,9 @@ ConfigCommon += " -disable-bootstrap "
 #
 ConfigCommon += " -enable-threads "
 
+#
+# Does this make things better on Solaris?
+#
 ConfigCommon += " -enable-rpath "
 
 #
@@ -117,7 +114,8 @@ ConfigCommon += " -disable-checking "
 # for 32bit/64bit pairs like on PowerPC, SPARC, and x86.
 # This also appears to enable gas/ld to support "everthing".
 #
-# breaks bfd and binutils
+# TBD: breaks bfd, binutils, gas, ld
+#
 #ConfigCommon += " -enable-targets=all "
 
 #
@@ -133,14 +131,16 @@ ConfigCommon += " -enable-64-bit-bfd "
 #
 # This is a nice speed up, but it might take away ability for 32 bit and 64 bit
 # to target each other.
+# Not disabling this breaks sparc64/sparc64 -- libgcc_s.so placed incorrectly.
+# Perhaps an environment variable is needed.
 #
-# ConfigCommon += " -disable-multilib "
+ConfigCommon += " -disable-multilib "
 
 #
 # random speeds ups, some people will want these
 #
-# ConfigCommon += " -disable-libgomp "
-# ConfigCommon += " -disable-libssp "
+ConfigCommon += " -disable-libgomp "
+ConfigCommon += " -disable-libssp "
 
 #
 # This is probably a losing battle, but for now we use identical
@@ -241,15 +241,6 @@ def Extract(Directory, MarkerDirectory, File):
     Run(Directory, "tar --strip-components=1 -xf " + File)
 
 #
-# These represent processes, that can be waited on.
-# Default everything to "None", which is considered immediately finished,
-# for the case of not running something.
-#
-
-print("set -e")
-print("set -x")
-
-#
 # /obj and /src are actually symlinks to /d/obj, /d/src
 # /d => /cygdrive/d
 # Thus we do not want to rm -rf /obj /src.
@@ -270,13 +261,82 @@ Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.2")
 Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
 
 
+def PatchGmp():
+    #
+    # workaround problem with gmp/configure detecting flex output file
+    #
+    FilePath = Source + "/gmp/configure"
+    PatchName = "M4=m4-not-needed"
+    print("patching " + PatchName + " in " + FilePath)
+    OldLines = file(FilePath).readlines()
+    NewLines = [ ]
+    Changed = False
+    for OldLine in OldLines:
+        NewLine = OldLine
+        if not Changed:
+            if NewLine == "  M4=m4-not-needed\n":
+                NewLine = "  : # " + NewLine
+                Changed = True
+        NewLines += NewLine
+    if Changed:
+        file(FilePath, "w").writelines(NewLines)
+    print("done patching " + PatchName + " in " + FilePath)
+
+PatchGmp()
+
 def Configure(Obj, Options):
     if not os.path.isfile(Obj + "/Makefile"):
         CreateDirectories(Obj)
         Run(Obj, Source + "/configure " + Options)
 
+#
+# libiconv is often present on the build machine, but not the later host of the same architecture,
+# for example on Solaris; it would be nice to have -disable-libiconv or -without-libiconv.
+#
+def PatchOutLibIConv(Obj):
+
+    PatchName = "libiconv dependency"
+
+    for a in ["binutils", "gcc", "libcpp", "libdecnumber"]:
+        FilePath = Obj + "/" + a
+        if not os.path.isdir(FilePath):
+            continue
+        for b in ["Makefile", "auto-host.h", "config.h"]:
+            FilePath += "/" + b
+            if not os.path.isfile(FilePath):
+                continue;
+            print("patching " + PatchName + " in " + FilePath)
+            OldLines = file(FilePath).readlines()
+            NewLines = [ ]
+            Changed = False
+            for OldLine in OldLines:
+                NewLine = OldLine
+                if NewLine.startswith("LTLIBICONV = "):
+                    NewLine = "LTLIBICONV = \n"
+                    Changed = True
+                elif NewLine.startswith("LIBICONV = "):
+                    NewLine = "LIBICONV = \n"
+                    Changed = True
+                elif NewLine.startswith("LIBICONV_DEP = "):
+                    NewLine = "LIBICONV_DEP = \n"
+                    Changed = True
+                elif NewLine == "#define HAVE_ICONV 1\n":
+                    NewLine = "#undef HAVE_ICONV\n"
+                    Changed = True
+                elif NewLine == "#define HAVE_ICONV_H 1\n":
+                    NewLine = "#undef HAVE_ICONV_H\n"
+                    Changed = True
+                NewLines += NewLine
+            if Changed:
+                file(FilePath, "w").writelines(NewLines)
+            print("done patching " + PatchName + " in " + FilePath)
+
+    print("done patching " + PatchName)
+
 
 def Make(Obj):
+    Run(Obj, "make configure-host")    
+    PatchOutLibIConv(Obj)
     Run(Obj, "make")
 
 
@@ -325,10 +385,15 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         print("Success; copy " + DestDir + " to your " + Host + " machine")
 
 Platform1 = Build
-
 DoBuild() # native
+sys.exit(1)
 DoBuild(Platform1, Platform2, " -with-sysroot ")
-DoBuild(Platform2, Platform2, " -with-build-sysroot ")
+DoBuild(Platform2, Platform2, " -with-build-sysroot=" + Prefix0 + "/" + Platform2 + "/sys-root")
+
+Platform2 = "sparc64-sun-solaris2.10"
+
+DoBuild(Platform1, Platform2, " -with-sysroot ")
+DoBuild(Platform2, Platform2, " -with-build-sysroot=" + Prefix0 + "/" + Platform2 + "/sys-root")
 
 Platform2 = "i586-pc-msdosdjgpp"
 
