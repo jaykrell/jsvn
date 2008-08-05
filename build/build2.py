@@ -11,7 +11,18 @@
 #     earlier goals of minimizing compiling anything
 #     more than necessary.
 #
-# It duplicates parts of the topleve configure and makefile.
+# It duplicates parts of the topleve configure and makefile,
+#   and some of that should be reduced. The plan here is
+#   to run the toplevel configure, possibly per package.
+#   Per-package can work by using -disable-pkg on all the other
+#   packages. We might need per-package in order to vary
+#   some options, like -enable-targets=all, at least until gas/ld fixed.
+#
+# It still builds per-target ld and as, but this appears
+#   easy to eliminate.
+#
+# It still builds per-target gcc/cc1, and this is not necessarily
+#   easy to eliminate.
 #
 
 import sys
@@ -21,7 +32,6 @@ import os.path
 from os.path import dirname, isdir, isfile, splitext, getsize, getmtime, islink
 import stat
 from shutil import copy2
-from os import symlink
 
 #
 # more later
@@ -53,7 +63,7 @@ def Run(Directory, Command):
     os.chdir(Directory)
 
     IgnoreError = False
-    if Command[0] == "-":
+    while (len(Command) != 0) and (Command[0] == "-"):
         IgnoreError = True
         Command = Command[1:]
 
@@ -70,27 +80,27 @@ def Run(Directory, Command):
 
     return True
 
-def Configure_default(State, Package, Platform, Build, Host, Target, ObjDir, Config):
+def Configure_default(State, Package, Platform, Build, Host, Target, OutDir, Config):
     return Config
 
 
-def PatchAfterConfigure_default(State, Package, Platform, Build, Host, Target, ObjDir):
+def PatchAfterConfigure_default(State, Package, Platform, Build, Host, Target, OutDir):
     pass
 
 
-def Report(State, Package, Platform, Build, Host, Target, ObjDir):
+def Report(State, Package, Platform, Build, Host, Target, OutDir):
     PackageName = ""
     if Package:
         PackageName = Package.Name + ":"
     return (
         PackageName + "[" + Build + "/" + Host + "/" + Target + "]:" + ["build", "host", "target"][Platform] + ":"
         + [Build, Host, Target][Platform] + ":"
-        + ObjDir)
+        + OutDir)
 
-def IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+def IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
     for Export in Package.Exports:
-        if not FileExists(ObjDir  + "/" + Export):
-            #print(State, Package.Name + " is not already built because " + ObjDir  + "/" + Export + " does not exist")
+        if not FileExists(OutDir  + "/" + Export):
+            #print(State, Package.Name + " is not already built because " + OutDir  + "/" + Export + " does not exist")
             return False
     return True
 
@@ -234,7 +244,8 @@ def MyCopyFile_IncrementalByTime(From, To):
                 pass
             else:
                 print("cp " + FromExt + " " + ToExt)
-            try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
+                pass
+            try: # Cygwin vagaries -- isfile and copy2 don't agree on FromExt existing
                 copy2(FromExt, ToExt)
                 break
             except:
@@ -269,42 +280,28 @@ def MyCopyFile_IncrementalByTimeAndSize(From, To):
                 CreateDirectories(dirname(To))
                 CreatedDir = True
             if os.name == "nt":
-                #print("copy " + FromExt + " " + ToExt)
+                print("copy " + FromExt + " " + ToExt)
                 pass
             else:
                 print("cp " + FromExt + " " + ToExt)
-            try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
+                pass
+            try: # Cygwin vagaries -- isfile and copy2 don't agree on FromExt existing
                 copy2(FromExt, ToExt)
                 break
             except:
-                print("did not copy " + FromExt + " " + ToExt)
+                # print("did not copy " + FromExt + " " + ToExt)
+                pass
 
-def Make_default(State, Package, Platform, Build, Host, Target, ObjDir):
+def Make_default(State, Package, Platform, Build, Host, Target, OutDir):
 
-    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
         return
 
-    print("making " + Package.Name + " in " + ObjDir)
-    CreateDirectories(ObjDir)
-    Run(ObjDir, "make")
+    #print("making " + Package.Name + " in " + OutDir)
+    CreateDirectories(OutDir)
+    Run(OutDir, "make")
 
-
-def Export_default(State, Package, Platform, Build, Host, Target, ObjDir):
-    #
-    # Really the only files that need to be exported are ones used by target-dependent
-    # packages -- i.e. files used by gcc.
-    #
-    ExpectedObjDir = GetExpectedObjectDirectory(State, Package, Platform, Build, Host, Target, ObjDir)
-    print("exporting " + Report(State, Package, Platform, Build, Host, Target, ObjDir))
-    CreateDirectories(ExpectedObjDir)
-    for Export in Package.Exports:
-        MyCopyFile_IncrementalByTimeAndSize(ObjDir  + "/" + Export, ExpectedObjDir  + "/" + Export)
-    for Export in Package.OptionalExports:
-        if FileExists(ObjDir  + "/" + Export):
-            MyCopyFile_IncrementalByTimeAndSize(ObjDir  + "/" + Export, ExpectedObjDir  + "/" + Export)
-
-
-def GetReducedObjectDirectory(State, Package, Platform, Build, Host, Target):
+def GetReducedOutputDirectory(State, Package, Platform, Build, Host, Target):
     #
     # Generally, ObjRoot/Host/Target/Build/Package, but that is overkill,
     # and when building for multiple hosts/targets, code gets built redundantly.
@@ -322,6 +319,9 @@ def GetReducedObjectDirectory(State, Package, Platform, Build, Host, Target):
     #
     # If package runs in build, and build != host and build != target, then
     #  ObjRoot/Build or ObjRoot/build-Build
+    #
+    # There are no packages that run in the build that are target-dependent.
+    # So we never need ObjRoot/Build/Target or ObjRoot/Build/Host/Target.
     #
     Path = ObjRoot
     if Package.HostTarget:
@@ -355,7 +355,6 @@ class Package():
 
         self.Configure = Configure_default
         self.Make = Make_default
-        self.Export = Export_default
         self.Exports = [ ]
         self.OptionalExports = [ ]
         self.HostTarget = False
@@ -364,6 +363,7 @@ class BuildStep():
     def __init__(self):
         self.Name = None
         self.Code = None
+        self.GetOutputDirectory = GetReducedOutputDirectory
 
 class SourcePackage():
     def __init__(self):
@@ -374,7 +374,7 @@ class SourcePackage():
     
 SourceRoot = "/src/gcc"
 DistFiles = "/net/distfiles"
-ObjRoot = "/obj/3"
+ObjRoot = "/obj/1"
 CreateDirectories(ObjRoot)
 
 
@@ -438,6 +438,7 @@ Package_mpfr = Package()
 # for sniffing what languages to build.
 #
 # OptionalDependencies is really currently just how we get the merged binutils + gcc tree to build.
+# We need to sort out build vs. host vs. target.
 #
 OptionalDependencies = [ Package_binutils, Package_gas, Package_ld ]
 
@@ -450,6 +451,10 @@ OptionalDependencies = [ Package_binutils, Package_gas, Package_ld ]
 
 
 def Configure_Force_EnableStatic_DisableShared(Config):
+#
+# for gmp/mpfr
+#
+    # first remove all forms of enable/disable shared/static
     for enable in ["enable", "disable"]:
         for shared in ["shared", "static"]:
             for dash in ["-", "--"]:
@@ -457,7 +462,7 @@ def Configure_Force_EnableStatic_DisableShared(Config):
     Config += " -enable-static -disable-shared "
     return Config
 
-def Configure_gmp(State, Package, Platform, Build, Host, Target, ObjDir, Config):
+def Configure_gmp(State, Package, Platform, Build, Host, Target, OutDir, Config):
     return Configure_Force_EnableStatic_DisableShared(Config)
 
 p = Package_gmp
@@ -469,9 +474,18 @@ p.Host = True
 p.Configure = Configure_gmp
 
 
+p = Package_fixincludes
+p.Name = "fixincludes"
+p.Dependencies = [ Package_libiberty ]
+p.OptionalDependencies = OptionalDependencies
+p.Exports = [ "fixinc.sh" ]
+p.SourcePackage = SourcePackage_gcc # also binutils
+p.Build = True
+
+
 p = Package_libiberty
 p.Name = "libiberty"
-p.Dependencies = [ Package_libgcc ]
+p.Dependencies = [ ]
 p.OptionalDependencies = OptionalDependencies
 p.Exports = [ "libiberty.a" ]
 p.SourcePackage = SourcePackage_gcc # also binutils
@@ -489,12 +503,12 @@ p.SourcePackage = SourcePackage_gcc
 p.Build = True
 
 
-def Configure_mpfr(State, Package, Platform, Build, Host, Target, ObjDir, Config):
+def Configure_mpfr(State, Package, Platform, Build, Host, Target, OutDir, Config):
     #
     # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
     #
     gmpsrc = GetSourceDirectory(State, Package_gmp)
-    gmpobj = GetReducedObjectDirectory(State, Package_gmp, Platform, Build, Host, Target)
+    gmpobj = GetReducedOutputDirectory(State, Package_gmp, Platform, Build, Host, Target)
     if isdir(gmpobj) and isdir(gmpsrc):
         Config += " -with-gmp-build=" + gmpobj
 
@@ -513,79 +527,89 @@ p.Configure = Configure_mpfr
 p.Host = True
 
 
-def PatchAfterConfigure_bfd(State, Package, Platform, Build, Host, Target, ObjDir):
+def PatchAfterConfigure_bfd(State, Package, Platform, Build, Host, Target, OutDir):
     #
     # Given that we -enable-targets=all, remove the "tic" targets
     # that fail to build.
     #
 
-    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
         return
 
-    #
-    # targmatch.h is a build output, and easier to patch it
-    # during build than something before
-    #
-
     for FileName in ["Makefile"]:
-        FilePath = ObjDir + "/" + FileName
+        FilePath = OutDir + "/" + FileName
         OldLines = file(FilePath).readlines()
         NewLines = [ ]
         Changed = False
+        RemovedLines = [ ]
         for OldLine in OldLines:
             NewLine = OldLine
             if NewLine.find("tic") != -1:
-                OldLine = OldLine.replace("\n", " \n")
                 NewLine = OldLine
                 for r in [
                         re.compile(x) for x in [
-                            "^\s+cpu-tic.+\.[loc]+ \\ \n$",
-                            "^\s+aout-tic.+\.[loc]+ \\ \n$",
-                            "^\s+coff-tic.+\.[loc]+ \\ \n$" ]]:
+                            "^\\s+(cpu|aout|coff)-tic[0-9]+x?\\.(o|c|lo) \\\\\\n$" ]]:
                     if r.match(NewLine):
                         # print("matched " + NewLine)
+                        RemovedLines += "# " + NewLine
                         NewLine = ""
+                        Changed = True
                 NewLine = NewLine.replace(" $(srcdir)/archures.c ", " archures.c ")
                 NewLine = NewLine.replace(" $(srcdir)/targets.c ", " targets.c ")
-                if NewLine != OldLine:
-                    Changed = True
+                Changed = (Changed or (NewLine != OldLine))
             NewLines += NewLine
         if Changed:
             print("patching " + FilePath)
-            file(FilePath, "w").writelines(NewLines)
+            FileHandle = file(FilePath, "w")
+            FileHandle.writelines(NewLines)
+            if RemovedLines:
+                FileHandle.write("\n# removed lines:\n")
+                FileHandle.writelines(RemovedLines)
 
-    Run(ObjDir, "make targmatch.h")
+    #
+    # targmatch.h is a build output, and easier to patch it
+    # during build than something before (we have no pre-build
+    # patches so far, trying to keep it that way)
+    #
 
+    Run(OutDir, "make targmatch.h")
+
+    SourceDir = GetSourceDirectory(State, Package)
     for a in ["archures.c", "targets.c"]:
-        MyCopyFile_IncrementalByTime(SourceDir + "/" + a, ObjDir + "/" + a)
+        MyCopyFile_IncrementalByTime(SourceDir + "/" + a, OutDir + "/" + a)
 
     for FileName in ["archures.c", "targets.c", "targmatch.h"]:
-        FilePath = ObjDir + "/" + FileName
+        FilePath = OutDir + "/" + FileName
         OldLines = file(FilePath).readlines()
         NewLines = [ ]
+        RemovedLines = [ ]
         Changed = False
         for OldLine in OldLines:
             NewLine = OldLine
             if NewLine.find("tic") != -1:
                 for r in [
                         re.compile(x) for x in [
-                            "^extern const bfd_target tic.+_vec;\n$",
-                            "^extern const bfd_arch_info_type bfd_tic.+_arch;\n$",
-                            "^\s+&tic.+_vec,\n$",
-                            "^\s+&bfd_tic.+_arch,\n$" ]]:
+                            "^extern const bfd_((target tic.+_vec)|(arch_info_type bfd_tic.+_arch));\n$",
+                            "^[ \t]+&(bfd_)?tic.+_(vec|arch),\n$" ]]:
                     if r.match(NewLine):
                         # print("matched " + NewLine)
-                        NewLine = " /* " + NewLine + " */ "
-                    NewLine = re.sub("#if !defined \(SELECT_VECS\) \|\| defined \(HAVE_tic.+", "#if 0\n", NewLine)
-                if NewLine != OldLine:
-                    Changed = True
+                        RemovedLines += NewLine
+                        NewLine = ""
+                        Changed = True
+                NewLine = re.sub("#if !defined \(SELECT_VECS\) \|\| defined \(HAVE_tic.+", "#if 0 /* tic patched out */\n", NewLine)
+                Changed = (Changed or (NewLine != OldLine))
             NewLines += NewLine
         if Changed:
             print("patching " + FilePath)
-            file(FilePath, "w").writelines(NewLines)
+            FileHandle = file(FilePath, "w")
+            FileHandle.writelines(NewLines)
+            if RemovedLines:
+                FileHandle.write("\n#if 0 /* removed lines */\n")
+                FileHandle.writelines(RemovedLines)
+                FileHandle.write("#endif\n")
 
 
-def PatchAfterConfigure_RemoveLibIconv(State, Package, Platform, Build, Host, Target, ObjDir):
+def PatchAfterConfigure_RemoveLibIconv(State, Package, Platform, Build, Host, Target, OutDir):
 
     #
     # More variations need testing here likely.
@@ -598,7 +622,7 @@ def PatchAfterConfigure_RemoveLibIconv(State, Package, Platform, Build, Host, Ta
     #
 
     for FileName in ["Makefile"]:
-        FilePath = ObjDir + "/" + FileName
+        FilePath = OutDir + "/" + FileName
         OldLines = file(FilePath).readlines()
         NewLines = [ ]
         Changed = False
@@ -612,7 +636,7 @@ def PatchAfterConfigure_RemoveLibIconv(State, Package, Platform, Build, Host, Ta
             print("patching libiconv out of " + FilePath)
             file(FilePath, "w").writelines(NewLines)
 
-def PatchAfterConfigure_binutils(State, Package, Platform, Build, Host, Target, ObjDir):
+def PatchAfterConfigure_binutils(State, Package, Platform, Build, Host, Target, OutDir):
     #
     # -enable-targets=all bites again
     # /src/gcc/binutils/bin2c.c: In function `main":
@@ -620,11 +644,11 @@ def PatchAfterConfigure_binutils(State, Package, Platform, Build, Host, Target, 
     # /src/gcc/binutils/bin2c.c:89: warning: implicit declaration of function `_setmode"
     #
 
-    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
         return
 
     for FileName in ["Makefile"]:
-        FilePath = ObjDir + "/" + FileName
+        FilePath = OutDir + "/" + FileName
         OldLines = file(FilePath).readlines()
         NewLines = [ ]
         Changed = False
@@ -634,25 +658,23 @@ def PatchAfterConfigure_binutils(State, Package, Platform, Build, Host, Target, 
                 OldLine = OldLine.replace("\n", " \n")
                 NewLine = OldLine
                 NewLine = NewLine.replace(" bin2c$(EXEEXT_FOR_BUILD) ", " ")
-                if NewLine != OldLine:
-                    Changed = True
+                Changed = (Changed or (NewLine != OldLine))
             NewLines += NewLine
         if Changed:
             print("patching " + FilePath)
             file(FilePath, "w").writelines(NewLines)
 
+
 p = Package_bfd
 p.Name = "bfd"
-p.OptionalDependencies = OptionalDependencies
 p.Exports = [ "bfdver.h", "bfd.h", "bfd_stdint.h", "libbfd.a", "libbfd.la", ".libs/libbfd.a", ".libs/libbfd.la" ]
-p.PatchAfterConfigure = PatchAfterConfigure_bfd
+# p.PatchAfterConfigure = PatchAfterConfigure_bfd
 p.SourcePackage = SourcePackage_binutils
 p.Host = True
 
 
 p = Package_opcodes
 p.Name = "opcodes"
-p.OptionalDependencies = OptionalDependencies
 p.Dependencies = [ Package_bfd ]
 p.Exports = [ "libopcodes.a", "libopcodes.la", ".libs/libopcodes.a", ".libs/libopcodes.la" ]
 p.SourcePackage = SourcePackage_binutils
@@ -662,26 +684,25 @@ p.Host = True
 p = Package_binutils
 p.Name = "binutils"
 p.Dependencies = [ Package_bfd, Package_opcodes ]
-p.OptionalDependencies = OptionalDependencies
 # NOTE binutils exports sh scripts AND executables, with
 # the same names, except on NT where the names vary (foo vs. foo.exe)
 p.Exports = ["addr2line", "ar", "nm-new", "objcopy", "objdump", "ranlib", "size", "strip-new"]
 p.Exports += [".libs/" + a for a in p.Exports]
 p.OptionalExports = ["coffdump", "cxxfilt", "dlltool", "dllwrap", "nlmconv", "readelf", "srconv", "strings", "sysdump", "sysinfo", "windmc", "windres"]
 p.OptionalExports += [".libs/" + a for a in p.OptionalExports]
-p.PatchAfterConfigure = PatchAfterConfigure_binutils
+# p.PatchAfterConfigure = PatchAfterConfigure_binutils
 p.SourcePackage = SourcePackage_binutils
 p.Host = True
 p.Install = True
 
 
-def Configure_gas(State, Package, Platform, Build, Host, Target, ObjDir, Config):
+def Configure_gas(State, Package, Platform, Build, Host, Target, OutDir, Config):
     # temporary?
     Config = Config.replace(" --enable-targets=all ", " ")
     Config = Config.replace(" -enable-targets=all ", " ")
     return Config
 
-def Configure_ld(State, Package, Platform, Build, Host, Target, ObjDir, Config):
+def Configure_ld(State, Package, Platform, Build, Host, Target, OutDir, Config):
     # temporary?
     Config = Config.replace(" --enable-targets=all ", " ")
     Config = Config.replace(" -enable-targets=all ", " ")
@@ -691,7 +712,6 @@ p = Package_gas
 p.Name = "gas"
 p.SourcePackage = SourcePackage_binutils
 p.Dependencies = [ Package_bfd, Package_opcodes ]
-p.OptionalDependencies = OptionalDependencies
 p.Exports = [ "as-new"  ]
 p.Host = True
 p.HostTarget = True # seems like a bug
@@ -703,7 +723,6 @@ p = Package_ld
 p.Name = "ld"
 p.SourcePackage = SourcePackage_binutils
 p.Dependencies = [ Package_bfd, Package_opcodes ]
-p.OptionalDependencies = OptionalDependencies
 p.Exports = ["ld-new"]
 p.Host = True
 p.Install = True
@@ -739,7 +758,7 @@ p.HostTarget = True # seems like a bug, because it uses gcc's libgcc.mvars.
 p.Install = True
 
 
-def Configure_gcc(State, Package, Platform, Build, Host, Target, ObjDir, Config):
+def Configure_gcc(State, Package, Platform, Build, Host, Target, OutDir, Config):
 #
 # We really need to somehow use the toplevel configure, since it knows what
 # platforms support what libraries.
@@ -748,9 +767,9 @@ def Configure_gcc(State, Package, Platform, Build, Host, Target, ObjDir, Config)
     # duplicate the logic of toplevel configure for gmp/mpfr in the combined tree
     #
     gmpsrc = GetSourceDirectory(State, Package_gmp)
-    gmpobj = GetReducedObjectDirectory(State, Package_gmp, Platform, Build, Host, Target)
+    gmpobj = GetReducedOutputDirectory(State, Package_gmp, Platform, Build, Host, Target)
     mpfrsrc = GetSourceDirectory(State, Package_mpfr)
-    mpfrobj = GetReducedObjectDirectory(State, Package_mpfr, Platform, Build, Host, Target)
+    mpfrobj = GetReducedOutputDirectory(State, Package_mpfr, Platform, Build, Host, Target)
     if isdir(gmpobj) and isdir(gmpsrc) and isdir(mpfrobj) and isdir(mpfrsrc):
         gmplibs = " -L" + gmpobj + "/.libs -L" + gmpobj + "/_libs -L" + mpfrobj + "/.libs -L" + mpfrobj + "/_libs -lmpfr -lgmp"
         gmpinc = " -I" + gmpobj + " -I" + gmpsrc + " -I" + mpfrobj + " -I" + mpfrsrc
@@ -790,6 +809,7 @@ p.Install = True
 
 Packages = [
     Package_libiberty,
+    Package_fixincludes,
     Package_bfd,
     Package_opcodes,
     Package_binutils,
@@ -843,7 +863,7 @@ def ExtractSource(Package):
         Package.Extracted = True
 
 
-def GetExpectedObjectDirectory(State, Package, Platform, Build, Host, Target, ObjDir):
+def GetExpectedOutputDirectory(State, Package, Platform, Build, Host, Target):
     Path = ObjRoot + "/" + Host + "/" + Target
     Path += ["/build-" + Build, "", "/" + Target][Platform]
     Path += "/" + Package.Name
@@ -882,35 +902,50 @@ BuildStep_BuildDependencies = BuildStep()
 BuildStep_Configure = BuildStep()
 BuildStep_PatchAfterConfigure = BuildStep()
 BuildStep_Make = BuildStep()
+BuildStep_Export = BuildStep()
 BuildStep_Install = BuildStep()
 
 
-def Configure(State, Package, Platform, Build, Host, Target, ObjDir):
+def Configure(State, Package, Platform, Build, Host, Target, OutDir):
 
-    if FileExists(ObjDir + "/" + "Makefile"):
+    if FileExists(OutDir + "/" + "Makefile"):
         #print("already configured " + Package.Name)
         return
 
-    print("configuring " + Report(State, Package, Platform, Build, Host, Target, ObjDir))
-    CreateDirectories(ObjDir)
+    #print("configuring " + Report(State, Package, Platform, Build, Host, Target, OutDir))
+    CreateDirectories(OutDir)
 
     Config = ConfigCommon
     Config += " -host " + [Build, Host, Target][Platform]
     if Package.HostTarget:
         Config += " -target " + Target
+
     if Host != Target:
         Config += " -with-sysroot " # most directories don't care
 
-    Config += " -cache-file " + dirname(ObjDir) + "/config.cache "
-    Config = Package.Configure(State, Package, Platform, Build, Host, Target, ObjDir, Config)
+    if Host != Build:
+        #
+        # This is for fixincludes. We don't need it otherwise.
+        # Also, there is no default for -with-build-sysroot -- if we aren't
+        # explicit, we get --sysroot=yes.
+        #
+        Config += " -with-build-sysroot=" + Prefix0 + "/" + Platform2 + "/sys-root "
 
-    Run(ObjDir, GetSourceDirectory(State, Package) + "/" + "configure " + Config)
+    if Host == Target:
+        Config += " -program-transform-name=s,y,y, "
+    else: # if (Platform == Platform_Host) && Package.HostTarget:
+        Config += " -program-transform-name='s,^," + Target + "-,' "
+
+    Config += " -cache-file " + dirname(OutDir) + "/config.cache "
+    Config = Package.Configure(State, Package, Platform, Build, Host, Target, OutDir, Config)
+
+    Run(OutDir, GetSourceDirectory(State, Package) + "/" + "configure " + Config)
 
 
-def PatchAfterConfigure_RemoveSubDir(State, Package, Platform, Build, Host, Target, ObjDir, SubDir):
+def PatchAfterConfigure_RemoveSubDir(State, Package, Platform, Build, Host, Target, OutDir, SubDir):
 
     for FileName in ["Makefile"]:
-        FilePath = ObjDir + "/" + FileName
+        FilePath = OutDir + "/" + FileName
         OldLines = file(FilePath).readlines()
         NewLines = [ ]
         Changed = False
@@ -920,52 +955,71 @@ def PatchAfterConfigure_RemoveSubDir(State, Package, Platform, Build, Host, Targ
                 OldLine = OldLine.replace("\n", " \n")
                 NewLine = OldLine
                 NewLine = NewLine.replace(" " + SubDir + " ", " ")
-                if NewLine != OldLine:
-                    Changed = True
+                Changed = (Changed or (NewLine != OldLine))
             NewLines += NewLine
         if Changed:
             print("patching subdir " + SubDir + " out of " + FilePath)
             file(FilePath, "w").writelines(NewLines)
 
 
-def PatchAfterConfigure(State, Package, Platform, Build, Host, Target, ObjDir):
+def PatchAfterConfigure(State, Package, Platform, Build, Host, Target, OutDir):
 
-    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
         return
 
-    print("patching " + Report(State, Package, Platform, Build, Host, Target, ObjDir))
+    #print("patching " + Report(State, Package, Platform, Build, Host, Target, OutDir))
     SourceDir = GetSourceDirectory(State, Package)
-    Package.PatchAfterConfigure(State, Package, Platform, Build, Host, Target, ObjDir)
+    Package.PatchAfterConfigure(State, Package, Platform, Build, Host, Target, OutDir)
 
-    for SubDir in ["doc", "po", "testsuite"]:
-        PatchAfterConfigure_RemoveSubDir(State, Package, Platform, Build, Host, Target, ObjDir, SubDir)
+    for SubDir in ["doc", "po", "testsuite", "tests", "demos", "doc", "intl"]:
+        PatchAfterConfigure_RemoveSubDir(State, Package, Platform, Build, Host, Target, OutDir, SubDir)
 
-    PatchAfterConfigure_RemoveLibIconv(State, Package, Platform, Build, Host, Target, ObjDir)
+    PatchAfterConfigure_RemoveLibIconv(State, Package, Platform, Build, Host, Target, OutDir)
 
-def Make(State, Package, Platform, Build, Host, Target, ObjDir):
+def Make(State, Package, Platform, Build, Host, Target, OutDir):
 
-    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+    if IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
         return
 
-    Package.Make(State, Package, Platform, Build, Host, Target, ObjDir)
+    Package.Make(State, Package, Platform, Build, Host, Target, OutDir)
 
-    if not IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, ObjDir):
+    if not IsAlreadyBuilt(State, Package, Platform, Build, Host, Target, OutDir):
         print("error building " + Package.Name)
         sys.exit(1)
 
-    Package.Export(State, Package, Platform, Build, Host, Target, ObjDir)
 
+def Export(State, Package, Platform, Build, Host, Target, OutDir):
+    #
+    # Really the only files that need to be exported are ones used by target-dependent
+    # packages -- i.e. files used by gcc.
+    # And we can dispense with "build-".
+    #
+    ReducedOutDir = BuildStep_Make.GetOutputDirectory(State, Package, Platform, Build, Host, Target)
+    ExpectedOutDir = OutDir
 
-def Install(State, Package, Platform, Build, Host, Target, ObjDir):
+    if ReducedOutDir == ExpectedOutDir:
+        return
+
+    # print("exporting from " + ReducedOutDir + " to " + ExpectedOutDir)
+    CreateDirectories(ExpectedOutDir)
+    for Export in Package.Exports:
+        MyCopyFile_IncrementalByTimeAndSize(ReducedOutDir  + "/" + Export, ExpectedOutDir  + "/" + Export)
+    for Export in Package.OptionalExports:
+        if FileExists(ReducedOutDir  + "/" + Export):
+            MyCopyFile_IncrementalByTimeAndSize(ReducedOutDir  + "/" + Export, ExpectedOutDir  + "/" + Export)
+
+def Install(State, Package, Platform, Build, Host, Target, OutDir):
 
     if Package.Install:
-        print("installing " + Report(State, Package, Platform, Build, Host, Target, ObjDir))
+        print("installing " + Report(State, Package, Platform, Build, Host, Target, OutDir))
         #return
 
+        # Run(OutDir, "-strip *.exe")
+        # Run(OutDir, "-" + [Build, Host, Target][Platform] + "-strip *.exe")
         if Build == Host:
-            Run(ObjDir, "make install")
+            Run(OutDir, "make install")
         else:
-            Run(ObjDir, "make install DESTDIR=" + Prefix0 + "/" + Host + "/install")
+            Run(OutDir, "make install DESTDIR=" + Prefix0 + "/" + Host + "/install")
 
 def ShouldBuild(State, Package, Platform):
     Result = (
@@ -990,15 +1044,22 @@ p = BuildStep_Make
 p.__call__ = Make
 p.Name = "Make"
 
+p = BuildStep_Export
+p.__call__ = Export
+p.Name = "Export"
+p.GetOutputDirectory = GetExpectedOutputDirectory
+
 p = BuildStep_Install
 p.__call__ = Install
 p.Name = "Install"
+
 
 BuildSteps = [
     BuildStep_BuildDependencies,
     BuildStep_Configure,
     BuildStep_PatchAfterConfigure,
     BuildStep_Make,
+    BuildStep_Export,
     BuildStep_Install,
     ]
 
@@ -1041,21 +1102,20 @@ def _BuildUpTo(State, Packages, Platform, Build, Host, Target):
             for pkg in Packages:
                 if ShouldBuild(State, pkg, plat):
                     if isdir(GetSourceDirectory(State, pkg)):
-                        ObjDir = GetReducedObjectDirectory(State, pkg, plat, Build, Host, Target)
                         for Step in BuildSteps:
+                            OutDir = Step.GetOutputDirectory(State, pkg, plat, Build, Host, Target)
                             StepState = State.get(Step.Name)
-                            if StepState.get(ObjDir):
-                                #print("skipping " + Step.Name + " " + ObjDir)
+                            if StepState.get(OutDir):
+                                #print("skipping " + Step.Name + " " + Report(State, pkg, plat, Build, Host, Target, OutDir))
                                 continue
-                            if Step == BuildSteps[0]:
-                                print("building " + Report(State, pkg, plat, Build, Host, Target, ObjDir))
-                            StepState[ObjDir] = True
-                            # print("> " + Step.Name + " in " + Report(State, pkg, plat, Build, Host, Target, ObjDir))
-                            Step(State, pkg, plat, Build, Host, Target, ObjDir)
-                            # print("< " + Step.Name + " in " + Report(State, pkg, plat, Build, Host, Target, ObjDir))
+                            #print(Step.Name + "'ing " + Report(State, pkg, plat, Build, Host, Target, OutDir))
+                            StepState[OutDir] = True
+                            # print("> " + Step.Name + " in " + Report(State, pkg, plat, Build, Host, Target, OutDir))
+                            Step(State, pkg, plat, Build, Host, Target, OutDir)
+                            # print("< " + Step.Name + " in " + Report(State, pkg, plat, Build, Host, Target, OutDir))
 
 
-def BuildDependencies(State, Package, Platform, Build, Host, Target, ObjDir):
+def BuildDependencies(State, Package, Platform, Build, Host, Target, OutDir):
     _BuildUpTo(State, Package.OptionalDependencies + Package.Dependencies, Platform, Build, Host, Target)
 
 BuildStep_BuildDependencies.__call__ = BuildDependencies
@@ -1066,7 +1126,7 @@ def BuildTools(State, Host, Target, Packages):
         Host = Build
         Target = Build
 
-    print("building " + Build + "/" + Host + "/" + Target)
+    #print("building " + Build + "/" + Host + "/" + Target)
 
     for Platform in Platforms:
         _BuildUpTo(State, PackagesToBuild, Platform, Build, Host, Target)
