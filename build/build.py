@@ -17,6 +17,8 @@ import sys
 import re
 
 ObjRoot = "/obj/gcc.1"
+Source = "/src/gcc"
+GccVersion = "4.3.1"
 
 #
 # use canonical names including version
@@ -24,10 +26,9 @@ ObjRoot = "/obj/gcc.1"
 #  - libgcc wants a version in Platform2
 #
 Build = "i686-pc-cygwin"
-Platform2 = "sparc-sun-solaris2.10"
 
-Prefix0 = "/usr/local"
-# Prefix0 = "/usr"
+Prefix = "/usr/local"
+# Prefix = "/usr"
 
 #
 # Check for some basic utilities.
@@ -49,12 +50,6 @@ Prefix0 = "/usr/local"
 # Resulting in /usr/<local>/<Platform2>/sys-root/usr/include, /usr/<local>/<Platform2>/sys-root/usr/lib
 # It might also be useful to link /usr/<local>/<Platform2>/sys-include to /usr/<local>/<Platform2>/sys-root/usr/include.
 #
-
-DefaultSysroot = (Prefix0 + "/" + Platform2 + "/sys-root")
-
-if not os.path.isdir(DefaultSysroot):
-    print("ERROR: Please put appropriate subset of " + Platform2 + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
-    exit(1)
 
 ConfigCommon = " "
 
@@ -131,8 +126,6 @@ ConfigCommon += " -enable-64-bit-bfd "
 #
 # This is a nice speed up, but it might take away ability for 32 bit and 64 bit
 # to target each other.
-# Not disabling this breaks sparc64/sparc64 -- libgcc_s.so placed incorrectly.
-# Perhaps an environment variable is needed.
 #
 ConfigCommon += " -disable-multilib "
 
@@ -158,6 +151,13 @@ ConfigCommon = re.sub(" +", " ", ConfigCommon)
 # Some of this could be multithreaded/overlapped, but I get a lot of:
 #   "error: can't allocate lock", when I try to use threads in Python (Cygwin?)
 #
+
+TargetDjgppEnv = "ac_cv_func_shl_load=no"
+#TargetDjgppEnv += " ac_cv_func_mmap_dev_zero=no"
+#TargetDjgppEnv += " lt_cv_sys_max_cmd_len=12000
+#TargetDjgppEnv += " ac_cv_prog_LN_S='cp -p'
+#TargetDjgppEnv += " ac_setrlimit=no
+
 
 def Run(Directory, Command):
 
@@ -216,9 +216,13 @@ def CreateDirectories(a):
 # We should also support .zip, and try to support the DJGPP names.
 #
 def Extract(Directory, MarkerDirectory, File):
+
     #
-    # Make these more portable by running bzcat, gzcat, etc. directly.
+    # Make these more portable by running bzcat, gzcat, etc. directly?
+    # Modern GNU tar has built-in support for gzip and bzip2.
+    # Even the -z and -j switches are not needed.
     #
+
     if os.path.isdir(MarkerDirectory):
         return
 
@@ -232,6 +236,10 @@ def Extract(Directory, MarkerDirectory, File):
         if os.path.exists(File + ext):
             Run(Directory, "tar --strip-components=1 -jxf " + File + ext)
             return
+
+    #
+    # lzma produces significantly smaller results than bzip2, and faster.
+    #
 
     for ext in [".tlz", ".tar.lzma"]:
         if os.path.exists(File + ext):
@@ -250,8 +258,6 @@ def Extract(Directory, MarkerDirectory, File):
 # extract source -- note we carefully extract into a "combined" tree
 #
 
-Source = "/src/gcc"
-
 #
 # binutils must precede gcc so that gcc replaces common files
 #
@@ -261,9 +267,36 @@ Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.2")
 Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
 
 
+def PatchBigStack():
+#
+# gcc needs a very large stack to avoid crashing for small source files such
+# as the 3,739 line libjava/classpath/gnu/javax/swing/text/html/parser/HTML_401F.java
+#
+    FilePath = Source + "/config/mh-cygwin"
+    PatchName = "gcc needs very large stack"
+    print("patching " + PatchName + " in " + FilePath)
+    Lines = file(FilePath).readlines()
+    HasLineAlready = False
+    LineToAdd = "LDFLAGS = -Wl,--stack,8388608\n"
+    for Line in Lines:
+        if Line == LineToAdd:
+            HasLineAlready = True
+            break
+    if not HasLineAlready:
+        Lines += LineToAdd
+        file(FilePath, "w").writelines(Lines)
+    print("done patching " + PatchName + " in " + FilePath)
+
+PatchBigStack()
+
 def PatchGmp():
     #
     # workaround problem with gmp/configure detecting flex output file
+    # This occurs because Python sets SIGPIPE to be ignored,
+    # causing flex to NOT be terminated by SIGPIPE, leading flex
+    # to continue on and delete its output file, once it fails
+    # to run m4-not-needed, since it has no assembly code, since
+    # gcc configures it with cpu=none.
     #
     FilePath = Source + "/gmp/configure"
     PatchName = "M4=m4-not-needed"
@@ -284,11 +317,6 @@ def PatchGmp():
 
 PatchGmp()
 
-def Configure(Obj, Options):
-    if not os.path.isfile(Obj + "/Makefile"):
-        CreateDirectories(Obj)
-        Run(Obj, Source + "/configure " + Options)
-
 #
 # libiconv is often present on the build machine, but not the later host of the same architecture,
 # for example on Solaris; it would be nice to have -disable-libiconv or -without-libiconv.
@@ -300,10 +328,12 @@ def PatchOutLibIConv(Obj):
     for a in ["binutils", "gcc", "libcpp", "libdecnumber"]:
         FilePath = Obj + "/" + a
         if not os.path.isdir(FilePath):
+            print("*** no " + FilePath)
             continue
         for b in ["Makefile", "auto-host.h", "config.h"]:
-            FilePath += "/" + b
+            FilePath = Obj + "/" + a + "/" + b
             if not os.path.isfile(FilePath):
+                print("*** no " + FilePath)
                 continue;
             print("patching " + PatchName + " in " + FilePath)
             OldLines = file(FilePath).readlines()
@@ -334,28 +364,118 @@ def PatchOutLibIConv(Obj):
     print("done patching " + PatchName)
 
 
-def Make(Obj):
-    Run(Obj, "make configure-host")    
-    PatchOutLibIConv(Obj)
-    Run(Obj, "make")
+def PatchOutOptimizer(Obj):
 
+    PatchName = "CFLAGS=-g"
 
-def Install(Obj, Options = ""):
-    Run(Obj, "make install " + Options)
+    for a in ["binutils", "gcc", "libcpp", "libdecnumber"]:
+        FilePath = Obj + "/" + a
+        if not os.path.isdir(FilePath):
+            print("*** no " + FilePath)
+            continue
+        for b in ["Makefile"]:
+            FilePath = Obj + "/" + a + "/" + b
+            if not os.path.isfile(FilePath):
+                print("*** no " + FilePath)
+                continue;
+            print("patching " + PatchName + " in " + FilePath)
+            OldLines = file(FilePath).readlines()
+            NewLines = [ ]
+            Changed = False
+            for OldLine in OldLines:
+                NewLine = OldLine
+                if NewLine == "CFLAGS = -g -O2\n":
+                    NewLine = "CFLAGS = -g\n"
+                    Changed = True
+                elif NewLine == "BOOT_CFLAGS= -g -O2\n":
+                    NewLine = "BOOT_CFLAGS= -g\n"
+                    Changed = True
+                elif NewLine == "CFLAGS_FOR_TARGET = -O2 -g $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n":
+                    NewLine = "CFLAGS_FOR_TARGET = -g $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\n"
+                    Changed = True
+                elif NewLine == "CXXFLAGS_FOR_TARGET = -O2 -g $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n":
+                    NewLine = "CXXFLAGS_FOR_TARGET = -g $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n"
+                    Changed = True
+                NewLines += NewLine
+            if Changed:
+                file(FilePath, "w").writelines(NewLines)
+            print("done patching " + PatchName + " in " + FilePath)
 
+    print("done patching " + PatchName)
+
+def WorkaroundUnableToFindSparc64LibGcc():
+#
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37079
+# ld: cannot find -lgcc_s
+# collect2: ld returned 1 exit status
+# make[4]: *** [libstdc++.la] Error 1
+# make[4]: Leaving directory /obj/gcc.1/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/libstdc++-v3/src
+#
+# -disable-shared is probably also a good workaround here
+#
+    PatchName = "inability to find sparc64 libgcc.so"
+    print("patching install " + PatchName)
+    Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
+    Run(".", "mkdir -p " + Directory)
+    Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
+    Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
+    print("done patching " + PatchName)
+
+WorkaroundUnableToFindSparc64LibGcc()
+
+def Date():
+    Run(".", "@sh -c date")
 
 def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     if Host == None:
         Host = Build
+
     if Target == None:
         Target = Build
 
+    DefaultSysroot = (Prefix + "/" + Target + "/sys-root")
+
+    #
+    # workaround problems building libjava -- fixed with big stack
+    #
     #if Host != Build or Host != Target:
-    ExtraConfig += " -enable-languages=c,c++ "
+    #ExtraConfig += " -enable-languages=c,c++ "
+    #ExtraConfig += " -enable-languages=c,c++,fortran,java,objc,ada "
+
+    #
+    # Cross building native does not work for Ada.
+    # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37109
+    #
+    if (Host != Target) or (Build == Host):
+        ExtraConfig += " -enable-languages=all,ada "
+
+    if Build != Target:
+
+        if Target.find("msdosdjgpp") != -1:
+            ExtraConfig += " -disable-shared -enable-static "
+            ExtraConfig += " -with-headers=" + Prefix + "/" + Target + "/include "
+            #ExtraConfig += " -with-libs=" + Prefix + "/" + Target + "/lib "
+
+        else:
+            if not os.path.isdir(DefaultSysroot):
+                print("ERROR: Please put appropriate subset of " + Target + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
+                exit(1)
+            ExtraConfig += " -with-sysroot "
+
+    #
+    # try workaround Canadian fixincludes not understanding sysroot of the cross compiler used to build it
+    # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37036
+    #
+    if (Host == Target) and (Host != Build):
+        ExtraConfig += " -with-sysroot=/"
+        ExtraConfig += " -with-build-sysroot=" + DefaultSysroot
+        
+
+    ExtraConfig = re.sub("  +", " ", ExtraConfig)
 
     print("starting " + Host + "/" + Target)
-    Run(".", "@sh -c date")
+    Date()
 
     ExtraInstall = " "
     DestDir = None
@@ -363,42 +483,48 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         #
         # There seems to be no convention here.
         #
-        DestDir = Prefix0 + "/" + Host + "/install"
+        DestDir = Prefix + "/" + Host + "/install"
         ExtraInstall = " DESTDIR=" + DestDir
 
     # Obj = ObjRoot + "/" + Build + "/" + Host + "/" + Target
     Obj = ObjRoot + "/" + Host + "/" + Target
 
     print("configuring " + Host + "/" + Target)
-    Run(".", "@sh -c date")
-    Configure(Obj, " -host " + Host + " -target " + Target + " " + ConfigCommon + " " + ExtraConfig)
+    Date()
+    if not os.path.isfile(Obj + "/Makefile"):
+        CreateDirectories(Obj)
+        Run(Obj, Source + "/configure -host " + Host + " -target " + Target + " " + ConfigCommon + " " + ExtraConfig + " CFLAGS=-g BOOT_CFLAGS=-g")
 
     print("making " + Host + "/" + Target)
-    Run(".", "@sh -c date")
-    Make(Obj)
+    Date()
+    Run(Obj, "make configure-host CFLAGS=-g BOOT_CFLAGS=-g")
+    PatchOutLibIConv(Obj)
+    PatchOutOptimizer(Obj)
+    Run(Obj, "make CFLAGS=-g BOOT_CFLAGS=-g")
 
     print("installing " + Host + "/" + Target)
-    Run(".", "@sh -c date")
-    Install(Obj, ExtraInstall)
+    Date()
+    Run(Obj, "make install " + ExtraInstall + " CFLAGS=-g BOOT_CFLAGS=-g")
 
     if DestDir:
         print("Success; copy " + DestDir + " to your " + Host + " machine")
 
+# native
+# DoBuild()
+
 Platform1 = Build
-DoBuild() # native
-sys.exit(1)
-DoBuild(Platform1, Platform2, " -with-sysroot ")
-DoBuild(Platform2, Platform2, " -with-build-sysroot=" + Prefix0 + "/" + Platform2 + "/sys-root")
 
 Platform2 = "sparc64-sun-solaris2.10"
+#DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
-DoBuild(Platform1, Platform2, " -with-sysroot ")
-DoBuild(Platform2, Platform2, " -with-build-sysroot=" + Prefix0 + "/" + Platform2 + "/sys-root")
+Platform2 = "sparc-sun-solaris2.10"
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
 Platform2 = "i586-pc-msdosdjgpp"
-
-DoBuild(Platform1, Platform2, " -disable-shared -enable-static -with-headers=" + Prefix0 + "/" + Platform2 + "/include ")
-DoBuild(Platform2, Platform2, " -disable-shared -enable-static -with-headers=" + Prefix0 + "/" + Platform2 + "/include ")
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
 #
 # working tools
