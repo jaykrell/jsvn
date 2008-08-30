@@ -262,8 +262,8 @@ def Extract(Directory, MarkerDirectory, File):
 # binutils must precede gcc so that gcc replaces common files
 #
 Extract(Source, Source + "/binutils", "/net/distfiles/" + "binutils-2.18")
-Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.1")
-Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.2")
+Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.2")
+Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
 Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
 
 
@@ -271,6 +271,13 @@ def PatchBigStack():
 #
 # gcc needs a very large stack to avoid crashing for small source files such
 # as the 3,739 line libjava/classpath/gnu/javax/swing/text/html/parser/HTML_401F.java
+#
+# This is known to be broken and fixed by this for Cygwin.
+# It is probably needed for more platforms.
+#
+# This is needed for 4.3.1.
+# The patch has not been applied for 4.3.2 and is most likely
+# needed there too.
 #
     FilePath = Source + "/config/mh-cygwin"
     PatchName = "gcc needs very large stack"
@@ -290,14 +297,16 @@ def PatchBigStack():
 PatchBigStack()
 
 def PatchGmp():
-    #
-    # workaround problem with gmp/configure detecting flex output file
-    # This occurs because Python sets SIGPIPE to be ignored,
-    # causing flex to NOT be terminated by SIGPIPE, leading flex
-    # to continue on and delete its output file, once it fails
-    # to run m4-not-needed, since it has no assembly code, since
-    # gcc configures it with cpu=none.
-    #
+#
+# workaround problem with gmp/configure detecting flex output file
+# This occurs because Python sets SIGPIPE to be ignored,
+# causing flex to NOT be terminated by SIGPIPE, leading flex
+# to continue on and delete its output file, once it fails
+# to run m4-not-needed, since it has no assembly code, since
+# gcc configures it with cpu=none.
+#
+# This bug is present in at least gmp 4.2.2 and 4.2.3.
+#
     FilePath = Source + "/gmp/configure"
     PatchName = "M4=m4-not-needed"
     print("patching " + PatchName + " in " + FilePath)
@@ -317,12 +326,13 @@ def PatchGmp():
 
 PatchGmp()
 
+def PatchOutLibIConv(Obj):
 #
 # libiconv is often present on the build machine, but not the later host of the same architecture,
 # for example on Solaris; it would be nice to have -disable-libiconv or -without-libiconv.
 #
-def PatchOutLibIConv(Obj):
-
+# This is not really needed, but nice to have.
+#
     PatchName = "libiconv dependency"
 
     for a in ["binutils", "gcc", "libcpp", "libdecnumber"]:
@@ -365,10 +375,16 @@ def PatchOutLibIConv(Obj):
 
 
 def PatchOutOptimizer(Obj):
-
+#
+# This is not really needed, but should provide a nice
+# speed boost to building the compiler.
+#
     PatchName = "CFLAGS=-g"
 
-    for a in ["binutils", "gcc", "libcpp", "libdecnumber"]:
+    for a in ["binutils", "gcc", "libcpp", "libdecnumber", ".", "libiberty",
+            "libstdc++-v3/include",
+            "libstdc++-v3/libmath", "libstdc++-v3/libsupc++", "libstdc++-v3/doc",
+            "libstdc++-v3/po", "libstdc++-v3/src", "libstdc++-v3/testsuite" ]:
         FilePath = Obj + "/" + a
         if not os.path.isdir(FilePath):
             print("*** no " + FilePath)
@@ -384,18 +400,20 @@ def PatchOutOptimizer(Obj):
             Changed = False
             for OldLine in OldLines:
                 NewLine = OldLine
-                if NewLine == "CFLAGS = -g -O2\n":
-                    NewLine = "CFLAGS = -g\n"
-                    Changed = True
-                elif NewLine == "BOOT_CFLAGS= -g -O2\n":
-                    NewLine = "BOOT_CFLAGS= -g\n"
-                    Changed = True
-                elif NewLine == "CFLAGS_FOR_TARGET = -O2 -g $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n":
-                    NewLine = "CFLAGS_FOR_TARGET = -g $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\n"
-                    Changed = True
-                elif NewLine == "CXXFLAGS_FOR_TARGET = -O2 -g $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n":
-                    NewLine = "CXXFLAGS_FOR_TARGET = -g $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n"
-                    Changed = True
+                if NewLine.find("-O2") != -1:
+                    if (   (NewLine == "CFLAGS = -g -O2\n")
+                            or (NewLine == "CFLAGS = -O2 -g -g\n")
+                            or (NewLine == "CXXFLAGS = -O2 -g -g -O2\n")
+                            or (NewLine == "BOOT_CFLAGS= -g -O2\n")
+                            or (NewLine == "CFLAGS_FOR_TARGET = -O2 -g $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n")
+                            or (NewLine == "CXXFLAGS_FOR_TARGET = -O2 -g $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n")
+                            or (NewLine == "LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) \\\n")
+                            or (NewLine == "CRTSTUFF_CFLAGS = -O2 $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \\\n")
+                            # next line has a tab
+                            or (NewLine == "	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) -O2 $(ADA_INCLUDES) \\\n")):
+                        NewLine = NewLine.replace(" -O2\n", "\n")
+                        NewLine = NewLine.replace(" -O2 ", " ")
+                        Changed = True
                 NewLines += NewLine
             if Changed:
                 file(FilePath, "w").writelines(NewLines)
@@ -434,6 +452,9 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     if Target == None:
         Target = Build
 
+    CFLAGS = "-g"
+    CC = "gcc"
+
     DefaultSysroot = (Prefix + "/" + Target + "/sys-root")
 
     #
@@ -447,24 +468,97 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # Cross building native does not work for Ada.
     # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37109
     #
-    if (Host != Target) or (Build == Host):
+    # and msdos:
+    # In file included from socket.c:38:
+    # gsocket.h:151:24: error: sys/socket.h: No such file or directory
+    # gsocket.h:153:25: error: netinet/tcp.h: No such file or directory
+    # gsocket.h:155:19: error: netdb.h: No such file or directory
+    # socket.c: In function '__gnat_get_h_errno':
+    # socket.c:411: error: 'h_errno' undeclared (first use in this function)
+    # socket.c:411: error: (Each undeclared identifier is reported only once
+    # socket.c:411: error: for each function it appears in.)
+    # make[4]: *** [socket.o] Error 1
+    # make[4]: Leaving directory `/obj/gcc.1/i686-pc-cygwin/i586-pc-msdosdjgpp/gcc/ada/rts'
+    #
+    if ((Host != Target) or (Build == Host)) and (Target.find("msdosdjgpp") != -1):
         ExtraConfig += " -enable-languages=all,ada "
+
+    if Target.find("msdosdjgpp") != -1:
+        ExtraConfig += " -enable-languages=c,c++,fortran,java,objc "
+
+    #
+    # cross builds have extra requirements that are not automated,
+    # in particular setting up "sys-root" or headers/libs ahead of time.
+    # This is a very tricky area -- since it isn't automated and errors
+    # doing this are often not caught till late, which is extra
+    # frustrating.
+    # Try to catch these errors early here.
+    #
+    # NOTE that if you are doing an "integrated" build with glibc or newlib,
+    # then this is likely less of an issue, you are building the sysroot.
+    # glibc is typical for Linux.
+    # newlib is typical for embedded systems.
+    # That still leaves many other systems such as Cygwin, MinGWin, and
+    # commercial Unices with their native libc such as Solaris, HP-UX, AIX.
+    #
+    # NOTE that Cygwin does use newlib, but I don't have that setup to work here yet.
+    # I build Cygwin separately.
+    #
 
     if Build != Target:
 
         if Target.find("msdosdjgpp") != -1:
+
+            #
+            # I don't remember why I put this in, but it makes some sense -- no dynamic linking on djgpp.
+            #
+
             ExtraConfig += " -disable-shared -enable-static "
+
+            #
+            # djgpp "favors" the pre-sysroot method, via the djgpp cross package
+            #
+
+            #for a in ["lib", "include"]:
+            for a in ["include"]:
+                b = Prefix + "/" + Target + "/" + a
+                if not os.path.isdir(b):
+                    print("ERROR: Please create " + b + ", such as by extracting djcrx<version>.zip in /usr/local/" + Target)
+                    exit(1)
             ExtraConfig += " -with-headers=" + Prefix + "/" + Target + "/include "
             #ExtraConfig += " -with-libs=" + Prefix + "/" + Target + "/lib "
 
         else:
+
+
+            #
+            # mingw sys-root is unusual; help the user
+            #
+
+            if Target.find("-mingw32") != -1:
+                for a in ["lib", "include"]:
+                    b = DefaultSysroot + "/mingw/" + a
+                    if not os.path.isdir(b):
+                        print("ERROR: Please create " + b + ", such as by a link (or NTFS junction) to /mingw/" + a)
+                        print("")
+                        print("Such as like so (on Windows):")
+                        print("  install mingw, such as to c:\mingw")
+                        print("  mkdir c:\cygwin\usr\local\i686-pc-mingw32\sys-root\mingw")
+                        print("  \\\\live.sysinternals.com\\tools\\junction c:\\cygwin\\usr\\local\\i686-pc-mingw32\\sys-root\\mingw\\include c:\\mingw\\include")
+                        print("  \\\\live.sysinternals.com\\tools\\junction c:\\cygwin\\usr\\local\\i686-pc-mingw32\\sys-root\\mingw\\lib c:\\mingw\\lib")
+                        exit(1)
+
+            #
+            # normal sys-root
+            #
+                    
             if not os.path.isdir(DefaultSysroot):
                 print("ERROR: Please put appropriate subset of " + Target + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
                 exit(1)
             ExtraConfig += " -with-sysroot "
 
     #
-    # try workaround Canadian fixincludes not understanding sysroot of the cross compiler used to build it
+    # Workaround Canadian fixincludes not understanding sysroot of the cross compiler used to build it.
     # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37036
     #
     if (Host == Target) and (Host != Build):
@@ -489,37 +583,52 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # Obj = ObjRoot + "/" + Build + "/" + Host + "/" + Target
     Obj = ObjRoot + "/" + Host + "/" + Target
 
+    Environ = " "
+    Environ += " CFLAGS=\"" + CFLAGS + "\" "
+    Environ += " BOOT_CFLAGS=\"" + CFLAGS + "\" "
+    Environ += " CC=\"" + CC + "\" "
+
     print("configuring " + Host + "/" + Target)
     Date()
     if not os.path.isfile(Obj + "/Makefile"):
         CreateDirectories(Obj)
-        Run(Obj, Source + "/configure -host " + Host + " -target " + Target + " " + ConfigCommon + " " + ExtraConfig + " CFLAGS=-g BOOT_CFLAGS=-g")
+        Run(Obj, Source + "/configure -host " + Host + " -target " + Target + " " + ConfigCommon + " " + ExtraConfig + Environ)
 
     print("making " + Host + "/" + Target)
     Date()
-    Run(Obj, "make configure-host CFLAGS=-g BOOT_CFLAGS=-g")
-    PatchOutLibIConv(Obj)
-    PatchOutOptimizer(Obj)
-    Run(Obj, "make CFLAGS=-g BOOT_CFLAGS=-g")
+
+    for a in ["build", "host", "target"]:
+        Run(Obj, "make configure-" + a + " " + Environ)
+        PatchOutLibIConv(Obj)
+        PatchOutOptimizer(Obj)
+        Run(Obj, "make all-" + a + " " + Environ)
+
+    Run(Obj, "make all " + Environ)
 
     print("installing " + Host + "/" + Target)
     Date()
-    Run(Obj, "make install " + ExtraInstall + " CFLAGS=-g BOOT_CFLAGS=-g")
+    Run(Obj, "make install " + ExtraInstall + Environ)
 
     if DestDir:
         print("Success; copy " + DestDir + " to your " + Host + " machine")
 
 # native
-# DoBuild()
+DoBuild()
 
 Platform1 = Build
 
+Platform2 = "i686-pc-mingw32"
+DoBuild(Platform1, Platform2)
+
 Platform2 = "sparc64-sun-solaris2.10"
-#DoBuild(Platform1, Platform2)
+DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
 Platform2 = "sparc-sun-solaris2.10"
 DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
+
+Platform2 = "i686-pc-mingw32"
 DoBuild(Platform2, Platform2)
 
 Platform2 = "i586-pc-msdosdjgpp"
@@ -533,6 +642,7 @@ DoBuild(Platform2, Platform2)
 # sparc64-sun-solaris2.10
 # i686-pc-linux
 # i686-pc-cygwin
+# i686-pc-mingw32
 #
 # easily up and running host
 #   i686-pc-cygwin
@@ -565,7 +675,6 @@ DoBuild(Platform2, Platform2)
 #  needs hardware
 #
 #
-# i686-pc-mingwin
 # i686-apple-darwin
 # i686-sun-solaris
 # i686-unknown-netbsd
@@ -625,37 +734,6 @@ DoBuild(Platform2, Platform2)
 
 #
 # some unsolved/worked-around problems
-#
-
-#
-# why not build all languages:
-#
-# /bin/sh ./libtool --tag=GCJ --mode=compile /cygdrive/d/obj/gcc12/gcc/gcj -B/cygd
-# rive/d/obj/gcc12/sparc-sun-solaris2.10/libjava/ -B/cygdrive/d/obj/gcc12/gcc/ -Us
-# un -fclasspath= -fbootclasspath=/src/gcc-4.3.1/libjava/classpath/lib --encoding=
-# UTF-8 -Wno-deprecated -fbootstrap-classes -g -O2 -c -o gnu/javax/swing/text/html
-# /parser/HTML_401F.lo -fsource-filename=/cygdrive/d/obj/gcc12/sparc-sun-solaris2.
-# 10/libjava/classpath/lib/classes -MT gnu/javax/swing/text/html/parser/HTML_401F.
-# lo -MD -MP -MF gnu/javax/swing/text/html/parser/HTML_401F.deps @gnu/javax/swing/
-# text/html/parser/HTML_401F.list
-# libtool: compile:  /cygdrive/d/obj/gcc12/gcc/gcj -B/cygdrive/d/obj/gcc12/sparc-s
-# un-solaris2.10/libjava/ -B/cygdrive/d/obj/gcc12/gcc/ -Usun -fclasspath= -fbootcl
-# asspath=/src/gcc-4.3.1/libjava/classpath/lib --encoding=UTF-8 -Wno-deprecated -f
-# bootstrap-classes -g -O2 -c -fsource-filename=/cygdrive/d/obj/gcc12/sparc-sun-so
-# laris2.10/libjava/classpath/lib/classes -MT gnu/javax/swing/text/html/parser/HTM
-# L_401F.lo -MD -MP -MF gnu/javax/swing/text/html/parser/HTML_401F.deps @gnu/javax
-# /swing/text/html/parser/HTML_401F.list  -fPIC -o gnu/javax/swing/text/html/parse
-# r/.libs/HTML_401F.o
-# libtool: compile:  /cygdrive/d/obj/gcc12/gcc/gcj -B/cygdrive/d/obj/gcc12/sparc-s
-# un-solaris2.10/libjava/ -B/cygdrive/d/obj/gcc12/gcc/ -Usun -fclasspath= -fbootcl
-# asspath=/src/gcc-4.3.1/libjava/classpath/lib --encoding=UTF-8 -Wno-deprecated -f
-# bootstrap-classes -g -O2 -c -fsource-filename=/cygdrive/d/obj/gcc12/sparc-sun-so
-# laris2.10/libjava/classpath/lib/classes -MT gnu/javax/swing/text/html/parser/HTM
-# L_401F.lo -MD -MP -MF gnu/javax/swing/text/html/parser/HTML_401F.deps @gnu/javax
-# /swing/text/html/parser/HTML_401F.list -o gnu/javax/swing/text/html/parser/HTML_
-# 401F.o >/dev/null 2>&1
-#
-# This fails.
 #
 
 #
