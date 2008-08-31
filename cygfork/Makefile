@@ -1,16 +1,35 @@
-.c.obj::
-    cl -c -O1 -MD -Zi $<
+all: cygwin1.dll cygwin3.dll 2.exe fork.obj
 
-all: cygwin1.dll fork.exe
+.c.obj:
+    cl -c -MD -Z7 -Zl -GS- $<
 
-fork.exe: cygwin1.lib fork.c
- cl -MD -Zi -DMAIN fork.c cygwin1.lib kernel32.lib
+2.exe: cygwin1.lib 2.c
+    -del cygwin1.dll cygwin1.ilk
+    gcc 2.c -o $@
 
-cygwin1.def cygwin2.def cygwin2.c: functions.txt make.py
+cygwin1.c cygwin1.def cygwin2.def cygwin2.c cygwin3.def: functions.txt make.py
     python make.py
 
 clean:
-    del *.obj *.lib *.def cygwin2.c *.pdb *.manifest *.exp *.dll *.stackdump
+    -del \
+        a.exe \
+        cygwin1.c \
+        cygwin2.c \
+        cygwin3.c \
+        fork.exe \
+        forkmain.exe \
+        *.def \
+        *.dll \
+        *.exp \
+        *.ilk \
+        *.manifest \
+        *.lib \
+        *.obj \
+        *.pdb \
+        *.stackdump \
+        2.o \
+        2.exe \
+        3.exe \
 
 cygwin2.lib: cygwin2.def cygwin2.obj
     link -lib @<<
@@ -18,19 +37,34 @@ cygwin2.lib: cygwin2.def cygwin2.obj
 -out:$@
 <<
 
-cygwin1.exp cygwin1.lib: cygwin1.def fork.obj cygwin2.lib
+cygwin1.exp cygwin1.lib: cygwin1.def cygwin1.obj fork.obj cygwin3.lib
     link -lib @<<
 -def:$**
 -out:cygwin1.lib
 <<
 
-cygwin1.dll: fork.obj cygwin2.lib cygwin1.lib cygwin1.exp
+cygwin3.exp cygwin3.lib: cygwin3.def cygwin2.lib
+    link -lib @<<
+-def:$**
+-out:cygwin3.lib
+<<
+
+cygwin3.dll: cygwin2.lib cygwin3.lib cygwin3.exp
     link @<<
 -debug
 $**
 -out:$@
 -noentry
 -dll
--opt:ref,icf
+kernel32.lib
+<<
+
+cygwin1.dll: cygwin1.obj fork.obj cygwin3.lib cygwin1.lib cygwin1.exp
+    link @<<
+-debug
+$**
+-out:$@
+-noentry
+-dll
 kernel32.lib
 <<

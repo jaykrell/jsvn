@@ -8,21 +8,54 @@ explaining Cygwin's "new vfork".
 #define _INC_STDLIB
 
 #include <stdarg.h>
-#include <windows.h>
+#include <stddef.h>
 
-#if 0
-__declspec(dllimport) void* __cdecl malloc(size_t);
-__declspec(dllimport) void __cdecl free(void*);
+/* It is difficult to be compatible with all headers, so just declare stuff ourselves. */
+typedef unsigned UINT32;
+typedef int BOOL;
+typedef unsigned long DWORD;
+typedef void* HANDLE;
+#ifdef _WIN64
+typedef size_t SIZE_T;
 #else
-static void* __stdcall MemAlloc(size_t n) { return HeapAlloc(GetProcessHeap(), 0, n); }
-static void __stdcall MemFree(void* p) { HeapFree(GetProcessHeap(), 0, p); }
+typedef unsigned long SIZE_T;
 #endif
+#define HEAP_ZERO_MEMORY 0x00000008
+__declspec(dllimport) void* __stdcall HeapAlloc(HANDLE, DWORD, SIZE_T);
+__declspec(dllimport) BOOL __stdcall HeapFree(HANDLE, DWORD, void*);
+__declspec(dllimport) long __stdcall InterlockedCompareExchange(volatile long*, long, long);
+__declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+__declspec(dllimport) void __stdcall OutputDebugStringA(const char*);
+__declspec(dllimport) void* __stdcall GetProcessHeap(void);
+__declspec(dllimport) BOOL __stdcall TlsSetValue(DWORD, void*);
+__declspec(dllimport) void* __stdcall TlsGetValue(DWORD);
+__declspec(dllimport) DWORD __stdcall TlsAlloc(void);
+__declspec(dllimport) BOOL __stdcall TlsFree(DWORD);
+__declspec(dllimport) void __stdcall DebugBreak(void);
 
-__declspec(dllimport) int* __cdecl printf(const char*, ...);
+static void* __stdcall MemAlloc(size_t n)
+{ 
+    return HeapAlloc(GetProcessHeap(), 0, n);
+}
+
+static void* __stdcall MemAllocZ(size_t n)
+{
+    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, n);
+}
+
+static void __stdcall MemFree(void* p)
+{
+    HeapFree(GetProcessHeap(), 0, p);
+}
+
+__declspec(dllimport) int __cdecl cygwin3_printf(const char*, ...);
+__declspec(dllimport) int __cdecl cygwin3_sprintf(char*, const char*, ...);
+__declspec(dllimport) int* __cdecl cygwin3___errno(void); /* cygwin */
 __declspec(dllimport) int* __cdecl __errno(void); /* cygwin */
 __declspec(dllimport) int* __cdecl _errno(void); /* msvcrt */
+#define errno (*cygwin3___errno())
 //#define errno (*__errno())
-#define errno (*_errno())
+//#define errno (*_errno())
 
 #define	ENOMEM 12 /* Not enough core */
 #define	EINVAL 22 /* Invalid argument */
@@ -34,16 +67,19 @@ __declspec(dllimport) int* __cdecl _errno(void); /* msvcrt */
 #define _P_NOWAITO	4
 #define _P_DETACH	5
 
+__declspec(dllexport)
+int __cdecl execvp(const char* file, char* const arg_vector[]);
+
 /* --------------------------------------------------------------------- */
 
 typedef int pid_t;
 
 // http://en.wikipedia.org/wiki/Spawn_%28computing%29
 
-//__declspec(dllimport) int __cdecl spawnl(int mode, char* file, char* arg0, ...);
-//__declspec(dllimport) int __cdecl spawnle(int mode, char* file, char* arg0, ... /*, char** environment */);
-//__declspec(dllimport) int __cdecl spawnlp(int mode, char* file, char* arg0, ...);
-//__declspec(dllimport) int __cdecl spawnlpe(int mode, char* file, char* arg0, ... /*, char** environment */);
+//int __cdecl spawnl(int mode, char* file, char* arg0, ...);
+//int __cdecl spawnle(int mode, char* file, char* arg0, ... /*, char** environment */);
+//int __cdecl spawnlp(int mode, char* file, char* arg0, ...);
+//int __cdecl spawnlpe(int mode, char* file, char* arg0, ... /*, char** environment */);
 __declspec(dllimport) int __cdecl spawnv(int mode, char* file, char** arg_vector);
 __declspec(dllimport) int __cdecl spawnve(int mode, char* file, char** arg_vector, char** environment);
 __declspec(dllimport) int __cdecl spawnvp(int mode, char* file, char** arg_vector);
@@ -53,10 +89,12 @@ __declspec(dllimport) int __cdecl spawnvpe(int mode, char* file, char** arg_vect
 
 /* There can only be one fork active per thread.
 "active" means "not yet execed".
+Failed exec leaves active alone.
+Successful exec clears active.
 future: have one per thread data structure for the entire library
 */
 
-typedef struct fork2_t {
+typedef struct fork_t {
     UINT32 ebp;
     UINT32 ebx;
     UINT32 edi;
@@ -65,19 +103,7 @@ typedef struct fork2_t {
     UINT32 eip;
     UINT32 pid;
     UINT32 active;
-} fork2_t;
-
-typedef struct fork1_t {
-    UINT32 ebp;
-    UINT32 ebx;
-    UINT32 edi;
-    UINT32 esi;
-    UINT32 esp;
-    UINT32 eip;
-    UINT32 pid;
-    UINT32 active;
-    fork2_t* fork2;
-} fork1_t;
+} fork_t;
 
 static long volatile fork_tls = -1;
 
@@ -92,11 +118,11 @@ static
 long
 __stdcall
 TlsAllocOnDemand(
-    volatile long* global
+    long volatile * global
     )
 {
-    long tls1;
-    long tls2;
+    long volatile tls1;
+    long volatile tls2;
 
     tls1 = *global;
 
@@ -131,8 +157,8 @@ get_fork(
     void
     )
 {
-    long tls;
-    fork_t* p;
+    long volatile tls;
+    fork_t* volatile p;
 
     p = 0;
     tls = fork_tls;
@@ -146,7 +172,7 @@ get_fork(
     if (p != NULL)
         goto Exit;
 
-    p = (fork_t*) MemAlloc(sizeof(*p));
+    p = (fork_t*) MemAllocZ(sizeof(*p));
     if (p == NULL)
         goto Exit;
 
@@ -162,52 +188,13 @@ set_errno(
     int e
     )
 {
-    //errno = e;
+    errno = e;
 }
-
-#if 0
-
-__declspec(dllexport)
-pid_t
-__cdecl
-fork(
-    void
-    )
-{
-    register fork_t* volatile p;
-
-    p = get_fork();
-    if (!p)
-    {
-        set_errno(ENOMEM);
-        return -1;
-    }
-    if (setjmp(p->jmp))
-    {
-        /* return second time in parent process */
-        return p->pid;
-    }
-    /* continue in "child process" -- will exec */
-    return 0;
-}
-
-#elif 0
-
-/* must be inlined in the caller to avoid needing a return address that will get trashed.
-Well, at least the setjmp call is needed there; we could push some work into a function.
-NOTE: This is really vfork.
-*/
-
-#define fork() (get_fork() ? (setjmp(get_fork()->jmp) ? get_fork()->pid : 0) : (set_errno(ENOMEM), -1))
-
-#else
-
-/* macro not compatible with intent to drop in on top of cygwin1.dll, with forwarding to renamed cygwin1.dll
-of all other functions */
 
 __declspec(naked dllexport)
 pid_t __cdecl fork(void)
 {
+    OutputDebugStringA("fork\n");
     __asm
     {
         call get_fork
@@ -237,47 +224,97 @@ __declspec(naked dllexport) pid_t __cdecl vfork(void) { __asm { jmp fork } }
 __declspec(naked dllexport) pid_t __cdecl _vfork(void) { __asm { jmp fork } }
 __declspec(naked dllexport) pid_t __cdecl _fork(void) { __asm { jmp fork } }
 
-__declspec(dllimport) int cygclose(int);
+int cygwin3_close(int);
 
 __declspec(dllexport)
-int close(int fd)
+int __cdecl close(int fd)
 {
-    /* if a fork is "active", ignore close -- code think it is in child, but it isn't */
+    /* if a fork is "active", ignore close -- code thinks it is in child, but it isn't */
     fork_t* f;
 
+    OutputDebugStringA("close\n");
     f = get_fork();
     if (f && f->active)
     {
+        OutputDebugStringA("ignoring close\n");
         return 0;
     }
-    return cygclose(fd);
+    /* call the real function */
+    return cygwin3_close(fd);
 }
 
 __declspec(dllexport)
-int _close(int fd)
+int __cdecl _close(int fd)
 {
     return close(fd);
 }
 
-__declspec(dllimport) void cyg_exit(int fd);
+void cygwin3__exit(int fd);
 
 __declspec(dllexport)
-void _exit(int status)
+void __cdecl _exit(int status)
 {
-    /* if a fork is "active", ignore _exit -- exec probably failed */
+    /*
+    If fork is active (ie: exec has failed, then this is to exit the new process,
+    which has not actually been created. Create a dummy process and have it immediately exit.
+    We can just CreateProcess(cmd, suspended) and then TerminateProcess it
+    with the desired status.
+    */
     fork_t* f;
+#if 0
+    STARTUPINFO StartupInfo;
+    PROCESS_INFORMATION ProcessInfo;
+#endif
+    const static char arg1f[] = "/c exit /b %d";
+    char arg1[sizeof(arg1f) + (sizeof(int) * 8)];
+    char* argv[] = {"cmd.exe", arg1, 0};
+
+    OutputDebugStringA("_exit\n");
 
     f = get_fork();
-    if (f && f->active)
+    if ((!f) || (!f->active))
+    {
+        /* call the real function */
+        cygwin3__exit(status);
+        return;
+    }
+
+#if 0
+    /* We don't know what the spawn/wait pids are at this point, so should
+    delegate to the real exec/spawn. Later we will either know they are
+    Win32 pids, or Win32 handles, and/or implement exec/spawn ourselves. */
+    ZeroMemory(&StartupInfo, sizeof(StartupInfo));
+    ZeroMemory(&ProcessInfo, sizeof(ProcessInfo));
+    StartupInfo.cb = sizeof(StartupInfo);
+    if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &StartupInfo, &ProcessInfo))
     {
         return;
     }
-    cyg_exit(status);
+    CloseHandle(ProcessInfo.hThread);
+    TerminateProcess(ProcessInfo.hProcess, status);
+#else
+    cygwin3_sprintf(arg1, arg1f, status);
+    cygwin3_printf("running: %s\n", arg1);
+    execvp(argv[0], argv);
+#endif
 }
 
 __declspec(naked)
 static pid_t __fastcall fork_return(fork_t* f)
 {
+#if 1
+    __asm
+    {
+        push ecx
+    }
+    OutputDebugStringA("fork_return\n");
+    if (IsDebuggerPresent())
+        DebugBreak();
+    __asm
+    {
+        pop ecx
+    }
+#endif
     __asm
     {
         mov ebp, DWORD PTR [ecx]
@@ -292,8 +329,6 @@ static pid_t __fastcall fork_return(fork_t* f)
         ret
     }
 }
-
-#endif
 
 typedef struct exec_t {
     va_list arg_list;
@@ -336,7 +371,9 @@ int __stdcall exec(exec_t* e)
     {
         arg_vector = e->arg_vector;
         if (e->flag.environment)
+        {
             environment = e->environment;
+        }
     }
 
     if (e->flag.arg_list)
@@ -373,24 +410,28 @@ int __stdcall exec(exec_t* e)
         arg_vector[argc] = 0;
     }
 
-    //printf("about to spawn\n");
+    cygwin3_printf("about to spawn\n");
+#if 0
+    if (IsDebuggerPresent())
+        DebugBreak();
+#endif
 
     switch ((e->flag.search_path << 1) | e->flag.environment)
     {
     case 0:
-        pid = spawnv(mode, file, arg_vector);
+        pid = cygwin3_spawnv(mode, file, arg_vector);
         break;
     case 1:
-        pid = spawnve(mode, file, arg_vector, environment);
+        pid = cygwin3_spawnve(mode, file, arg_vector, environment);
         break;
     case 2:
-        pid = spawnvp(mode, file, arg_vector);
+        pid = cygwin3_spawnvp(mode, file, arg_vector);
         break;
     case 3:
-        pid = spawnvpe(mode, file, arg_vector, environment);
+        pid = cygwin3_spawnvpe(mode, file, arg_vector, environment);
         break;
     }
-    //printf("spawned %d\n", pid);
+    cygwin3_printf("spawned %d\n", pid);
     if (!e->flag.arg_vector)
     {
         MemFree(arg_vector);
@@ -408,6 +449,7 @@ int __cdecl execl(const char* file, const char* arg0, ... )
     exec_t e = { 0 };
     int ret;
 
+    OutputDebugStringA("execl\n");
     e.flag.arg_list = 1;
     e.file = (char*) file;
     e.arg0 = (char*) arg0;
@@ -422,6 +464,7 @@ int __cdecl execv(const char* file, char* const arg_vector[])
 {
     exec_t e = { 0 };
 
+    OutputDebugStringA("execv\n");
     e.flag.arg_vector = 1;
     e.file = (char*) file;
     e.arg_vector = (char**) arg_vector;
@@ -434,6 +477,7 @@ int __cdecl execle(const char* file, const char* arg0, ... )
     exec_t e = { 0 };
     int ret;
 
+    OutputDebugStringA("execle\n");
     e.flag.environment = 1;
     e.flag.arg_list = 1;
     e.arg0 = (char*) arg0;
@@ -449,6 +493,7 @@ int __cdecl execve(const char* file, char* const arg_vector[], char* const envir
 {
     exec_t e = { 0 };
 
+    OutputDebugStringA("execve\n");
     e.flag.arg_vector = 1;
     e.flag.environment = 1;
     e.arg_vector = (char**) arg_vector;
@@ -463,6 +508,7 @@ int __cdecl execlp(const char* file, const char* arg0, ... )
     exec_t e = { 0 };
     int ret;
 
+    OutputDebugStringA("execlp\n");
     e.flag.search_path = 1;
     e.flag.arg_list = 1;
     e.arg0 = (char*) arg0;
@@ -478,43 +524,10 @@ int __cdecl execvp(const char* file, char* const arg_vector[])
 {
     exec_t e = { 0 };
 
+    OutputDebugStringA("execvp\n");
     e.flag.search_path = 1;
     e.flag.arg_vector = 1;
     e.file = (char*) file;
     e.arg_vector = (char**) arg_vector;
     return exec(&e);
 }
-
-#ifdef MAIN
-
-//#include <stdio.h>
-
-int main()
-{
-    volatile int pid;
-    char * arg[] = {"cmd", 0};
-
-    pid = fork();
-    if (pid == 0)
-    {
-        printf("child\n");
-        execvp(arg[0], arg);
-    }
-    else
-    {
-        printf("waiting for %d\n", pid);
-        waitpid(pid);
-    }
-}
-
-void mainCRTStartup(void)
-{
-    volatile char a[0x2000];
-    //_alloca(0x2000);
-    a[0] = 0;
-    a[0x1FFF] = 0;
-    cygwin_dll_init();
-    main();
-}
-
-#endif
