@@ -57,6 +57,12 @@ stringW Quote(const stringW& a)
     return a;
 }
 
+/* added to winnt.h after Visual C++ 5.0 */
+#define FILE_ATTRIBUTE_SPARSE_FILE          0x00000200
+#define FILE_ATTRIBUTE_REPARSE_POINT        0x00000400
+#define FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  0x00002000
+#define FILE_ATTRIBUTE_ENCRYPTED            0x00004000
+
 stringW
 FileAttributesToString(
     DWORD dw
@@ -72,7 +78,11 @@ FileAttributesToString(
     s += ((dw & FILE_ATTRIBUTE_NORMAL) ? L"normal" : e);
     s += ((dw & FILE_ATTRIBUTE_TEMPORARY) ? L"temporary" : e);
     s += ((dw & FILE_ATTRIBUTE_COMPRESSED) ? L"compressed" : e);
-    //s += ((dw & FILE_ATTRIBUTE_OFFLINE) ? L"offline" : e);
+    s += ((dw & FILE_ATTRIBUTE_OFFLINE) ? L"offline" : e);
+    s += ((dw & FILE_ATTRIBUTE_SPARSE_FILE) ? L"sparse" : e);
+    s += ((dw & FILE_ATTRIBUTE_REPARSE_POINT) ? L"reparsepoint" : e);
+    s += ((dw & FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) ? L"notcontentindexed" : e);
+    s += ((dw & FILE_ATTRIBUTE_ENCRYPTED) ? L"encrypted" : e);
     return s;
 }
 
