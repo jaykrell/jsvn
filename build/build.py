@@ -18,7 +18,7 @@ import re
 
 ObjRoot = "/obj/gcc.1"
 Source = "/src/gcc"
-GccVersion = "4.3.1"
+GccVersion = "4.3.2"
 
 #
 # use canonical names including version
@@ -62,6 +62,33 @@ ConfigCommon = " "
 
 # ConfigCommon += " -build " + Platform1 + " "
 ConfigCommon += " -verbose "
+
+ConfigCommon += " -prefix=" + Prefix + " " 
+ConfigCommon += " -exec-prefix=" + Prefix + " " 
+ConfigCommon += " -libdir=" + Prefix + "/lib "
+ConfigCommon += " -libexecdir=" + Prefix + "/lib "
+ConfigCommon += " -mandir=" + Prefix + "/share/man "
+ConfigCommon += " -infodir=" + Prefix + "/share/info "
+
+# -sysconfdir=/etc
+
+# -enable-languages=c,c++,fortran,java,objc,obj-c++ 
+# -disable-nls
+# -without-included-gettext
+# -enable-version-specific-runtime-libs
+# -without-x
+# -enable-libgcj
+# -disable-java-awt
+# -with-system-zlib
+# -enable-interpreter
+# -disable-libgcj-debug
+# -enable-threads=posix
+# -enable-java-gc=boehm
+# -disable-win32-registry
+# -enable-sjlj-exceptions
+# -enable-hash-synchronization
+# -enable-libstdcxx-debug
+
 
 #
 # Keep everything in English, and don't waste time otherwise.
@@ -127,7 +154,7 @@ ConfigCommon += " -enable-64-bit-bfd "
 # This is a nice speed up, but it might take away ability for 32 bit and 64 bit
 # to target each other.
 #
-ConfigCommon += " -disable-multilib "
+# ConfigCommon += " -disable-multilib "
 
 #
 # random speeds ups, some people will want these
@@ -259,15 +286,61 @@ def Extract(Directory, MarkerDirectory, File):
 #
 
 #
-# binutils must precede gcc so that gcc replaces common files
+# cygwin and binutils must precede gcc so that gcc replaces common files
 #
+Extract(Source, Source + "/winsup", "/net/distfiles/" + "cygwin-src-20080822")
 Extract(Source, Source + "/binutils", "/net/distfiles/" + "binutils-2.18")
 Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.2")
-Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
-Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
+# Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
+# Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
 
+def AddLinesToFile(LinesToAdd, FilePath):
+    LinesToAdd = dict().fromkeys(LinesToAdd)
+    ExistingLines = dict().fromkeys(file(FilePath).readlines())
+    for i in ExistingLines.keys():
+        LinesToAdd.pop(i, None)
+    if len(LinesToAdd) != 0:
+        file(FilePath, "a").writelines(LinesToAdd.keys())
 
-def PatchBigStack():
+def ChangeLineInFile(From, To, FilePath):
+    Changed = False
+    NewLines = [ ]
+    OldLines = file(FilePath).readlines()
+    for Line in OldLines:
+        if Line == From:
+            Changed = True
+            Line = To
+        NewLines += Line
+    if Changed:
+        file(FilePath, "w").writelines(NewLines)
+
+def AddLineAfterLine(First, Second, FilePath):
+    Changed = False
+    NewLines = [ ]
+    OldLines = file(FilePath).readlines()
+    for Line in OldLines:
+        if Line == First:
+            Changed = True
+            NewLines += First
+            Line = Second
+        NewLines += Line
+    if Changed:
+        file(FilePath, "w").writelines(NewLines)
+
+def AddLineBeforeLine(First, Second, FilePath):
+    Changed = False
+    NewLines = [ ]
+    OldLines = file(FilePath).readlines()
+    for Line in OldLines:
+        if Line == First:
+            return
+        if Line == Second:
+            Changed = True
+            NewLines += First
+        NewLines += Line
+    if Changed:
+        file(FilePath, "w").writelines(NewLines)
+
 #
 # gcc needs a very large stack to avoid crashing for small source files such
 # as the 3,739 line libjava/classpath/gnu/javax/swing/text/html/parser/HTML_401F.java
@@ -279,24 +352,351 @@ def PatchBigStack():
 # The patch has not been applied for 4.3.2 and is most likely
 # needed there too.
 #
-    FilePath = Source + "/config/mh-cygwin"
-    PatchName = "gcc needs very large stack"
-    print("patching " + PatchName + " in " + FilePath)
-    Lines = file(FilePath).readlines()
-    HasLineAlready = False
-    LineToAdd = "LDFLAGS = -Wl,--stack,8388608\n"
-    for Line in Lines:
-        if Line == LineToAdd:
-            HasLineAlready = True
-            break
-    if not HasLineAlready:
-        Lines += LineToAdd
-        file(FilePath, "w").writelines(Lines)
-    print("done patching " + PatchName + " in " + FilePath)
+AddLinesToFile(["LDFLAGS += -Wl,--stack,8388608\n"], Source + "/config/mh-cygwin")
+AddLinesToFile(["LDFLAGS += -Wl,--stack,8388608\n", "CFLAGS += -D__USE_MINGW_ACCESS\n"], Source + "/config/mh-mingw")
 
-PatchBigStack()
+#
+# /src/gcc/libiberty/strsignal.c:408: error: conflicting types for 'strsignal'
+#   const char *
+#   strsignal (int signo)
+#
+# /src/gcc/newlib/libc/include/string.h:79: error: previous declaration of 'strsignal' was here
+#   char  *_EXFUN(strsignal, (int __signo));
+#
+# make[1]: Leaving directory `/obj/gcc.1/i686-pc-cygwin/i686-pc-cygwin/i686-pc-cygwin/libiberty'
+#
+# and:
+#   char *
+#   /src/cygwin-snapshot-20080822-1/newlib/libc/sys/linux/strsignal.c(43):strsignal (int sig)
+#   extern "C" char *
+#   /src/cygwin-snapshot-20080822-1/winsup/cygwin/strsig.cc(77):strsignal (int signo)
+#
+# appears to be a autoconfiguration problem?
+#
+# /src/gcc/libiberty/configure:
+#
+#  *-*-cygwin*)
+#    # The Cygwin library actually uses a couple of files from
+#    # libiberty when it is built.  If we are building a native
+#    # Cygwin, and we run the tests, we will appear to have these
+#    # files.  However, when we go on to build winsup, we will wind up
+#    # with a library which does not have the files, since they should
+#    # have come from libiberty.
+#
+#    # We handle this by removing the functions the winsup library
+#    # provides from our shell variables, so that they appear to be
+#    # missing.
+#
+#    # DJ - only if we're *building* cygwin, not just building *with* cygwin
+#
+#    if test -n "${with_target_subdir}"
+#    then
+#      funcs="`echo $funcs | sed -e 's/random//'`"
+#      case $LIBOBJS in
+#    "random.$ac_objext"   | \
+#  *" random.$ac_objext"   | \
+#    "random.$ac_objext "* | \
+#  *" random.$ac_objext "* ) ;;
+#  *) LIBOBJS="$LIBOBJS random.$ac_objext" ;;
+#esac
+#
+#      vars="`echo $vars | sed -e 's/sys_siglist//'`"
+#      checkfuncs="`echo $checkfuncs | sed -e 's/strsignal//' -e 's/psignal//'`"
+#    fi
+#    ;;
+#
+# Cygwin got its own strsignal back in 2004, so libiberty should no longer provide it.
+#  That is, it should let autoconfiguration work.
+# http://cygwin.com/cgi-bin/cvsweb.cgi/src/winsup/cygwin/strsig.cc?cvsroot=src
+# http://cygwin.com/cgi-bin/cvsweb.cgi/src/winsup/cygwin/Makefile.in.diff?r1=1.153&r2=1.154&cvsroot=src
+# http://gcc.gnu.org/svn/gcc/trunk/libiberty/configure.ac
+#
+# < checkfuncs="`echo $checkfuncs | sed -e 's/strsignal//' -e 's/psignal//'`"
+# > checkfuncs="`echo $checkfuncs | sed -e 's/psignal//'`"
+#
+for File in [Source + "/libiberty/configure", Source + "/libiberty/configure.ac"]:
+    ChangeLineInFile("      checkfuncs=\"`echo $checkfuncs | sed -e 's/strsignal//' -e 's/psignal//'`\"\n",
+                     "      checkfuncs=\"`echo $checkfuncs | sed -e 's/psignal//'`\"\n",
+                     File)
 
-def PatchGmp():
+#
+# But no! That is all just dead code.
+# config.log jumps from 
+# configure:4938: checking for pid_t
+# ..
+# configure:4992: result: yes
+# to
+# configure:8538: checking for stdlib.h
+#
+# It is all skipped because
+# configure.ac:362: if test "x" = "y"; then
+# configure:5068: if test "x" = "y"; then
+#
+# Uh, no. Because of this line:
+#
+# configure.ac 511 or 570?: if test -z "${setobjs}"; then
+# configure:6027 or 6165?
+#
+# $checkfuncs is dead. $funcs is alive.
+# This change should perhaps be conditionalized on platform being cygwin.
+# But autoconf just works, right?
+#
+    #AddLineAfterLine("funcs=\"$funcs waitpid\"\n",
+    #                 "funcs=\"$funcs strsignal\"\n",
+    #                 File)
+
+#
+# Forget it, just do this:
+#
+AddLineAfterLine("#define HAVE_SYS_NERR 1\n",
+                 "#ifdef __CYGWIN__\n#define HAVE_STRSIGNAL 1\n#endif\n",
+                 Source + "/libiberty/configure")
+
+AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
+                 "AC_DEFINE(HAVE_STRSIGNAL)\n",
+                 Source + "/libiberty/configure.ac")
+#
+# NOTE this isn't what rebuilding from configure.ac will get you, but
+# it is close enough. There are two occurences of #define HAVE_SYS_NERR 1,
+# one is in the dead code, like 5675, guarded by if x = y. really this time,
+# followed by HAVE_SYS_SIGLIST. The other is in a Cygwin-specific lump,
+# line 6021, not dead, and what we want to hit (it also applies to mingwin;
+# will that hurt us? We'll find out much later. Yes, it appears likely.
+# Therefore the #ifdef __CYGWIN__, or #ifndef __MINGW32__.)
+# So the right fix to configure.ac will include breaking up the switch on platform.
+#
+
+
+#
+# merged cygwin (winsup+newlib) tree with gcc tree
+# 
+# configure -build i686-pc-cygwin -host -i686-pc-cygwin -target i686-pc-mingw32
+# jay@jay-win9 /obj/gcc.1/i686-pc-cygwin/i686-pc-cygwin/i686-pc-cygwin/winsup/mingw
+# $ make
+# /obj/gcc.1/i686-pc-cygwin/i686-pc-cygwin/./gcc/xgcc -nostdinc -c -D__CRTDLL__ -U
+# __MSVCRT__ -g -g   -I/src/gcc/winsup/mingw/include -I/src/gcc/winsup/mingw/../in
+# clude -nostdinc -iwithprefixbefore include -I /src/gcc/winsup/mingw/../w32api/in
+# clude -mno-cygwin /src/gcc/winsup/mingw/crt1.c -o crt1.o
+# xgcc: error trying to exec 'cc1': execvp: No such file or directory
+# make: *** [crt1.o] Error 1
+# 
+# The problem is that in winsup/mingw/Makefile, CC's -B and -L options are all
+# removed, in order to avoid picking up cygwin files. This code:
+# 
+# CC := @CC@
+# override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}
+# # FIXME: Which is it, CC or CC_FOR_TARGET?
+# CC_FOR_TARGET = $(CC)
+# AS_FOR_TARGET = $(AS)
+# 
+# This is too aggressive.
+# An easy fix is to add -B../../../gcc to the end after the removals.
+# The real point is to add xgcc's directory to -B.
+#
+#ChangeLineInFile("override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
+#                 "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} -B../../../gcc -B../../../../gcc\n",
+#                 Source + "/winsup/mingw/Makefile.in")
+
+#
+# In file included from /src/gcc/winsup/cygwin/dcrt0.cc:24:
+# /src/gcc/winsup/cygwin/fhandler.h:545: error: conflicting type attributes specified for 'virtual void fhandler_pipe::raw_read(void*, size_t&)'
+# /src/gcc/winsup/cygwin/fhandler.h:344: error:   overriding 'virtual void fhandler_base::raw_read(void*, size_t&)'
+#
+# This appears to be an optimization to make raw_read's calling convention match that of what it "just" calls.
+# Either undo that, remove __stdcall, or apply it all of the raw_reads.
+# Here I remove it.
+#
+ChangeLineInFile("  void __stdcall raw_read (void *ptr, size_t& len);\n",
+                 "  void raw_read (void *ptr, size_t& len);\n",
+                 Source + "/winsup/cygwin/fhandler.h")
+
+#
+# /src/gcc/winsup/cygwin/dtable.cc: In function 'bool handle_to_fn(void*, char*)':
+# /src/gcc/winsup/cygwin/dtable.cc:973: error: jump to label 'unknown'
+# /src/gcc/winsup/cygwin/dtable.cc:874: error:   from here
+# /src/gcc/winsup/cygwin/dtable.cc:878: error:   crosses initialization of 'size_t w32len'
+# /src/gcc/winsup/cygwin/dtable.cc:877: error:   crosses initialization of 'WCHAR* w32'
+# /src/gcc/winsup/cygwin/dtable.cc:973: error: jump to label 'unknown'
+# /src/gcc/winsup/cygwin/dtable.cc:867: error:   from here
+# /src/gcc/winsup/cygwin/dtable.cc:878: error:   crosses initialization of 'size_t w32len'
+# /src/gcc/winsup/cygwin/dtable.cc:877: error:   crosses initialization of 'WCHAR* w32'
+# /src/gcc/winsup/cygwin/dtable.cc:973: error: jump to label 'unknown'
+# /src/gcc/winsup/cygwin/dtable.cc:858: error:   from here
+# /src/gcc/winsup/cygwin/dtable.cc:878: error:   crosses initialization of 'size_t w32len'
+# /src/gcc/winsup/cygwin/dtable.cc:877: error:   crosses initialization of 'WCHAR* w32'
+# /src/gcc/winsup/cygwin/dtable.cc:862: error:   crosses initialization of 'NTSTATUS res'
+# /src/gcc/winsup/cygwin/dtable.cc:861: error:   crosses initialization of 'OBJECT_NAME_INFORMATION* ntfn'
+#
+ChangeLineInFile("  WCHAR *w32 = ntfn->Name.Buffer;\n",
+                 "  WCHAR *w32;\n  w32 = ntfn->Name.Buffer;\n",
+                 Source + "/winsup/cygwin/dtable.cc")
+ChangeLineInFile("  size_t w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
+                 "  size_t w32len;\n  w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
+                 Source + "/winsup/cygwin/dtable.cc")
+ChangeLineInFile("  OBJECT_NAME_INFORMATION *ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
+                 "  OBJECT_NAME_INFORMATION *ntfn;\n  ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
+                 Source + "/winsup/cygwin/dtable.cc")
+ChangeLineInFile("  NTSTATUS res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
+                 "  NTSTATUS res;\n  res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
+                 Source + "/winsup/cygwin/dtable.cc")
+
+
+#
+# /src/gcc/winsup/cygwin/fhandler_fifo.cc: In member function 'bool fhandler_fifo::wait(bool)':
+# /src/gcc/winsup/cygwin/fhandler_fifo.cc:139: error: jump to case label
+# /src/gcc/winsup/cygwin/fhandler_fifo.cc:134: error:   crosses initialization of 'bool res'
+#
+ChangeLineInFile("      bool res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
+                 "      bool res;\n      res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
+                 Source + "/winsup/cygwin/fhandler_fifo.cc")
+#
+# /src/gcc/winsup/cygwin/hookapi.cc: In function 'const char* find_first_notloaded_dll(path_conv&)':
+# /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/hookapi.cc:200: error:   from here
+# /src/gcc/winsup/cygwin/hookapi.cc:202: error:   crosses initialization of 'long int delta'
+# /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/hookapi.cc:195: error:   from here
+# /src/gcc/winsup/cygwin/hookapi.cc:202: error:   crosses initialization of 'long int delta'
+# /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/hookapi.cc:187: error:   from here
+# /src/gcc/winsup/cygwin/hookapi.cc:202: error:   crosses initialization of 'long int delta'
+# /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/hookapi.cc:182: error:   from here
+# /src/gcc/winsup/cygwin/hookapi.cc:202: error:   crosses initialization of 'long int delta'
+# 
+ChangeLineInFile("  long delta = rvadelta (pExeNTHdr, importRVA);\n",
+                 "  long delta;\n  delta = rvadelta (pExeNTHdr, importRVA);\n",
+                 Source + "/winsup/cygwin/hookapi.cc")
+
+
+#
+# /src/gcc/winsup/cygwin/path.cc: In function 'ssize_t cygwin_conv_path(cygwin_conv_path_t, const void*, void*, size_t)':
+# /src/gcc/winsup/cygwin/path.cc:2795: error: jump to case label
+# /src/gcc/winsup/cygwin/path.cc:2783: error:   crosses initialization of '_UNICODE_STRING* up'
+# /src/gcc/winsup/cygwin/path.cc:2803: error: jump to case label
+# /src/gcc/winsup/cygwin/path.cc:2783: error:   crosses initialization of '_UNICODE_STRING* up'
+# /src/gcc/winsup/cygwin/path.cc:2811: error: jump to case label
+# /src/gcc/winsup/cygwin/path.cc:2783: error:   crosses initialization of '_UNICODE_STRING* up'
+# /src/gcc/winsup/cygwin/path.cc:2819: error: jump to case label
+# /src/gcc/winsup/cygwin/path.cc:2783: error:   crosses initialization of '_UNICODE_STRING* up'
+#
+ChangeLineInFile("      PUNICODE_STRING up = p.get_nt_native_path ();\n",
+                 "      PUNICODE_STRING up;\n      up = p.get_nt_native_path ();\n",
+                 Source + "/winsup/cygwin/path.cc")
+
+#
+# /src/gcc/winsup/cygwin/pipe.cc: In constructor 'pipesync::pipesync(void*, DWORD)':
+# /src/gcc/winsup/cygwin/pipe.cc:144: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/pipe.cc:121: error:   from here
+# /src/gcc/winsup/cygwin/pipe.cc:129: error:   crosses initialization of 'void* ht'
+#
+ChangeLineInFile("  HANDLE ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
+                 "  HANDLE ht;\n  ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
+                 Source + "/winsup/cygwin/pipe.cc")
+#
+# /src/gcc/winsup/cygwin/sec_auth.cc: In function 'void* create_token(cygsid&, user_groups&, passwd*)':
+# /src/gcc/winsup/cygwin/sec_auth.cc:801: warning: suggest explicit braces to avoid ambiguous 'else'
+# /src/gcc/winsup/cygwin/sec_auth.cc: In function 'void* lsaauth(cygsid&, user_groups&, passwd*)':
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1048: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1018: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1015: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1012: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1010: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1001: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:982: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:966: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:961: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1161: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/sec_auth.cc:947: error:   from here
+# /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
+# /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
+# 
+ChangeLineInFile("  PDWORD csp = (PDWORD) &authinf->username;\n",
+                 "  PDWORD csp;\n  csp = (PDWORD) &authinf->username;\n",
+                 Source + "/winsup/cygwin/sec_auth.cc")
+ChangeLineInFile("  PDWORD csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
+                 "  PDWORD csp_end;\n  csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
+                 Source + "/winsup/cygwin/sec_auth.cc")
+
+#
+# /src/gcc/winsup/cygwin/uinfo.cc: In member function 'void pwdgrp::load(const wchar_t*)':
+# /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/uinfo.cc:577: error:   from here
+# /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
+# /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/uinfo.cc:569: error:   from here
+# /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
+# /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/uinfo.cc:559: error:   from here
+# /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
+# /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/uinfo.cc:551: error:   from here
+# /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
+# /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
+# /src/gcc/winsup/cygwin/uinfo.cc:536: error:   from here
+# /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
+#
+ChangeLineInFile("  char *eptr = buf;\n",
+                 "  char *eptr;\n  eptr = buf;\n",
+                 Source + "/winsup/cygwin/uinfo.cc")
+#
+# /src/gcc/winsup/cygwin/syscalls.cc: In function 'FILE* popen(const char*, constchar*)':
+# /src/gcc/winsup/cygwin/syscalls.cc:3529: error: jump to label 'err'
+# /src/gcc/winsup/cygwin/syscalls.cc:3521: error:   from here
+# /src/gcc/winsup/cygwin/syscalls.cc:3524: error:   crosses initialization of 'fhandler_pipe* fh'
+# /src/gcc/winsup/cygwin/syscalls.cc:3529: error: jump to label 'err'
+# /src/gcc/winsup/cygwin/syscalls.cc:3501: error:   from here
+# /src/gcc/winsup/cygwin/syscalls.cc:3524: error:   crosses initialization of 'fhandler_pipe* fh'
+#
+ChangeLineInFile("  fhandler_pipe *fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
+                 "  fhandler_pipe *fh;\n  fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
+                 Source + "/winsup/cygwin/syscalls.cc")
+#
+# /src/gcc/winsup/utils/cygcheck.cc:129: error: extra qualification 'pathlike::' on member 'check_existence'
+# /src/gcc/winsup/utils/cygcheck.cc: In function 'int display_internet_error(const char*, ...)':
+#
+ChangeLineInFile("  void pathlike::check_existence (const char *fn, int showall, int verbose,\n",
+                 "  void check_existence (const char *fn, int showall, int verbose,\n",
+                 Source + "/winsup/utils/cygcheck.cc")
+#
+# In file included from /src/gcc/winsup/cygwin/dcrt0.cc:30:
+# /src/gcc/winsup/cygwin/shared_info.h:98: error: extra qualification 'mount_info::' on member 'create_root_entry'
+#
+# This is fixed in the 8/27 snapshot.
+#
+ChangeLineInFile("  void mount_info::create_root_entry (const PWCHAR root);\n",
+                 "  void create_root_entry (const PWCHAR root);\n",
+                 Source + "/winsup/cygwin/shared_info.h")
+
+sys.exit(1)
+
 #
 # workaround problem with gmp/configure detecting flex output file
 # This occurs because Python sets SIGPIPE to be ignored,
@@ -307,24 +707,9 @@ def PatchGmp():
 #
 # This bug is present in at least gmp 4.2.2 and 4.2.3.
 #
-    FilePath = Source + "/gmp/configure"
-    PatchName = "M4=m4-not-needed"
-    print("patching " + PatchName + " in " + FilePath)
-    OldLines = file(FilePath).readlines()
-    NewLines = [ ]
-    Changed = False
-    for OldLine in OldLines:
-        NewLine = OldLine
-        if not Changed:
-            if NewLine == "  M4=m4-not-needed\n":
-                NewLine = "  : # " + NewLine
-                Changed = True
-        NewLines += NewLine
-    if Changed:
-        file(FilePath, "w").writelines(NewLines)
-    print("done patching " + PatchName + " in " + FilePath)
-
-PatchGmp()
+ChangeLineInFile("  M4=m4-not-needed\n",
+                 "  : # M4=m4-not-needed\n",
+                 Source + "/gmp/configure")
 
 def PatchOutLibIConv(Obj):
 #
@@ -374,17 +759,106 @@ def PatchOutLibIConv(Obj):
     print("done patching " + PatchName)
 
 
-def PatchOutOptimizer(Obj):
+def PatchOutOptimizer(Target, Obj):
 #
 # This is not really needed, but should provide a nice
 # speed boost to building the compiler.
 #
     PatchName = "CFLAGS=-g"
 
-    for a in ["binutils", "gcc", "libcpp", "libdecnumber", ".", "libiberty",
+    for a in [
+            ".",
+            "binutils",
+            "gcc",
+            "gcc/ada",
+            "gmp",
+            "gmp/cxx",
+            "gmp/demos",
+            "gmp/demos/calc",
+            "gmp/demos/expr",
+            "gmp/doc",
+            "gmp/mpbsd",
+            "gmp/mpf",
+            "gmp/mpn",
+            "gmp/mpq",
+            "gmp/mpz",
+            "gmp/printf",
+            "gmp/scanf",
+            "gmp/tests",
+            "gmp/tests/cxx",
+            "gmp/tests/devel",
+            "gmp/tests/misc",
+            "gmp/tests/mpbsd",
+            "gmp/tests/mpf",
+            "gmp/tests/mpn",
+            "gmp/tests/mpq",
+            "gmp/tests/mpz",
+            "gmp/tests/rand",
+            "gmp/tune",
+            "libcpp",
+            "libdecnumber",
+            "libiberty",
+            "libstdc++-v3/doc",
             "libstdc++-v3/include",
-            "libstdc++-v3/libmath", "libstdc++-v3/libsupc++", "libstdc++-v3/doc",
-            "libstdc++-v3/po", "libstdc++-v3/src", "libstdc++-v3/testsuite" ]:
+            "libstdc++-v3/libmath",
+            "libstdc++-v3/libsupc++",
+            "libstdc++-v3/po",
+            "libstdc++-v3/src",
+            "libstdc++-v3/testsuite",
+            "mpfr",
+            "mpfr/tests",
+            Target + "/libgcc",
+            Target + "/libgfortran",
+            Target + "/libiberty",
+            Target + "/libiberty/testsuite",
+            Target + "/libstdc++-v3",
+            Target + "/libstdc++-v3/doc",
+            Target + "/libstdc++-v3/include",
+            Target + "/libstdc++-v3/libmath",
+            Target + "/libstdc++-v3/libsupc++",
+            Target + "/libstdc++-v3/po",
+            Target + "/libstdc++-v3/src",
+            Target + "/libstdc++-v3/testsuite",
+            Target + "/newlib",
+            Target + "/newlib/doc",
+            Target + "/newlib/libc",
+            Target + "/newlib/libc/argz",
+            Target + "/newlib/libc/ctype",
+            Target + "/newlib/libc/errno",
+            Target + "/newlib/libc/iconv",
+            Target + "/newlib/libc/iconv/ccs",
+            Target + "/newlib/libc/iconv/ccs/binary",
+            Target + "/newlib/libc/iconv/ces",
+            Target + "/newlib/libc/iconv/lib",
+            Target + "/newlib/libc/locale",
+            Target + "/newlib/libc/machine",
+            Target + "/newlib/libc/machine/i386",
+            Target + "/newlib/libc/misc",
+            Target + "/newlib/libc/posix",
+            Target + "/newlib/libc/reent",
+            Target + "/newlib/libc/search",
+            Target + "/newlib/libc/signal",
+            Target + "/newlib/libc/stdio",
+            Target + "/newlib/libc/stdio64",
+            Target + "/newlib/libc/stdlib",
+            Target + "/newlib/libc/string",
+            Target + "/newlib/libc/sys",
+            Target + "/newlib/libc/syscalls",
+            Target + "/newlib/libc/time",
+            Target + "/newlib/libc/unix",
+            Target + "/newlib/libm",
+            Target + "/newlib/libm/common",
+            Target + "/newlib/libm/machine",
+            Target + "/newlib/libm/machine/i386",
+            Target + "/newlib/libm/math",
+            Target + "/newlib/libm/mathfp",
+            Target + "/winsup/lsaauth",
+            Target + "/winsup/mingw",
+            Target + "/winsup/w32api",
+            Target + "/winsup/w32api/lib",
+            Target + "/winsup/w32api/lib/ddk",
+            Target + "/winsup/w32api/lib/directx",
+            ]:
         FilePath = Obj + "/" + a
         if not os.path.isdir(FilePath):
             print("*** no " + FilePath)
@@ -400,19 +874,24 @@ def PatchOutOptimizer(Obj):
             Changed = False
             for OldLine in OldLines:
                 NewLine = OldLine
-                if NewLine.find("-O2") != -1:
-                    if (   (NewLine == "CFLAGS = -g -O2\n")
-                            or (NewLine == "CFLAGS = -O2 -g -g\n")
-                            or (NewLine == "CXXFLAGS = -O2 -g -g -O2\n")
-                            or (NewLine == "BOOT_CFLAGS= -g -O2\n")
-                            or (NewLine == "CFLAGS_FOR_TARGET = -O2 -g $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n")
-                            or (NewLine == "CXXFLAGS_FOR_TARGET = -O2 -g $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \\\n")
-                            or (NewLine == "LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) \\\n")
-                            or (NewLine == "CRTSTUFF_CFLAGS = -O2 $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \\\n")
-                            # next line has a tab
-                            or (NewLine == "	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) -O2 $(ADA_INCLUDES) \\\n")):
-                        NewLine = NewLine.replace(" -O2\n", "\n")
-                        NewLine = NewLine.replace(" -O2 ", " ")
+                if NewLine.find(" -O2") != -1:
+                    if (       NewLine.startswith("CFLAGS = -")
+                            or NewLine.startswith("CFLAGS          := -")
+                            or NewLine.startswith("CXXFLAGS = -")
+                            or NewLine.startswith("BOOT_CFLAGS = -")
+                            or NewLine.startswith("CFLAGS_FOR_TARGET = -")
+                            or NewLine.startswith("CXXFLAGS_FOR_TARGET = -")
+                            or NewLine.startswith("LIBGCC2_CFLAGS = -")
+                            or NewLine.startswith("CRTSTUFF_CFLAGS = -")
+                            or NewLine.startswith("GNATLIBCFLAGS = -")
+                            or NewLine.startswith("NEWLIB_CFLAGS = -")
+                            # tabs here
+                            or NewLine.startswith("	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -")
+                            or NewLine.startswith("	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) -")):
+                        for i in range(0, 2):
+                            print(i)
+                            NewLine = NewLine.replace(" -O2 ", " ")
+                            NewLine = NewLine.replace(" -O2\n", " \n")
                         Changed = True
                 NewLines += NewLine
             if Changed:
@@ -431,13 +910,10 @@ def WorkaroundUnableToFindSparc64LibGcc():
 #
 # -disable-shared is probably also a good workaround here
 #
-    PatchName = "inability to find sparc64 libgcc.so"
-    print("patching install " + PatchName)
     Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
     Run(".", "mkdir -p " + Directory)
     Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
     Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
-    print("done patching " + PatchName)
 
 WorkaroundUnableToFindSparc64LibGcc()
 
@@ -452,8 +928,21 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     if Target == None:
         Target = Build
 
-    CFLAGS = "-g"
-    CC = "gcc"
+    #
+    # in particular, avoiding -O2 to speed up the build, and to aid debugging
+    #
+
+    Environ = " "
+    Environ += " CFLAGS=-g"
+    Environ += " CFLAGS_FOR_BUILD=-g"
+    Environ += " BOOT_CFLAGS=-g"
+    Environ += " CXXFLAGS=-g"
+    Environ += " CXXFLAGS_FOR_BUILD=-g"
+    Environ += " FCFLAGS=-g"
+    Environ += " GNATLIBCFLAGS=-g"
+    Environ += " STAGE_CC_WRAPPER=ccache"
+    Environ += " CC=\"ccache gcc\""
+    Environ = re.sub("  +", " ", Environ)
 
     DefaultSysroot = (Prefix + "/" + Target + "/sys-root")
 
@@ -463,6 +952,14 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     #if Host != Build or Host != Target:
     #ExtraConfig += " -enable-languages=c,c++ "
     #ExtraConfig += " -enable-languages=c,c++,fortran,java,objc,ada "
+
+
+    #
+    # just to speed it up
+    # works without and supports more languages, such as Fortran and Java
+    #
+
+    ExtraConfig += " -enable-languages=c,c++ "
 
     #
     # Cross building native does not work for Ada.
@@ -481,10 +978,12 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # make[4]: Leaving directory `/obj/gcc.1/i686-pc-cygwin/i586-pc-msdosdjgpp/gcc/ada/rts'
     #
     if ((Host != Target) or (Build == Host)) and (Target.find("msdosdjgpp") != -1):
-        ExtraConfig += " -enable-languages=all,ada "
+        #ExtraConfig += " -enable-languages=all,ada "
+        pass
 
     if Target.find("msdosdjgpp") != -1:
-        ExtraConfig += " -enable-languages=c,c++,fortran,java,objc "
+        #ExtraConfig += " -enable-languages=c,c++,fortran,java,objc "
+        pass
 
     #
     # cross builds have extra requirements that are not automated,
@@ -530,32 +1029,41 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
         else:
 
-
             #
             # mingw sys-root is unusual; help the user
             #
 
             if Target.find("-mingw32") != -1:
                 for a in ["lib", "include"]:
-                    b = DefaultSysroot + "/mingw/" + a
-                    if not os.path.isdir(b):
-                        print("ERROR: Please create " + b + ", such as by a link (or NTFS junction) to /mingw/" + a)
-                        print("")
-                        print("Such as like so (on Windows):")
-                        print("  install mingw, such as to c:\mingw")
-                        print("  mkdir c:\cygwin\usr\local\i686-pc-mingw32\sys-root\mingw")
-                        print("  \\\\live.sysinternals.com\\tools\\junction c:\\cygwin\\usr\\local\\i686-pc-mingw32\\sys-root\\mingw\\include c:\\mingw\\include")
-                        print("  \\\\live.sysinternals.com\\tools\\junction c:\\cygwin\\usr\\local\\i686-pc-mingw32\\sys-root\\mingw\\lib c:\\mingw\\lib")
-                        exit(1)
+                    if True:
+                        b = DefaultSysroot + "/mingw/" + a
+                        if not os.path.isdir(b):
+                            print("ERROR: Please create " + b + ", such as by a link (or NTFS junction) to /mingw/" + a)
+                            print("")
+                            print("Such as like so (on Windows):")
+                            print("  install mingw, such as to c:\mingw")
+                            print("  mkdir c:\cygwin\usr\local\i686-pc-mingw32\sys-root\mingw")
+                            print("  copy \\\\live.sysinternals.com\\tools\\junction.exe %windir%")
+                            print("  junction c:\\cygwin\\usr\\local\\i686-pc-mingw32\\sys-root\\mingw\\include c:\\mingw\\include")
+                            print("  junction c:\\cygwin\\usr\\local\\i686-pc-mingw32\\sys-root\\mingw\\lib c:\\mingw\\lib")
+                            print("")
+                            #print("In order for gcc -mno-cygwin to work, besides just i686-pc-mingw32-gcc, you MIGHT also need");
+                            #print("  junction c:\\cygwin\\usr\\local\\include c:\\mingw\\include")
+                            #print("  junction c:\\cygwin\\usr\\local\\lib c:\\mingw\\lib")
+                            #print("")
+                            exit(1)
+
+                ExtraConfig += " -with-sysroot "
 
             #
             # normal sys-root
             #
                     
-            if not os.path.isdir(DefaultSysroot):
-                print("ERROR: Please put appropriate subset of " + Target + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
-                exit(1)
-            ExtraConfig += " -with-sysroot "
+            else:
+                if not os.path.isdir(DefaultSysroot):
+                    print("ERROR: Please put appropriate subset of " + Target + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
+                    exit(1)
+                ExtraConfig += " -with-sysroot "
 
     #
     # Workaround Canadian fixincludes not understanding sysroot of the cross compiler used to build it.
@@ -583,11 +1091,6 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # Obj = ObjRoot + "/" + Build + "/" + Host + "/" + Target
     Obj = ObjRoot + "/" + Host + "/" + Target
 
-    Environ = " "
-    Environ += " CFLAGS=\"" + CFLAGS + "\" "
-    Environ += " BOOT_CFLAGS=\"" + CFLAGS + "\" "
-    Environ += " CC=\"" + CC + "\" "
-
     print("configuring " + Host + "/" + Target)
     Date()
     if not os.path.isfile(Obj + "/Makefile"):
@@ -597,43 +1100,61 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     print("making " + Host + "/" + Target)
     Date()
 
-    for a in ["build", "host", "target"]:
-        Run(Obj, "make configure-" + a + " " + Environ)
-        PatchOutLibIConv(Obj)
-        PatchOutOptimizer(Obj)
-        Run(Obj, "make all-" + a + " " + Environ)
+    if True:
+        for a in ["build", "host", "target"]:
+            #
+            # configure-build does not exist
+            #
+            if a != "build":
+                Run(Obj, "make configure-" + a + " " + Environ)
+                PatchOutLibIConv(Obj)
+                PatchOutOptimizer(Target, Obj)
+            Run(Obj, "make all-" + a + " " + Environ)
 
-    Run(Obj, "make all " + Environ)
+        Run(Obj, "make all " + Environ)
 
-    print("installing " + Host + "/" + Target)
-    Date()
-    Run(Obj, "make install " + ExtraInstall + Environ)
+        if False:
+            print("installing " + Host + "/" + Target)
+            Date()
+            Run(Obj, "make install " + ExtraInstall + Environ)
+
+    else:
+        #
+        # configure-build does not exist
+        # install-host before building target (did not help)
+        #
+        for a in ["all-build", "configure-host", "all-host", "install-host", "configure-target", "all-target", "all", "install"]:
+            Run(Obj, "make " + a + " " + ExtraInstall + Environ)
+            Date()
+            if a.startswith("configure-"):
+                PatchOutLibIConv(Obj)
+                PatchOutOptimizer(Target, Obj)
 
     if DestDir:
         print("Success; copy " + DestDir + " to your " + Host + " machine")
 
+Platform1 = Build
+
 # native
 DoBuild()
 
-Platform1 = Build
-
 Platform2 = "i686-pc-mingw32"
-DoBuild(Platform1, Platform2)
+# DoBuild(Platform1, Platform2)
 
-Platform2 = "sparc64-sun-solaris2.10"
-DoBuild(Platform1, Platform2)
-DoBuild(Platform2, Platform2)
+#DoBuild(Platform2, Platform2)
 
 Platform2 = "sparc-sun-solaris2.10"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
-Platform2 = "i686-pc-mingw32"
+Platform2 = "sparc64-sun-solaris2.10"
+DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
 Platform2 = "i586-pc-msdosdjgpp"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
+
 
 #
 # working tools
