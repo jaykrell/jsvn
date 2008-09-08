@@ -18,7 +18,16 @@ _execl
 _execle
 _execlep
 _execlp
+exit
 _exit
+__exit
+_Exit
+__Exit
+open
+_open
+dup
+_dup
+dup2
+_dup2
 close
 _close
-_exit

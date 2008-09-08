@@ -23,6 +23,7 @@ clean:
         *.exp \
         *.ilk \
         *.manifest \
+        *.map \
         *.lib \
         *.obj \
         *.pdb \
@@ -30,6 +31,14 @@ clean:
         2.o \
         2.exe \
         3.exe \
+        tls.exe \
+        cygwin1.c \
+        cygwin2.c \
+        cygwin3.c \
+        cygwin1.def \
+        cygwin2.def \
+        cygwin3.def \
+
 
 cygwin2.lib: cygwin2.def cygwin2.obj
     link -lib @<<
