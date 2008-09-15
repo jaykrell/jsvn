@@ -15,6 +15,7 @@ import shutil
 
 ReZip = re.compile("(^.+)(\.zip)$")
 ReCompressedTar = re.compile("(^.+)(\.(:?tgz|tbz|tar\.gz|tar\.bz2))$")
+ReCompressed = re.compile("(^.+)(\.(:?gz|bz2))$")
 
 #
 # Disfavor Cygwin so that foo and foo.exe don't clash, by favoring
