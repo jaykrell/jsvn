@@ -4,7 +4,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <time.h>
 
 #if defined(_MSC_VER)
@@ -2457,8 +2456,8 @@ jk_ulonglong_from_long(
     long b
     )
 {
-    a->low = (unsigned long)b;
-    a->high = (unsigned long)((b < 0) ? -1L : 0L);
+    a->low = (unsigned long) b;
+    a->high = (unsigned long) ((b < 0) ? -1L : 0L);
 }
 
 void
@@ -6645,7 +6644,7 @@ jk_printf_macos_display(
 	)
 {
 	jk_unused(&flags);
-	
+#ifndef _WIN32	
 	if (d->opaque_handle == 0)
 		return;
 
@@ -6681,6 +6680,7 @@ jk_printf_macos_display(
 		d->macos.bits_per_component,
 		d->macos.pixel_format
 		);
+#endif
 }
 
 void
@@ -6690,6 +6690,7 @@ jk_printf_macosx_display(
 	const jk_display_t* d
 	)
 {
+#ifndef _WIN32	
 	if (d->opaque_handle == 0)
 		return;
 
@@ -6720,6 +6721,7 @@ jk_printf_macosx_display(
 		d->macosx.can_set_palette,
 		d->macosx.palette
 		);
+#endif
 }
 
 #if 0
@@ -7567,20 +7569,10 @@ _jk_stdio_buffer_flush_or_fill(
 	size_t (*read_or_write)(void* p, size_t size, size_t count, FILE* file)
 	)
 {
-	int error = 0;
-	
-	if (number_of_bytes != 0)
-	{
-		size_t n = (*read_or_write)(memory, 1, number_of_bytes, (FILE*)context);
-		*out_number_of_bytes = n;
-		if (n < 0)
-		{
-			error = errno;
-			if (error > 0)
-				error = -error;
-		}
-	}
-	return error;
+	if (number_of_bytes > 0)
+		if ((*out_number_of_bytes = (*read_or_write)(memory, 1, number_of_bytes, (FILE*) context)) < 0)
+			return jk_get_errno();
+	return 0;
 }
 
 static

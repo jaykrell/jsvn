@@ -12,7 +12,7 @@ include "/System/Library/Frameworks/ApplicationServices.framework/Frameworks/Cor
 
 static
 void
-jk_macosx_release_display(
+jk_macosx_cleanup_display(
 	jk_display_t* d
 	)
 {
@@ -49,7 +49,7 @@ jk_macosx_get_main_display(
 
 static
 void
-jk_macosx_release_display(
+jk_macosx_cleanup_display(
 	jk_display_t* d
 	)
 {
