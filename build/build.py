@@ -326,7 +326,7 @@ if "gccsvn" in sys.argv:
 
 if "gmp" in sys.argv:
     Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
-    Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
+    Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.2")
 
 def AddLinesToFile(LinesToAdd, FilePath):
     LinesToAdd = dict().fromkeys(LinesToAdd)
