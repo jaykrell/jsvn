@@ -116,183 +116,42 @@ def CreateDirectories(a):
         os.makedirs(a)
 
 
-def CheckCygwinLink(a):
-#
-# This is for handling Cygwin links from Win32 Python.
-# Strictly speaking, a symlink could have .lnk in its visibile name.
-#
-    if isfile(a) or islink(a) or (splitext(a)[1] == ".lnk") or (not isfile(a + ".lnk")):
-        return False
-    st = os.stat(a + ".lnk")
-    if not stat.S_ISREG(st.st_mode):
-        return False
-    if (st.st_mode & stat.S_IWRITE):
-        return False
-    return True
-
-def unused_FixPath2(a, b):
-#
-# This function handles varying path conventions.
-# Win32 foo.exe vs. Posix foo
-# MS-DOS _libs/ vs. everything else .libs/
-# The first parameter must be an existant file or directory.
-# The second parameter can be None or a path to an existing or nonexisting file or directory.
-# For this function to do anything, if b is not None, it must "allow" the same changes
-#   as a. That is, if ends in .exe, but b does not, or vice versa, no change.
-#   If a contains .libs/, but b does not, also no change.
-# Cygwin symlinks are also handled.
-#
-    aext = splitext(a)[1].lower()
-    if aext == ".exe" or aext == ".lnk":
-        return [a, b]
-    if b:
-        bext = splitext(b)[1]
-        if bext == ".exe" or bext == ".lnk":
-            return [a, b]
-
-    #if isfile(a) or isdir(a) or ((b != None) and (isfile(b) or isdir(b))):
-    #    return [a, b]
-
-    if a.find(".libs") != -1:
-        #
-        # needs work
-        # if a does not exist, iterate through a, replacing .libs elements with _libs
-        # if a does not exist, iterate through b, replacing .libs elements with _libs
-        # and then later, if a did not have .libs, but b does, and we can't create the directory,
-        # then iterate through b replacing .libs with _libs
-        #
-        pass
-
-    TryExe = ((splitext(a)[1] == "") and ((b == None) or splitext(b)[1] == ""))
-    TryLink = ((splitext(a)[1] != ".lnk") and ((b == None) or splitext(b)[1] != ".lnk"))
-    for Exe in [False, TryExe]:
-        for Link in [False, TryLink]:
-            if (not Exe) and (not Link):
-                continue
-            Trya = a
-            Tryb = b
-            if Exe:
-                Trya += ".exe"
-                if Tryb:
-                    Tryb += ".exe"
-            if Link and CheckCygwinLink(Trya):
-                Trya += ".lnk"
-                if Tryb:
-                    Tryb += ".lnk"
-            if isfile(Trya):
-                return [Trya, Tryb]
-    return [a, b]
-
-#def FixPath1(a):
-#    return FixPath2(a, None)[0]
-
 def FileExists(a):
-    return isfile(a) or isfile(a + ".exe") or isfile(a + ".lnk")
+    b = a.replace(".lib/", "_lib/")
+    for c in[a, a + ".exe", a + ".lnk", b, b + ".exe"]:
+        if isfile(c):
+            return c
+    return False
 
-def MyCopyFile_IfExists(From, To):
+def MyCopyFile_Incremental(From, To):
 #
-# needs work
-# use FixPath and common CopyFile code
+# Does not handle .lib vs. _lib.
+# Don't care currently -- xcopy instead of selective import/export.
+# Should be doing recursive linking though.
 #
     if From == To:
         return
-    CreatedDir = False
-    for Ext in ["", ".exe", ".lnk"]:
-        FromExt = From + Ext
-        ToExt = To + Ext
-        if isfile(FromExt):
-            #print(FromExt + " exists")
-            if not CreatedDir:
-                CreateDirectories(dirname(To))
-                CreatedDir = True
-            if os.name == "nt":
-                #print("copy " + FromExt + " " + ToExt)
-                pass
-            else:
-                #print("cp " + FromExt + " " + ToExt)
-                pass
-            try: # Cygwin vagaries -- isfile and copy2 doesn't agree on FromExt existing
-                copy2(FromExt, ToExt)
-                break
-            except:
-                pass
-
-def MyCopyFile_IncrementalByTime(From, To):
-#
-# needs work
-# use FixPath and common CopyFile code
-#
-    if From == To:
-        return
+    AnyCopied = False
     CreatedDir = False
     for Ext in ["", ".exe", ".lnk"]:
         FromExt = From + Ext
         if isfile(FromExt):
             #print(FromExt + " exists")
             ToExt = To + Ext
-            if not isfile(ToExt):
-                #print(ToExt + " does not exist")
-                pass
-            elif (getmtime(FromExt) - getmtime(ToExt)) > 4.76837158204e-7:
-                #print(FromExt + " newer than " + ToExt + " ( " + str(getmtime(FromExt)) + ", " + str(getmtime(ToExt)) + ", " + str(getmtime(FromExt) - getmtime(ToExt)) + ")")
-                pass
-            else:
-                continue
-            if not CreatedDir:
-                CreateDirectories(dirname(ToExt))
-                CreatedDir = True
-            if os.name == "nt":
-                #print("copy " + FromExt + " " + ToExt)
-                pass
-            else:
-                print("cp " + FromExt + " " + ToExt)
-                pass
-            try: # Cygwin vagaries -- isfile and copy2 don't agree on FromExt existing
-                copy2(FromExt, ToExt)
-                break
-            except:
-                pass
-
-def MyCopyFile_IncrementalByTimeAndSize(From, To):
-#
-# needs work
-# use FixPath and common CopyFile code
-#
-    if From == To:
-        return
-    CreatedDir = False
-    for Ext in ["", ".exe", ".lnk"]:
-        FromExt = From + Ext
-        if isfile(FromExt):
-            #print(FromExt + " exists")
-            ToExt = To + Ext
-            if not isfile(ToExt):
-                #print(To + " does not exist")
-                pass
-            # The times are never actually equal. :(
-            elif (getmtime(FromExt) - getmtime(ToExt)) > 4.76837158204e-7:
-                #print(FromExt + " newer than " + ToExt + " ( " + str(getmtime(FromExt)) + ", " + str(getmtime(ToExt)) + ", " + str(getmtime(FromExt) - getmtime(ToExt)) + ")")
-                pass
-            elif getsize(FromExt) != getsize(ToExt):
-                #print(FromExt + " different size than than " + ToExt)
-                pass
-            else:
-                continue
-            if not CreatedDir:
-                CreateDirectories(dirname(To))
-                CreatedDir = True
-            if os.name == "nt":
+            if ((not isfile(ToExt))
+                    or (getsize(FromExt) != getsize(ToExt))
+                    # The times are never actually equal.
+                    or ((getmtime(FromExt) - getmtime(ToExt)) > 4.76837158204e-7)
+                    or ((getmtime(FromExt) - getmtime(ToExt)) < -4.76837158204e-7)):
+                if not CreatedDir:
+                    CreateDirectories(dirname(ToExt))
+                    CreatedDir = True
                 print("copy " + FromExt + " " + ToExt)
-                pass
-            else:
-                print("cp " + FromExt + " " + ToExt)
-                pass
-            try: # Cygwin vagaries -- isfile and copy2 don't agree on FromExt existing
-                copy2(FromExt, ToExt)
-                break
-            except:
-                # print("did not copy " + FromExt + " " + ToExt)
-                pass
+                try:
+                    copy2(FromExt, ToExt)
+                    AnyCopied = True
+                except:
+                    pass
 
 def Make_default(State, Package, Platform, Build, Host, Target, OutDir):
 
@@ -385,7 +244,6 @@ class BuildStep():
     def __init__(self):
         self.Name = None
         self.Code = None
-        self.GetOutputDirectory = GetReducedOutputDirectory
 
 class SourcePackage():
     def __init__(self):
@@ -403,13 +261,13 @@ CreateDirectories(ObjRoot)
 p = SourcePackage()
 SourcePackage_gcc = p
 p.Name = "gcc"
-p.Version = "4.3.1"
+p.Version = "4.3.2"
 
 
 p = SourcePackage()
 SourcePackage_gmp = p
 p.Name = "gmp"
-p.Version = "4.2.2"
+p.Version = "4.2.3"
 p.Directory = "gmp"
 p.SourceDependencies = [ SourcePackage_gcc ]
 
@@ -598,7 +456,7 @@ def PatchAfterConfigure_bfd(State, Package, Platform, Build, Host, Target, OutDi
 
     SourceDir = GetSourceDirectory(State, Package)
     for a in ["archures.c", "targets.c"]:
-        MyCopyFile_IncrementalByTime(SourceDir + "/" + a, OutDir + "/" + a)
+        MyCopyFile_Incremental(SourceDir + "/" + a, OutDir + "/" + a)
 
     for FileName in ["archures.c", "targets.c", "targmatch.h"]:
         FilePath = OutDir + "/" + FileName
@@ -927,7 +785,8 @@ BuildStep_BuildDependencies = BuildStep()
 BuildStep_Configure = BuildStep()
 BuildStep_PatchAfterConfigure = BuildStep()
 BuildStep_Make = BuildStep()
-BuildStep_Export = BuildStep()
+BuildStep_Mirror1 = BuildStep()
+BuildStep_Mirror2 = BuildStep()
 BuildStep_Install = BuildStep()
 
 
@@ -1013,25 +872,33 @@ def Make(State, Package, Platform, Build, Host, Target, OutDir):
         sys.exit(1)
 
 
-def Export(State, Package, Platform, Build, Host, Target, OutDir):
-    #
-    # Really the only files that need to be exported are ones used by target-dependent
-    # packages -- i.e. files used by gcc.
-    # And we can dispense with "build-".
-    #
+def Import(State, Package, Platform, Build, Host, Target, OutDir):
     ReducedOutDir = BuildStep_Make.GetOutputDirectory(State, Package, Platform, Build, Host, Target)
     ExpectedOutDir = OutDir
 
     if ReducedOutDir == ExpectedOutDir:
         return
+    #
+    # FUTURE make this portable
+    #
 
-    # print("exporting from " + ReducedOutDir + " to " + ExpectedOutDir)
-    CreateDirectories(ExpectedOutDir)
-    for Export in Package.Exports:
-        MyCopyFile_IncrementalByTimeAndSize(ReducedOutDir  + "/" + Export, ExpectedOutDir  + "/" + Export)
-    for Export in Package.OptionalExports:
-        if FileExists(ReducedOutDir  + "/" + Export):
-            MyCopyFile_IncrementalByTimeAndSize(ReducedOutDir  + "/" + Export, ExpectedOutDir  + "/" + Export)
+    Run(".", "xcopy /fiverdykh " + ExpectedOutDir.replace("/", "\\") + "\\ " + ReducedOutDir.replace("/", "\\") + "\\")
+
+
+def Mirror(State, Package, Platform, Build, Host, Target):
+    Dir1 = GetReducedOutputDirectory(State, Package, Platform, Build, Host, Target)
+    Dir2 = GetExpectedOutputDirectory(State, Package, Platform, Build, Host, Target)
+
+    if Dir1 == Dir2:
+        return
+    #
+    # FUTURE make this portable
+    #
+
+    Dir1 = Dir1.replace("/", "\\") + "\\ "
+    Dir2 = Dir2.replace("/", "\\") + "\\ "
+    Run(".", "xcopy /fiverdykh " + Dir1 + Dir2)
+    Run(".", "xcopy /fiverdykh " + Dir2 + Dir1)
 
 def Install(State, Package, Platform, Build, Host, Target, OutDir):
 
@@ -1069,10 +936,13 @@ p = BuildStep_Make
 p.__call__ = Make
 p.Name = "Make"
 
-p = BuildStep_Export
-p.__call__ = Export
-p.Name = "Export"
-p.GetOutputDirectory = GetExpectedOutputDirectory
+p = BuildStep_Mirror1
+p.__call__ = Mirror
+p.Name = "Mirror1"
+
+p = BuildStep_Mirror2
+p.__call__ = Mirror
+p.Name = "Mirror2"
 
 p = BuildStep_Install
 p.__call__ = Install
@@ -1081,10 +951,11 @@ p.Name = "Install"
 
 BuildSteps = [
     BuildStep_BuildDependencies,
+    BuildStep_Mirror1,
     BuildStep_Configure,
     BuildStep_PatchAfterConfigure,
     BuildStep_Make,
-    BuildStep_Export,
+    BuildStep_Mirror2,
     BuildStep_Install,
     ]
 
@@ -1128,7 +999,7 @@ def _BuildUpTo(State, Packages, Platform, Build, Host, Target):
                 if ShouldBuild(State, pkg, plat):
                     if isdir(GetSourceDirectory(State, pkg)):
                         for Step in BuildSteps:
-                            OutDir = Step.GetOutputDirectory(State, pkg, plat, Build, Host, Target)
+                            OutDir = GetExpectedOutputDirectory(State, pkg, plat, Build, Host, Target)
                             StepState = State.get(Step.Name)
                             if StepState.get(OutDir):
                                 #print("skipping " + Step.Name + " " + Report(State, pkg, plat, Build, Host, Target, OutDir))

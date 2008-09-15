@@ -314,6 +314,7 @@ if "gccsvn" in sys.argv:
     #
     # Where there is no overlap with binutils, use /d for perf.
     # Where is overlap with binutils, don't use /d for correctness.
+    # FUTURE make this portable
     #
     Run(".", "xcopy /qeyid " + "/dev2/gcc /src/gccsvn".replace("/", "\\\\"))
 
@@ -1207,20 +1208,24 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 Platform1 = Build
 
 # native
-# DoBuild()
+DoBuild()
+
+DoBuild(Platform1, "sparc-sun-solaris2.10")
+DoBuild(Platform1, "sparc64-sun-solaris2.10")
+DoBuild("sparc-sun-solaris2.10", "sparc-sun-solaris2.10")
+DoBuild("sparc64-sun-solaris2.10", "sparc64-sun-solaris2.10")
 
 Platform2 = "i686-pc-mingw32"
-# DoBuild(Platform1, Platform2)
-
-#DoBuild(Platform2, Platform2)
-
-Platform2 = "sparc-sun-solaris2.10"
-# DoBuild(Platform1, Platform2)
-DoBuild(Platform2, Platform2)
-
-Platform2 = "sparc64-sun-solaris2.10"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
+
+# Platform2 = "sparc-sun-solaris2.10"
+# DoBuild(Platform1, Platform2)
+# DoBuild(Platform2, Platform2)
+
+# Platform2 = "sparc64-sun-solaris2.10"
+# DoBuild(Platform1, Platform2)
+# DoBuild(Platform2, Platform2)
 
 Platform2 = "i586-pc-msdosdjgpp"
 DoBuild(Platform1, Platform2)
