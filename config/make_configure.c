@@ -9,11 +9,10 @@
 typedef unsigned char boolean;
 #define TRUE 1
 #define FALSE 0
-typedef const char *PCSTR;
 
-const PCSTR types[] = { "short", "int", "float", "double" };
+char* types[] = { "short", "int", "float", "double" };
 
-PCSTR defines[] =
+char* defines[] =
 {
 	"__APPLE_CC__",
     "__APPLE_CPP__",
@@ -77,7 +76,7 @@ PCSTR defines[] =
 
 };
 
-const PCSTR envvar_names[] = {
+char* envvar_names[] = {
 "PATH", /* Unix, Windows, Macosx (not MPW) */
 "COMMANDS", "MPW", "SYSTEMFOLDER", /* MPW */
 "MACHTYPE", "OSTYPE", /* Macosx */
@@ -113,10 +112,9 @@ const char* strings[] = {
 "#include <stdio.h>\n"
 "#include <stdlib.h>\n",
 "#include <string.h>\n",
-"typedef const char *PCSTR;\n"
-"void print_string(PCSTR s) { printf(\"%s\", s); }\n"
-"void print_format(PCSTR s, ... ) { va_list args; va_start(args, s); vprintf(s, args); va_end(args); }\n"
-"void* alloc(size_t n) { void* p = malloc(n); if (p == NULL) { printf("out of memory\n"); abort(); } return p; }\n"
+"void print_string(char* s) { printf(\"%s\", s); }\n"
+"void print_format(char* s, ... ) { va_list args; va_start(args, s); vprintf(s, args); va_end(args); }\n"
+"void* alloc(size_t n) { void* p = malloc(n); if (p == NULL) { printf(\"out of memory\n\"); abort(); } return p; }\n"
 "char* string_duplicate(const char* s)"
 "{"
 "	size_t n = strlen(s);"
@@ -159,8 +157,8 @@ const char* strings[] = {
 "\n",
 "int main(int argc, char** argv)\n"
 "{\n"
-"PCSTR s = 0;\n"
-"PCSTR t = 0;\n",
+"char* s = 0;\n"
+"char* t = 0;\n",
 "size_t i = 0;\n"
 "size_t j = 0;\n"
 "\n"
@@ -192,6 +190,39 @@ const char* strings[] = {
 
 char* compiler;
 
+char* search_mpw_path(char* a, char* b)
+{
+	return 0;
+}
+
+void is_executable()
+{
+}
+
+typedef struct file_in_memory_t
+{
+	void (*cleanup)(struct file_in_memory_t*);
+	void * base;
+	unsigned long size;
+	unsigned is_mz : 1;
+	unsigned is_pe : 1;
+	unsigned is_pef : 1;
+} file_in_memory_t;
+
+
+char * get_temp_file_path(void)
+{
+
+}
+
+boolean is_microsoft_compiler()
+{
+}
+
+boolean is_microsoft_linker()
+{
+}
+
 void determine_compiler()
 {
 /*
@@ -199,18 +230,36 @@ examples include:
  /usr/bin/cc
  /usr/bin/gcc
  c:\program files\devstudio\vc\bin\cl.exe
- z:Development:MPW:Commands:CPlus
- z:Development:MPW:Commands:mrc
- z:Development:MPW:Commands:sc
- z:Development:MPW:Commands:mrcpp
- z:Development:MPW:Commands:scpp
+ {MPW}Commands:CPlus
+ {MPW}Commands:mrc
+ {MPW}Commands:sc
+ {MPW}Commands:mrcpp
+ {MPW}Commands:scpp
+ \msdev\10\bin\cl.exe
+ \msdev\15\bin\cl.exe
+ \msdev\20\bin\cl.exe
+ \msdev\40\bin\cl.exe
+ \msdev\40\mac\m68k\bin\cl.exe
+ \msdev\40\mac\mppc\bin\cl.exe
+ \msdev\41\bin\cl.exe
+ \msdev\41\mac\m68k\bin\cl.exe
+ \msdev\41\mac\mppc\bin\cl.exe
+ \msdev\42\bin\cl.exe
+ \msdev\42\mac\m68k\bin\cl.exe
+ \msdev\42\mac\mppc\bin\cl.exe
+ \msdev\50\vc\bin\cl.exe
+ \msdev\60\vc98\bin\cl.exe
+ \msdev\70\vc7\bin\cl.exe
+ \msdev\71\bin\cl.exe
+ \msdev\80\vc\bin\cl.exe
 */
- char* mpw_compilers = "C\0CPlus\0mrc\0sc\0\mrcpp\0scpp\0mwc68k\0mwcppc\0cciigs\0";
+ char* mpw_compilers = "C\0CPlus\0mrc\0sc\0mrcpp\0scpp\0mwc68k\0mwcppc\0cciigs\0";
  char* commands = getenv("commands");
  char* path = getenv("path");
  char* lib = getenv("lib");
  char* includes = getenv("includes");
  char* jk_cc = getenv("jk_cc");
+ FILE* f;
  if (jk_cc)
  {
    printf("environment override used: jk_cc=%s\n", jk_cc);
@@ -230,6 +279,7 @@ examples include:
  if (commands && !path)
  {
    char* found = 0;
+   char * a;
    printf("this appears to be MPW; MPW can have many compilers and there's no way to know which you want..\n");
    for (a = mpw_compilers ; *a ; a += strlen(a) + 1)
    {
@@ -254,6 +304,24 @@ examples include:
 
 void determine_linker()
 {
+/*
+ /usr/bin/ld
+ {MPW}Commands:link
+ {MPW}Commands:ppclink
+ \msdev\10\bin\link.exe
+ \msdev\15\bin\link.exe
+ \msdev\20\bin\link.exe
+ \msdev\40\bin\link.exe
+ \msdev\41\bin\link.exe
+ \msdev\42\bin\link.exe
+ \msdev\50\vb\link.exe
+ \msdev\50\vc\bin\link.exe
+ \msdev\60\vb98\link.exe
+ \msdev\60\vc98\bin\link.exe
+ \msdev\70\vc7\bin\link.exe
+ \msdev\71\bin\link.exe
+ \msdev\80\vc\bin\link.exe
+*/
 }
 
 typedef struct c_compiler_options_t {
@@ -300,17 +368,17 @@ typedef struct c_compiler_options_t {
 	boolean proto_strict;
 	boolean proto_auto;
 
-    PCSTR* includes;
+    char** includes;
 	size_t number_of_includes;
-	PCSTR* defines;
+	char** defines;
 	size_t number_of_defines;
 	boolean symbols;
 	boolean profile;
-	PCSTR   processor; /* x86, ia64, amd64, 68000, 68020, powerpc, ia32, mips, alpha, etc. */
+	char*   processor; /* x86, ia64, amd64, 68000, 68020, powerpc, ia32, mips, alpha, etc. */
 	unsigned warning_level; /* 1, 2, 3, 4 */
 	boolean warnings_are_errors;
-	PCSTR   default_calling_convention; /* pascal, __cdecl, __fastcall, __stdcall */
-	PCSTR   model; /* far, near, huge, etc. */
+	char*   default_calling_convention; /* pascal, __cdecl, __fastcall, __stdcall */
+	char*   model; /* far, near, huge, etc. */
 } c_compiler_options_t;
 
 void compile_c(c_compiler_options_t* options)
@@ -513,18 +581,18 @@ int main(int argc, char** argv)
 
 		j = sizeof(types)/sizeof(types[0]);
 
-		print_string("const PCSTR types[] = {");
+		print_string("char* types[] = {");
 		for (i = 0 ; i != j ; ++i)
 			print_format("%s\"%s\"", (i != 0 ? "," : ""), types[i]);
 		print_string("};\n");
 
-		print_string("const unsigned long type_sizes[] = {");
+		print_string("unsigned long type_sizes[] = {");
 		for (i = 0 ; i != j ; ++i)
 			print_format("%ssizeof(%s)", (i != 0 ? "," : ""), types[i]);
 		print_string("};\n");
 
 		j = sizeof(defines)/sizeof(defines[0]);
-		print_string("const PCSTR defines[] = {\n");
+		print_string("char* defines[] = {\n");
 		for (i = 0 ; i != j ; ++i)
 		{
 			print_format("#if defined(%s)\n", defines[i]);
@@ -535,7 +603,7 @@ int main(int argc, char** argv)
 		
 		j = sizeof(envvar_names)/sizeof(envvar_names[0]);
 
-		print_string("const PCSTR envvar_names[] = {");
+		print_string("char* envvar_names[] = {");
 		col = 20;
 		for (i = 0 ; i != j ; ++i)
 		{
@@ -553,7 +621,7 @@ int main(int argc, char** argv)
 			print_format("\"%s\"%s", envvar_names[i], s);
 			col += strlen(envvar_names[i]);
 		}
-		print_string("};\nunion { struct { PCSTR ");
+		print_string("};\nunion { struct { char* ");
 		col = 20;
 		for (i = 0 ; i != j ; ++i)
 		{
