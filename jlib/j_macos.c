@@ -12,7 +12,7 @@
 
 static
 long
-jk_macos_release_display(
+jk_macos_cleanup_display(
 	jk_display_t* d
 	)
 {
@@ -107,7 +107,7 @@ jk_macos_get_main_display(
 	e.is_windowed = 1;
 	e.begin_access = &jk_macos_display_begin_access;
 	e.end_access = &jk_macos_display_end_access;
-	e.release = &jk_macos_release_display;
+	e.cleanup = &jk_macos_cleanup_display;
 	
 	err = jk_macos_display_update_metadata(&e);
     if (err < 0)

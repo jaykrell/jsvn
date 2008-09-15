@@ -20,7 +20,7 @@ j.lib: \
 
  link /lib $** /out:$@
 
-!if defined(_NMAKE_VER) && "$(_NMAKE_VER)" != "162"
+!ifdef _NMAKE_VER
 .c.obj::
 !else
 .c.obj:

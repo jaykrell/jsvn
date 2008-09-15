@@ -70,20 +70,55 @@ jk_stdio_close(
 
 long
 jk_get_stdio_filesize(
-	void * file,
-	jk_longlong_t * out_filesize
+	void * void_file,
+	jk_ulonglong_t * out_filesize
 	)
 {
+	FILE * file = (FILE *) void_file,
 	long filesize;
+	long status;
+	fpos_t pos;
+#ifdef J_CONFIG_HAS_FTELL64
+	__int64 a;
+#else
+	long a;
+#endif
+	long e;
 
 	jk_longlong_assign_zero(out_filesize);
-	filesize = fseek((FILE*)file, 0, SEEK_CUR);
-	if (filesize == -1)
-	{
+
+	fflush(
+	status = fgetpos(file, &pos);
+	if (status != 0)
 		return jk_errno();
+
+#ifdef J_CONFIG_HAS_FSEEK64
+	status = _fseeki64(file, 0, SEEK_END);
+#else
+	status = fseek(file, 0, SEEK_END);
+#endif
+	if (status != 0)
+		return jk_errno();
+
+#ifdef J_CONFIG_HAS_FTELL64
+	a = _ftelli64(file);
+#else
+	a = ftell(file);
+#endif
+	if (a == -1)
+	{
+		e = jk_get_errno();
+		fsetpos(file, pos);
+		return e;
 	}
-	jk_longlong_from_long(out_filesize, filesize);
+
+#ifdef J_CONFIG_HAS_FTELL64
+	jk_ulonglong_from_long(out_filesize, filesize);
+#else
+#endif
 	return 0;
+error:
+	return jk_errno();
 }
 
 long

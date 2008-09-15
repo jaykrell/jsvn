@@ -172,6 +172,9 @@ typedef unsigned int DWORD;
 /*#include <windows.h>*/
 #endif
 
+#ifndef _MSC_VER
+#endif
+
 #ifdef _MSC_VER
 
 #if (_MSC_VER > 800)
@@ -1503,6 +1506,12 @@ void
 jk_ulonglong_from_ulong(
     jk_ulonglong_t* a,
     unsigned long b
+    );
+
+void
+jk_ulonglong_from_int64(
+    jk_ulonglong_t* a,
+    __int64 b
     );
 
 long
@@ -2915,7 +2924,7 @@ jk_unpack_mspecoff_file_header(
 	);
 
 long
-jk_errno(
+jk_get_errno(
 	void
 	);
 	
@@ -3569,6 +3578,9 @@ typedef struct jk_display_plot_bit_t {
 	unsigned char set;
 } jk_display_plot_bit_t;
 
+struct _DCISURFACEINFO;
+typedef struct _DCISURFACEINFO DCISURFACEINFO;
+
 struct jk_display_t {
 	void* opaque_handle;
 	unsigned char* base_address;	
@@ -3592,25 +3604,21 @@ struct jk_display_t {
 	unsigned is_rectangular : 1;
 	unsigned is_full_screen : 1;
 	unsigned is_buffer_available : 1;
+#ifndef _WIN32
 	struct {
 		unsigned char pad;
 	} msdos;
 	struct {
 		unsigned char pad;
 	} os2;
+#endif
+#ifdef _WIN32
 	struct {
 		void* DciProvider;
-#ifdef _X86_
-		size_t DciSurface[0x12];
-#else
-		size_t DciSurface[0xB];
-#endif
-		struct
-		{
-			unsigned DciSurface : 1;
-			unsigned DciProvider : 1;
-		} Valid;
+		DCISURFACEINFO* DciSurface;
 	} Win;
+#endif
+#ifndef _WIN32
 	struct {
 		unsigned pixmap_version;
 		unsigned packing_format;
@@ -3626,8 +3634,9 @@ struct jk_display_t {
 		unsigned can_set_palette;
 		void* palette;
 	} macosx;
+#endif
 	void* cache;
-	long (*release)(jk_display_t* display);
+	long (*cleanup)(jk_display_t* display);
 	long (*begin_access)(jk_display_t* display);
 	long (*end_access)(jk_display_t* display);
 };
@@ -3658,7 +3667,7 @@ typedef struct jk_display_buffer {
 } jk_display_buffer;
 
 long jk_get_main_display(jk_display_t*);
-long jk_release_display(jk_display_t*);
+long jk_cleanup_display(jk_display_t*);
 
 long jk_win_get_main_display(jk_display_t* d);
 long jk_macosx_get_main_display(jk_display_t* d);
@@ -4863,5 +4872,42 @@ JWinVolumeInformationEqual(
     const JWinVolumeInformation_t* a,
     const JWinVolumeInformation_t* b
     );
+
+typedef struct DirHandle_t {
+	void* p;
+} DirHandle_t;
+
+typedef struct DirEntry_t {
+	char* FileName;
+	unsigne
+} DirEntry_t;
+
+long
+j_opendir(
+	const char* DirPath
+	void** DirHandle
+	);
+
+long
+j_readdir(
+	void* DirHandle
+	);
+
+void
+closedir(
+	void* dir
+	);
+
+/* removed from winnt.h after Visual C++ 5.0 */
+/*efine FILE_ATTRIBUTE_DEVICE               0x00000040 */
+
+/* added to winnt.h ? */
+/*efine FILE_ATTRIBUTE_OFFLINE          0x00001000 */
+
+/* added to winnt.h after Visual C++ 5.0 */
+#define FILE_ATTRIBUTE_SPARSE_FILE          0x00000200
+#define FILE_ATTRIBUTE_REPARSE_POINT        0x00000400
+#define FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  0x00002000
+#define FILE_ATTRIBUTE_ENCRYPTED            0x00004000
 
 JK_EXTERN_C_END

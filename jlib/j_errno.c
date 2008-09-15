@@ -2,7 +2,9 @@
 #include <errno.h>
 
 long
-jk_errno(void)
+jk_get_errno(
+	void
+	)
 {
 	long err = errno;
 	if (err == 0)
