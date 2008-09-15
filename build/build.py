@@ -16,9 +16,19 @@ import os
 import sys
 import re
 
-ObjRoot = "/obj/gcc.1"
-Source = "/src/gcc"
-GccVersion = "4.3.2"
+ObjRoot = "/obj/gcc.7"
+
+if ("gccrel" in sys.argv) == ("gccsvn" in sys.argv):
+    print("ERROR: must specify either gccrel or gccsvn")
+    sys.exit(1)
+
+if "gccrel" in sys.argv:
+    Source = "/src/gccrel"
+    GccVersion = "4.3.2"
+
+if "gccsvn" in sys.argv:
+    Source = "/src/gccsvn"
+    GccVersion = "4.4.0"
 
 #
 # use canonical names including version
@@ -64,6 +74,11 @@ ConfigCommon = " "
 ConfigCommon += " -verbose "
 
 ConfigCommon += " -prefix=" + Prefix + " " 
+
+#
+# use cygwin's directory structure
+# for one thing, merge libexec and lib -- fewer directories
+#
 ConfigCommon += " -exec-prefix=" + Prefix + " " 
 ConfigCommon += " -libdir=" + Prefix + "/lib "
 ConfigCommon += " -libexecdir=" + Prefix + "/lib "
@@ -109,7 +124,7 @@ ConfigCommon += " -disable-bootstrap "
 # Cygwin defaults -enable-threads to off, but -enable-threads works, so enable it explicitly.
 # However we'll probably have to remove this for DJGPP.
 #
-ConfigCommon += " -enable-threads "
+# ConfigCommon += " -enable-threads "
 
 #
 # Does this make things better on Solaris?
@@ -152,9 +167,10 @@ ConfigCommon += " -enable-64-bit-bfd "
 
 #
 # This is a nice speed up, but it might take away ability for 32 bit and 64 bit
-# to target each other.
+# to target each other, which is maybe ok, that support can be confusing,
+# prone to not work, and not very valuable.
 #
-# ConfigCommon += " -disable-multilib "
+#ConfigCommon += " -disable-multilib "
 
 #
 # random speeds ups, some people will want these
@@ -174,12 +190,8 @@ ConfigCommon += " -disable-libssp "
 ConfigCommon = re.sub(" +", " ", ConfigCommon)
 
 
-#
-# Some of this could be multithreaded/overlapped, but I get a lot of:
-#   "error: can't allocate lock", when I try to use threads in Python (Cygwin?)
-#
-
-TargetDjgppEnv = "ac_cv_func_shl_load=no"
+# not yet used
+#TargetDjgppEnv = "ac_cv_func_shl_load=no"
 #TargetDjgppEnv += " ac_cv_func_mmap_dev_zero=no"
 #TargetDjgppEnv += " lt_cv_sys_max_cmd_len=12000
 #TargetDjgppEnv += " ac_cv_prog_LN_S='cp -p'
@@ -288,11 +300,32 @@ def Extract(Directory, MarkerDirectory, File):
 #
 # cygwin and binutils must precede gcc so that gcc replaces common files
 #
-Extract(Source, Source + "/winsup", "/net/distfiles/" + "cygwin-src-20080822")
-Extract(Source, Source + "/binutils", "/net/distfiles/" + "binutils-2.18")
-Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.2")
-# Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
-# Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
+
+if "cygwin" in sys.argv:
+    Extract(Source, Source + "/winsup", "/net/distfiles/" + "cygwin-src-20080912")
+
+if "binutils" in sys.argv:
+    Extract(Source, Source + "/binutils", "/net/distfiles/" + "binutils-2.18")
+
+if "gccrel" in sys.argv:
+    Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.2")
+
+if "gccsvn" in sys.argv:
+    #
+    # Where there is no overlap with binutils, use /d for perf.
+    # Where is overlap with binutils, don't use /d for correctness.
+    #
+    Run(".", "xcopy /qeyid " + "/dev2/gcc /src/gccsvn".replace("/", "\\\\"))
+
+    # non recursive at the root
+    Run(".", "xcopy /qyi " + "/dev2/gcc /src/gccsvn".replace("/", "\\\\"))
+
+    for a in ["libiberty", "config", "include", "intl"]:
+        Run(".", "xcopy /qyi " + ("/dev2/gcc/" + a + " /src/gccsvn/" + a).replace("/", "\\\\"))
+
+if "gmp" in sys.argv:
+    Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
+    Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.1")
 
 def AddLinesToFile(LinesToAdd, FilePath):
     LinesToAdd = dict().fromkeys(LinesToAdd)
@@ -467,6 +500,7 @@ AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
 #
 
 
+if "cygwin" in sys.argv:
 #
 # merged cygwin (winsup+newlib) tree with gcc tree
 # 
@@ -496,6 +530,38 @@ AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
 #ChangeLineInFile("override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
 #                 "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} -B../../../gcc -B../../../../gcc\n",
 #                 Source + "/winsup/mingw/Makefile.in")
+#
+#
+# Here is a better fix:
+#
+    ChangeLineInFile("override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
+"""\
+#
+# if target contains "cygwin", then remove from CC all -L, -B, -system, -withprefixbefore options,
+# EXCEPT for the first -B option, if it is the second word of CC.
+# CC is typically like CC := /obj/gcc.4/./gcc/xgcc -B/obj/gcc.4/./gcc/ ...
+# and if that first -B option is omitted, then:
+#   make[3]: Entering directory `/obj/gcc.4/i686-pc-cygwin/winsup/mingw'
+#   /obj/gcc.4/./gcc/xgcc -nostdinc -c -D__CRTDLL__ -U__MSVCRT__ -O2 -g -g -O2   -I/src/gcc/winsup/mingw/include -I/src/gcc/winsup/mingw/../include -nostdinc -iwithprefixbefore include -I /src/gcc/winsup/mingw/../w32api/include -mno-cygwin /src/gcc/winsup/mingw/crt1.c -o crt1.o
+#   xgcc: error trying to exec 'cc1': execvp: No such file or directory
+#
+# We want instead:
+#   /obj/gcc.4/./gcc/xgcc -B/obj/gcc.4/./gcc/ -nostdinc -c -D__CRTDLL__ -U__MSVCRT__ -O2 -g -g -O2   -I/src/gcc/winsup/mingw/include -I/src/gcc/winsup/mingw/../include -nostdinc -iwithprefixbefore include -I /src/gcc/winsup/mingw/../w32api/include -mno-cygwin /src/gcc/winsup/mingw/crt1.c -o crt1.o
+#
+# Another good implementation would be that if the first word of CC ends in "./gcc/xgcc", then
+# add -B of the first word's dir.
+#
+# Yet another very good implementation would be if realpath(second word, without the -B) + /xgcc == realpath(first word),
+# then preserve the second word.
+#
+# It does not appear one can check for string equality.
+# Therefore, we use findstring(a,b) and findstr(b,a) to imply a == b.
+# And since findstring and "and" return the input non-empty string for a true output, the result of and is what we append.
+#
+override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} \\
+ ${and ${findstring ${firstword ${filter -B%,$(CC)}},${word 2,$(CC)}},${findstring ${word 2,$(CC)},${firstword ${filter -B%,$(CC)}}}}
+""",
+                Source + "/winsup/mingw/Makefile.in")
 
 #
 # In file included from /src/gcc/winsup/cygwin/dcrt0.cc:24:
@@ -506,9 +572,9 @@ AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
 # Either undo that, remove __stdcall, or apply it all of the raw_reads.
 # Here I remove it.
 #
-ChangeLineInFile("  void __stdcall raw_read (void *ptr, size_t& len);\n",
-                 "  void raw_read (void *ptr, size_t& len);\n",
-                 Source + "/winsup/cygwin/fhandler.h")
+    ChangeLineInFile("  void __stdcall raw_read (void *ptr, size_t& len);\n",
+                     "  void raw_read (void *ptr, size_t& len);\n",
+                     Source + "/winsup/cygwin/fhandler.h")
 
 #
 # /src/gcc/winsup/cygwin/dtable.cc: In function 'bool handle_to_fn(void*, char*)':
@@ -527,28 +593,26 @@ ChangeLineInFile("  void __stdcall raw_read (void *ptr, size_t& len);\n",
 # /src/gcc/winsup/cygwin/dtable.cc:862: error:   crosses initialization of 'NTSTATUS res'
 # /src/gcc/winsup/cygwin/dtable.cc:861: error:   crosses initialization of 'OBJECT_NAME_INFORMATION* ntfn'
 #
-ChangeLineInFile("  WCHAR *w32 = ntfn->Name.Buffer;\n",
-                 "  WCHAR *w32;\n  w32 = ntfn->Name.Buffer;\n",
-                 Source + "/winsup/cygwin/dtable.cc")
-ChangeLineInFile("  size_t w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
-                 "  size_t w32len;\n  w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
-                 Source + "/winsup/cygwin/dtable.cc")
-ChangeLineInFile("  OBJECT_NAME_INFORMATION *ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
-                 "  OBJECT_NAME_INFORMATION *ntfn;\n  ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
-                 Source + "/winsup/cygwin/dtable.cc")
-ChangeLineInFile("  NTSTATUS res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
-                 "  NTSTATUS res;\n  res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
-                 Source + "/winsup/cygwin/dtable.cc")
-
-
+    ChangeLineInFile("  WCHAR *w32 = ntfn->Name.Buffer;\n",
+                     "  WCHAR *w32;\n  w32 = ntfn->Name.Buffer;\n",
+                     Source + "/winsup/cygwin/dtable.cc")
+    ChangeLineInFile("  size_t w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
+                     "  size_t w32len;\n  w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
+                     Source + "/winsup/cygwin/dtable.cc")
+    ChangeLineInFile("  OBJECT_NAME_INFORMATION *ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
+                     "  OBJECT_NAME_INFORMATION *ntfn;\n  ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
+                     Source + "/winsup/cygwin/dtable.cc")
+    ChangeLineInFile("  NTSTATUS res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
+                     "  NTSTATUS res;\n  res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
+                     Source + "/winsup/cygwin/dtable.cc")
 #
 # /src/gcc/winsup/cygwin/fhandler_fifo.cc: In member function 'bool fhandler_fifo::wait(bool)':
 # /src/gcc/winsup/cygwin/fhandler_fifo.cc:139: error: jump to case label
 # /src/gcc/winsup/cygwin/fhandler_fifo.cc:134: error:   crosses initialization of 'bool res'
 #
-ChangeLineInFile("      bool res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
-                 "      bool res;\n      res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
-                 Source + "/winsup/cygwin/fhandler_fifo.cc")
+    ChangeLineInFile("      bool res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
+                     "      bool res;\n      res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
+                     Source + "/winsup/cygwin/fhandler_fifo.cc")
 #
 # /src/gcc/winsup/cygwin/hookapi.cc: In function 'const char* find_first_notloaded_dll(path_conv&)':
 # /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
@@ -564,11 +628,9 @@ ChangeLineInFile("      bool res = ConnectNamedPipe (get_handle (), get_overlapp
 # /src/gcc/winsup/cygwin/hookapi.cc:182: error:   from here
 # /src/gcc/winsup/cygwin/hookapi.cc:202: error:   crosses initialization of 'long int delta'
 # 
-ChangeLineInFile("  long delta = rvadelta (pExeNTHdr, importRVA);\n",
-                 "  long delta;\n  delta = rvadelta (pExeNTHdr, importRVA);\n",
-                 Source + "/winsup/cygwin/hookapi.cc")
-
-
+    ChangeLineInFile("  long delta = rvadelta (pExeNTHdr, importRVA);\n",
+                     "  long delta;\n  delta = rvadelta (pExeNTHdr, importRVA);\n",
+                     Source + "/winsup/cygwin/hookapi.cc")
 #
 # /src/gcc/winsup/cygwin/path.cc: In function 'ssize_t cygwin_conv_path(cygwin_conv_path_t, const void*, void*, size_t)':
 # /src/gcc/winsup/cygwin/path.cc:2795: error: jump to case label
@@ -580,19 +642,18 @@ ChangeLineInFile("  long delta = rvadelta (pExeNTHdr, importRVA);\n",
 # /src/gcc/winsup/cygwin/path.cc:2819: error: jump to case label
 # /src/gcc/winsup/cygwin/path.cc:2783: error:   crosses initialization of '_UNICODE_STRING* up'
 #
-ChangeLineInFile("      PUNICODE_STRING up = p.get_nt_native_path ();\n",
-                 "      PUNICODE_STRING up;\n      up = p.get_nt_native_path ();\n",
-                 Source + "/winsup/cygwin/path.cc")
-
+    ChangeLineInFile("      PUNICODE_STRING up = p.get_nt_native_path ();\n",
+                     "      PUNICODE_STRING up;\n      up = p.get_nt_native_path ();\n",
+                     Source + "/winsup/cygwin/path.cc")
 #
 # /src/gcc/winsup/cygwin/pipe.cc: In constructor 'pipesync::pipesync(void*, DWORD)':
 # /src/gcc/winsup/cygwin/pipe.cc:144: error: jump to label 'out'
 # /src/gcc/winsup/cygwin/pipe.cc:121: error:   from here
 # /src/gcc/winsup/cygwin/pipe.cc:129: error:   crosses initialization of 'void* ht'
 #
-ChangeLineInFile("  HANDLE ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
-                 "  HANDLE ht;\n  ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
-                 Source + "/winsup/cygwin/pipe.cc")
+    ChangeLineInFile("  HANDLE ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
+                     "  HANDLE ht;\n  ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
+                     Source + "/winsup/cygwin/pipe.cc")
 #
 # /src/gcc/winsup/cygwin/sec_auth.cc: In function 'void* create_token(cygsid&, user_groups&, passwd*)':
 # /src/gcc/winsup/cygwin/sec_auth.cc:801: warning: suggest explicit braces to avoid ambiguous 'else'
@@ -638,13 +699,12 @@ ChangeLineInFile("  HANDLE ht = CreateThread (&sec_none_nih, 0, pipe_handler, th
 # /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
 # /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
 # 
-ChangeLineInFile("  PDWORD csp = (PDWORD) &authinf->username;\n",
-                 "  PDWORD csp;\n  csp = (PDWORD) &authinf->username;\n",
-                 Source + "/winsup/cygwin/sec_auth.cc")
-ChangeLineInFile("  PDWORD csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
-                 "  PDWORD csp_end;\n  csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
-                 Source + "/winsup/cygwin/sec_auth.cc")
-
+    ChangeLineInFile("  PDWORD csp = (PDWORD) &authinf->username;\n",
+                     "  PDWORD csp;\n  csp = (PDWORD) &authinf->username;\n",
+                     Source + "/winsup/cygwin/sec_auth.cc")
+    ChangeLineInFile("  PDWORD csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
+                     "  PDWORD csp_end;\n  csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
+                     Source + "/winsup/cygwin/sec_auth.cc")
 #
 # /src/gcc/winsup/cygwin/uinfo.cc: In member function 'void pwdgrp::load(const wchar_t*)':
 # /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
@@ -663,9 +723,9 @@ ChangeLineInFile("  PDWORD csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\
 # /src/gcc/winsup/cygwin/uinfo.cc:536: error:   from here
 # /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
 #
-ChangeLineInFile("  char *eptr = buf;\n",
-                 "  char *eptr;\n  eptr = buf;\n",
-                 Source + "/winsup/cygwin/uinfo.cc")
+    ChangeLineInFile("  char *eptr = buf;\n",
+                     "  char *eptr;\n  eptr = buf;\n",
+                     Source + "/winsup/cygwin/uinfo.cc")
 #
 # /src/gcc/winsup/cygwin/syscalls.cc: In function 'FILE* popen(const char*, constchar*)':
 # /src/gcc/winsup/cygwin/syscalls.cc:3529: error: jump to label 'err'
@@ -675,27 +735,25 @@ ChangeLineInFile("  char *eptr = buf;\n",
 # /src/gcc/winsup/cygwin/syscalls.cc:3501: error:   from here
 # /src/gcc/winsup/cygwin/syscalls.cc:3524: error:   crosses initialization of 'fhandler_pipe* fh'
 #
-ChangeLineInFile("  fhandler_pipe *fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
-                 "  fhandler_pipe *fh;\n  fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
-                 Source + "/winsup/cygwin/syscalls.cc")
+    ChangeLineInFile("  fhandler_pipe *fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
+                     "  fhandler_pipe *fh;\n  fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
+                     Source + "/winsup/cygwin/syscalls.cc")
 #
 # /src/gcc/winsup/utils/cygcheck.cc:129: error: extra qualification 'pathlike::' on member 'check_existence'
 # /src/gcc/winsup/utils/cygcheck.cc: In function 'int display_internet_error(const char*, ...)':
 #
-ChangeLineInFile("  void pathlike::check_existence (const char *fn, int showall, int verbose,\n",
-                 "  void check_existence (const char *fn, int showall, int verbose,\n",
-                 Source + "/winsup/utils/cygcheck.cc")
+    ChangeLineInFile("  void pathlike::check_existence (const char *fn, int showall, int verbose,\n",
+                     "  void check_existence (const char *fn, int showall, int verbose,\n",
+                     Source + "/winsup/utils/cygcheck.cc")
 #
 # In file included from /src/gcc/winsup/cygwin/dcrt0.cc:30:
 # /src/gcc/winsup/cygwin/shared_info.h:98: error: extra qualification 'mount_info::' on member 'create_root_entry'
 #
 # This is fixed in the 8/27 snapshot.
 #
-ChangeLineInFile("  void mount_info::create_root_entry (const PWCHAR root);\n",
-                 "  void create_root_entry (const PWCHAR root);\n",
-                 Source + "/winsup/cygwin/shared_info.h")
-
-sys.exit(1)
+    ChangeLineInFile("  void mount_info::create_root_entry (const PWCHAR root);\n",
+                     "  void create_root_entry (const PWCHAR root);\n",
+                     Source + "/winsup/cygwin/shared_info.h")
 
 #
 # workaround problem with gmp/configure detecting flex output file
@@ -707,9 +765,10 @@ sys.exit(1)
 #
 # This bug is present in at least gmp 4.2.2 and 4.2.3.
 #
-ChangeLineInFile("  M4=m4-not-needed\n",
-                 "  : # M4=m4-not-needed\n",
-                 Source + "/gmp/configure")
+if "gmp" in sys.argv:
+    ChangeLineInFile("  M4=m4-not-needed\n",
+                     "  : # M4=m4-not-needed\n",
+                     Source + "/gmp/configure")
 
 def PatchOutLibIConv(Obj):
 #
@@ -910,10 +969,14 @@ def WorkaroundUnableToFindSparc64LibGcc():
 #
 # -disable-shared is probably also a good workaround here
 #
-    Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
-    Run(".", "mkdir -p " + Directory)
-    Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
-    Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
+    #Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
+    #Run(".", "mkdir -p " + Directory)
+    #Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
+    #Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
+    #
+    # disable shared instead
+    #
+    pass
 
 WorkaroundUnableToFindSparc64LibGcc()
 
@@ -941,7 +1004,10 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     Environ += " FCFLAGS=-g"
     Environ += " GNATLIBCFLAGS=-g"
     Environ += " STAGE_CC_WRAPPER=ccache"
-    Environ += " CC=\"ccache gcc\""
+    #
+    # Environ += " CC=\"ccache gcc\""
+    # This breaks Canadian.
+    #
     Environ = re.sub("  +", " ", Environ)
 
     DefaultSysroot = (Prefix + "/" + Target + "/sys-root")
@@ -984,6 +1050,24 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     if Target.find("msdosdjgpp") != -1:
         #ExtraConfig += " -enable-languages=c,c++,fortran,java,objc "
         pass
+
+    if (Target.find("sparc64") != -1) and (Target.find("solaris") != -1):
+        #
+        # see WorkaroundUnableToFindSparc64LibGcc
+        #
+        ExtraConfig += " -disable-shared"
+
+    if Target.find("-cygwin") != -1:
+        #
+        # default is to disable threads, but threads work
+        #
+        ExtraConfig += " -enable-threads"
+
+        #
+        # errors building shared libgcc for lack of -lc and -lpthread on command line
+        #
+        ExtraConfig += " -disable-shared"
+
 
     #
     # cross builds have extra requirements that are not automated,
@@ -1100,35 +1184,22 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     print("making " + Host + "/" + Target)
     Date()
 
-    if True:
-        for a in ["build", "host", "target"]:
-            #
-            # configure-build does not exist
-            #
-            if a != "build":
-                Run(Obj, "make configure-" + a + " " + Environ)
-                PatchOutLibIConv(Obj)
-                PatchOutOptimizer(Target, Obj)
-            Run(Obj, "make all-" + a + " " + Environ)
-
-        Run(Obj, "make all " + Environ)
-
-        if False:
-            print("installing " + Host + "/" + Target)
-            Date()
-            Run(Obj, "make install " + ExtraInstall + Environ)
-
-    else:
+    for a in ["build", "host", "target"]:
         #
         # configure-build does not exist
-        # install-host before building target (did not help)
         #
-        for a in ["all-build", "configure-host", "all-host", "install-host", "configure-target", "all-target", "all", "install"]:
-            Run(Obj, "make " + a + " " + ExtraInstall + Environ)
-            Date()
-            if a.startswith("configure-"):
-                PatchOutLibIConv(Obj)
-                PatchOutOptimizer(Target, Obj)
+        if a != "build":
+            Run(Obj, "make configure-" + a + " " + Environ)
+            PatchOutLibIConv(Obj)
+            PatchOutOptimizer(Target, Obj)
+        Run(Obj, "make all-" + a + " " + Environ)
+
+    Run(Obj, "make all " + Environ)
+
+    if True:
+        print("installing " + Host + "/" + Target)
+        Date()
+        Run(Obj, "make install " + ExtraInstall + Environ)
 
     if DestDir:
         print("Success; copy " + DestDir + " to your " + Host + " machine")
@@ -1136,7 +1207,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 Platform1 = Build
 
 # native
-DoBuild()
+# DoBuild()
 
 Platform2 = "i686-pc-mingw32"
 # DoBuild(Platform1, Platform2)
@@ -1144,7 +1215,7 @@ Platform2 = "i686-pc-mingw32"
 #DoBuild(Platform2, Platform2)
 
 Platform2 = "sparc-sun-solaris2.10"
-DoBuild(Platform1, Platform2)
+# DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
 Platform2 = "sparc64-sun-solaris2.10"
