@@ -39,6 +39,8 @@ from shutil import copy2
 RecognizedPlatforms = [
     "i686-pc-cygwin",
     "sparc-sun-solaris2.10",
+    "sparc64-sun-solaris2.10",
+    "i686-pc-mingw32",
     "i586-pc-msdosdjgpp"
     ]
 
@@ -331,9 +333,29 @@ def GetReducedOutputDirectory(State, Package, Platform, Build, Host, Target):
             # contributes to building libgcc more than necessary.
             Path += "/" + Target
     else:
+        #
         # Voila: This is the point. Just list one platform, that which
         # the code will run on.
-        Path += "/" + [Build, Host, Target][Platform]
+        # Path += "/" + [Build, Host, Target][Platform]
+        #
+        # Some packages configure differently not just per-platform,
+        # but if they are build or host or target. libiberty
+        # for example. Therefore, we should perhaps build
+        # each package up to three times per-platform.
+        # Perhaps. There is still savings here. In that
+        # if we build multiple targets with the same build and host,
+        # we'd only build the build and host variants once each,
+        # instead of per-target.
+        # e.g.
+        #   build=cygwin host=cygwin target=cygwin
+        #   build=cygwin host=cygwin target=sparc-solaris
+        #   build=cygwin host=cygwin target=sparc64-solaris
+        #
+        # => maximum 5 libiberties instead of maximum 9 (not counting multilib)
+        # => one gmp and mpfr instead of three (same as the previous algorithm)
+        #
+        Path += "/" + ["build", "host", "target"][Platform] + "/" + [Build, Host, Target][Platform]
+
     Path += "/" + Package.Name
     return Path
 
@@ -785,6 +807,9 @@ p.OptionalDependencies = OptionalDependencies
 p.SourcePackage = SourcePackage_gcc
 p.Host = True
 p.Exports = [ "xgcc", "cc1"  ]
+#
+# FUTURE: optionality should be enforced according to target and lenguages
+#
 p.OptionalExports = [ "gcc-cross", "g++-cross", "libgcov.a", "gnat1", "cc1obj", "cc1objplus", "tree1",
     "cc1obj", "cc1plus", "collect2", "cpp", "f951", "g++", "gcj", "gcov-dump",
     "gcov", "gfortran", "jc1", "jcf-dump", "jvgenmain" ]
@@ -872,7 +897,6 @@ def GetExpectedOutputDirectory(State, Package, Platform, Build, Host, Target):
 
 ConfigCommon = " "
 ConfigCommon += " -verbose "
-ConfigCommon += " -without-libiconv-prefix "
 ConfigCommon += " -disable-nls "
 ConfigCommon += " -disable-intl "
 ConfigCommon += " -disable-po "
@@ -891,6 +915,7 @@ ConfigCommon += " -disable-multilib "
 ConfigCommon += " -disable-libgomp "
 ConfigCommon += " -disable-libssp "
 ConfigCommon += " -enable-languages=c,c++ "
+ConfigCommon += " -enable-static -disable-shared "
 ConfigCommon = re.sub("  +", " ", ConfigCommon)
 
 
