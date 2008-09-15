@@ -1,14 +1,20 @@
 
-all: cygwin1.dll cygwin3.dll 2.exe fork.obj
+all: ntdll.lib cygwin1.dll cygwin3.dll 2.exe fork.obj
 
 .c.obj:
     cl -c -MD -Z7 -Zl -GS- $<
 
-2.exe: cygwin1.lib 2.c
+2.exe:
+
+x2.exe: cygwin1.lib 2.c
     -del cygwin1.ilk cygwin1.dll.1
     move cygwin1.dll cygwin1.dll.1
     gcc 2.c -o $@
     move cygwin1.dll.1 cygwin1.dll
+
+ntdll.lib: ntdll.c ntdll.def
+ cl -LD ntdll.c -link -def:ntdll.def
+ del ntdll.dll
 
 cygwin1.c cygwin1.def cygwin2.def cygwin2.c cygwin3.def: functions.txt make.py
     python make.py
@@ -21,7 +27,6 @@ clean:
         cygwin3.c \
         fork.exe \
         forkmain.exe \
-        *.def \
         *.dll \
         *.exp \
         *.ilk \

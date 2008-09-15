@@ -1,14 +1,14 @@
 /* BSD license
 */
 
+#define _WIN32_WINNT 0xFFFF
+
 #include <windows.h>
 
 typedef struct _CLIENT_ID {
   HANDLE  UniqueProcess;
   HANDLE  UniqueThread;
 } CLIENT_ID, *PCLIENT_ID;
-
-typedef PVOID;
 
 #define NtCurrentProcess() ((HANDLE)0xFFFFFFFF)
 #define NtCurrentThread() ((HANDLE)0xFFFFFFFE)
@@ -26,50 +26,47 @@ typedef struct _USER_STACK {
 	PVOID  ExpandableStackBottom;
 } USER_STACK, *PUSER_STACK;
 
-NTSYSAPI
-NTSTATUS
-NTAPI
-ZwTerminateProcess (
-  /*IN*/ HANDLE   ProcessHandle /*OPTIONAL*/,
-  /*IN*/ NTSTATUS ExitStatus
-);
-
-NTOSAPI
-NTSTATUS
-NTAPI
-ZwCreateThread(
-  /*OUT*/ PHANDLE  ThreadHandle,
-  /*IN*/ ACCESS_MASK  DesiredAccess,
-  /*IN*/ POBJECT_ATTRIBUTES  ObjectAttributes,
-  /*IN*/ HANDLE  ProcessHandle,
-  /*OUT*/ PCLIENT_ID  ClientId,
-  /*IN*/ PCONTEXT  ThreadContext,
-  /*IN*/ PUSER_STACK  UserStack,
-  /*IN*/ BOOLEAN  CreateSuspended);
-
-NTOSAPI
-NTSTATUS
-NTAPI
-ZwCreateProcess(
-  /*OUT*/ PHANDLE  ProcessHandle,
-  /*IN*/ ACCESS_MASK  DesiredAccess,
-  /*IN*/ POBJECT_ATTRIBUTES  ObjectAttributes,
-  /*IN*/ HANDLE  InheritFromProcessHandle,
-  /*IN*/ BOOLEAN  InheritHandles,
-  /*IN*/ HANDLE  SectionHandle  /*OPTIONAL*/,
-  /*IN*/ HANDLE  DebugPort  /*OPTIONAL*/,
-  /*IN*/ HANDLE  ExceptionPort  /*OPTIONAL*/);
-
-#pragma comment(lib, "ntdll.lib")
 __declspec(dllimport) void __cdecl DbgPrint(const char*, ...);
 
-typedef int pid_t;
+
+NTSTATUS
+NTAPI
+NtTerminateProcess (
+    /*IN*/ HANDLE   ProcessHandle /*OPTIONAL*/,
+    /*IN*/ NTSTATUS ExitStatus
+    );
+
+NTSTATUS
+NTAPI
+NtCreateThread(
+    /*OUT*/ PHANDLE  ThreadHandle,
+    /*IN*/ ACCESS_MASK  DesiredAccess,
+    /*IN*/ POBJECT_ATTRIBUTES  ObjectAttributes,
+    /*IN*/ HANDLE  ProcessHandle,
+    /*OUT*/ PCLIENT_ID  ClientId,
+    /*IN*/ PCONTEXT  ThreadContext,
+    /*IN*/ PUSER_STACK  UserStack,
+    /*IN*/ BOOLEAN  CreateSuspended
+    );
+
+NTSTATUS
+NTAPI
+NtCreateProcess(
+    /*OUT*/ PHANDLE  ProcessHandle,
+    /*IN*/ ACCESS_MASK  DesiredAccess,
+    /*IN*/ POBJECT_ATTRIBUTES  ObjectAttributes,
+    /*IN*/ HANDLE  InheritFromProcessHandle,
+    /*IN*/ BOOLEAN  InheritHandles,
+    /*IN*/ HANDLE  SectionHandle  /*OPTIONAL*/,
+    /*IN*/ HANDLE  DebugPort  /*OPTIONAL*/,
+    /*IN*/ HANDLE  ExceptionPort  /*OPTIONAL*/
+    );
 
 #define NT_SUCCESS(x) ((x)>=0)
 
-__declspec(dllimport) int __cdecl cygwin3_sprintf(char*, const char*, ...);
+typedef int pid_t;
+
 __declspec(dllimport) int* __cdecl cygwin3___errno(void); /* cygwin */
-__declspec(dllimport) int* __cdecl _errno(void); /* msvcrt */
 #undef errno
 #define errno (*cygwin3___errno())
 //#define errno (*__errno())
@@ -82,14 +79,15 @@ static int __fastcall SetErrno(int Error) { errno = Error; return -1; }
 
 __declspec(dllexport) pid_t __cdecl fork(void)
 {
-    struct
+    volatile struct
     {
         NTSTATUS Status;
         HANDLE Process;
         HANDLE Thread;
         CLIENT_ID ClientId;
         CONTEXT Context;
-        DWORD Parent;
+        UINT32 Parent;
+        UINT32 xebp,xebx,xedi,xesi,xesp,xeip;
     } L;
 
     ZeroMemory(&L, sizeof(L));
@@ -103,28 +101,58 @@ __declspec(dllexport) pid_t __cdecl fork(void)
     if (IsDebuggerPresent())
         DebugBreak();
 
-    L.Status = ZwCreateProcess(&L.Process, (GENERIC_ALL | SYNCHRONIZE), NULL, NtCurrentProcess(), TRUE, NULL, NULL, NULL);
-    if (!NT_SUCCESS(L.Status))
-        goto Exit;
-
     L.Status = -1;
     if (!GetThreadContext(GetCurrentThread(), &L.Context))
         goto Exit;
 
-    L.Status = ZwCreateThread(&L.Thread, (GENERIC_ALL | SYNCHRONIZE), NULL, L.Process, &L.ClientId, &L.Context, (PUSER_STACK) NtCurrentTeb(), FALSE);
-    if (!NT_SUCCESS(L.Status))
-        goto Exit;
+    __asm
+    {
+        mov L.xebp, ebp
+        mov L.xebx, ebx
+        mov L.xedi, edi
+        mov L.xesi, esi
+        mov L.xesp, esp
+/* not clear where we resume, so add some padding and resume in the middle of it */
+        nop
+        nop
+        nop
+        nop
+        call get_eip
+get_eip:
+        pop eax
+        sub eax,8
+        mov L.xeip, eax
+    }
+    L.Context.Ebp = L.xebp;
+    L.Context.Ebx = L.xebx;
+    L.Context.Edi = L.xedi;
+    L.Context.Esi = L.xesi;
+    L.Context.Esp = L.xesp;
+    L.Context.Eip = L.xeip;
 
+    if (L.Parent == GetCurrentProcessId())
+    {
+        L.Status = NtCreateProcess(&L.Process, (GENERIC_ALL | SYNCHRONIZE), NULL, NtCurrentProcess(), TRUE, NULL, NULL, NULL);
+        if (!NT_SUCCESS(L.Status))
+            goto Exit;
+
+        L.Status = NtCreateThread(&L.Thread, (GENERIC_ALL | SYNCHRONIZE), NULL, L.Process, &L.ClientId, &L.Context, (PUSER_STACK) NtCurrentTeb(), FALSE);
+        if (!NT_SUCCESS(L.Status))
+            goto Exit;
+    }
+
+    if (IsDebuggerPresent())
+        DebugBreak();
     DbgPrint("%u:%u fork.1\n", GetCurrentProcessId(), GetCurrentThreadId());
 
-    if (L.Parent == (HANDLE) GetCurrentProcessId())
+    if (L.Parent == GetCurrentProcessId())
     {
         DbgPrint("parent\n");
     }
     else
     {
         DbgPrint("child\n");
-        ZwTerminateProcess(NtCurrentProcess(), -1);
+        return 0;
     }
 
 Exit:
@@ -140,6 +168,7 @@ Exit:
         return -1;
     }
     return (int) L.ClientId.UniqueProcess;
+    //return L.Process;
 }
 
 __declspec(dllexport) pid_t __cdecl vfork(void) { return fork(); }
