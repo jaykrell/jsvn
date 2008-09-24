@@ -170,7 +170,12 @@ ConfigCommon += " -enable-64-bit-bfd "
 # to target each other, which is maybe ok, that support can be confusing,
 # prone to not work, and not very valuable.
 #
-#ConfigCommon += " -disable-multilib "
+ConfigCommon += " -disable-multilib "
+
+#
+# unfortunate, but fixes multiple problems on multiple platforms
+#
+ConfigCommon += " -disable-shared -enable-static "
 
 #
 # random speeds ups, some people will want these
@@ -302,13 +307,13 @@ def Extract(Directory, MarkerDirectory, File):
 #
 
 if "cygwin" in sys.argv:
-    Extract(Source, Source + "/winsup", "/net/distfiles/" + "cygwin-src-20080912")
+    Extract(Source, Source + "/winsup", "/net/src/" + "cygwin-src-20080912")
 
 if "binutils" in sys.argv:
-    Extract(Source, Source + "/binutils", "/net/distfiles/" + "binutils-2.18")
+    Extract(Source, Source + "/binutils", "/net/src/" + "binutils-2.18")
 
 if "gccrel" in sys.argv:
-    Extract(Source, Source + "/gcc", "/net/distfiles/" + "gcc-4.3.2")
+    Extract(Source, Source + "/gcc", "/net/src/" + "gcc-4.3.2")
 
 if "gccsvn" in sys.argv:
     #
@@ -325,8 +330,8 @@ if "gccsvn" in sys.argv:
         Run(".", "xcopy /qyi " + ("/dev2/gcc/" + a + " /src/gccsvn/" + a).replace("/", "\\\\"))
 
 if "gmp" in sys.argv:
-    Extract(Source + "/gmp", Source + "/gmp", "/net/distfiles/" + "gmp-4.2.3")
-    Extract(Source + "/mpfr", Source + "/mpfr", "/net/distfiles/" + "mpfr-2.3.2")
+    Extract(Source + "/gmp", Source + "/gmp", "/net/src/" + "gmp-4.2.3")
+    Extract(Source + "/mpfr", Source + "/mpfr", "/net/src/" + "mpfr-2.3.2")
 
 def AddLinesToFile(LinesToAdd, FilePath):
     LinesToAdd = dict().fromkeys(LinesToAdd)
@@ -1004,7 +1009,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     Environ += " CXXFLAGS_FOR_BUILD=-g"
     Environ += " FCFLAGS=-g"
     Environ += " GNATLIBCFLAGS=-g"
-    Environ += " STAGE_CC_WRAPPER=ccache"
+    #Environ += " STAGE_CC_WRAPPER=ccache"
     #
     # Environ += " CC=\"ccache gcc\""
     # This breaks Canadian.
@@ -1208,24 +1213,23 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 Platform1 = Build
 
 # native
-DoBuild()
+# DoBuild()
 
-DoBuild(Platform1, "sparc-sun-solaris2.10")
-DoBuild(Platform1, "sparc64-sun-solaris2.10")
-DoBuild("sparc-sun-solaris2.10", "sparc-sun-solaris2.10")
-DoBuild("sparc64-sun-solaris2.10", "sparc64-sun-solaris2.10")
+Platform2 = "mips-sgi-irix6.5"
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
 Platform2 = "i686-pc-mingw32"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
-# Platform2 = "sparc-sun-solaris2.10"
-# DoBuild(Platform1, Platform2)
-# DoBuild(Platform2, Platform2)
+Platform2 = "sparc-sun-solaris2.10"
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
-# Platform2 = "sparc64-sun-solaris2.10"
-# DoBuild(Platform1, Platform2)
-# DoBuild(Platform2, Platform2)
+Platform2 = "sparc64-sun-solaris2.10"
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
 
 Platform2 = "i586-pc-msdosdjgpp"
 DoBuild(Platform1, Platform2)
@@ -1233,37 +1237,40 @@ DoBuild(Platform2, Platform2)
 
 
 #
-# working tools
+# hardware owned:
+#  mips-sgi (32 bit)
+#  i686-pc
+#  amd64-pc, amd64-sun
+#  ppc-apple
+#  ppc-ibm-aix (in mail)
 #
-# i586-pc-msdosdjgpp
-# sparc64-sun-solaris2.10
-# i686-pc-linux
-# i686-pc-cygwin
-# i686-pc-mingw32
+# hardware not owned:
+#  {i686,amd64,ppc64}-apple
+#  {mips,ppc,alpha,ia64}-winnt
+#  {vax,alpha,ppc64,hppa,hppa64,arm,ia64}
+#  {vms,hpux,osf}
 #
-# easily up and running host
-#   i686-pc-cygwin
-#   i686-pc-linux
-#   x86_64-pc-linux
-#   x86_64-pc-cygwin
-#   ppc-apple-darwin
+# tools built:
+#  i686-pc-cygwin
+#  sparc-sun-solaris2.10
+#  sparc64-sun-solaris2.10
 #
-# owned hardware
-#   i686-pc
-#   i686_64-pc
-#   sparc64-sun
-#   ppc-apple
-#   mips-sgi (not powered up, 64?)
+# sysroots captured and used:
+#  sparc[64]-sun-solaris2.10
 #
-# planned to purchase
-#   x86_64-apple (darwin)
-#   ppc64-apple (darwin)
-#   itanium (hpux, linux, vms)
-#   alpha (linux, vms, osf)
-#   hppa64 (hpux, linux)
-#   alpha-pc/nt? (linux, osf, nt?)
-#   ppc-pc/nt? (nt?)
-#   mips-pc/nt? (nt?)
+# sysroots captured not yet used:
+#  irix
+#  gnu-linux
+#  openbsd
+#
+# tools building next:
+#  mips-sgi-irix6.5
+#  i586-pc-msdosdjgpp
+#  i686-pc-mingw
+#  i686-pc-gnu-linux
+#  ppc-darwin
+#  ppc-openbsd
+#  sparc64-openbsd
 #
 # candidate tools
 #  needs pruning
@@ -1307,9 +1314,7 @@ DoBuild(Platform2, Platform2)
 # sparc64-unknown-freebsd
 # sparc64-unknown-netbsd
 # sparc64-unknown-openbsd
-# mips-sgi-irix
 # mips-sgi-linux
-# mips64-sgi-irix
 # mips64-sgi-linux
 # alpha-digital-linux
 # alpha-digital-osf
