@@ -306,7 +306,7 @@ def Extract(Directory, MarkerDirectory, File):
 # cygwin and binutils must precede gcc so that gcc replaces common files
 #
 
-if "cygwin" in sys.argv:
+if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
     Extract(Source, Source + "/winsup", "/net/src/" + "cygwin-src-20080912")
 
 if "binutils" in sys.argv:
@@ -329,7 +329,7 @@ if "gccsvn" in sys.argv:
     for a in ["libiberty", "config", "include", "intl"]:
         Run(".", "xcopy /qyi " + ("/dev2/gcc/" + a + " /src/gccsvn/" + a).replace("/", "\\\\"))
 
-if "gmp" in sys.argv:
+if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
     Extract(Source + "/gmp", Source + "/gmp", "/net/src/" + "gmp-4.2.3")
     Extract(Source + "/mpfr", Source + "/mpfr", "/net/src/" + "mpfr-2.3.2")
 
@@ -457,7 +457,6 @@ for File in [Source + "/libiberty/configure", Source + "/libiberty/configure.ac"
     ChangeLineInFile("      checkfuncs=\"`echo $checkfuncs | sed -e 's/strsignal//' -e 's/psignal//'`\"\n",
                      "      checkfuncs=\"`echo $checkfuncs | sed -e 's/psignal//'`\"\n",
                      File)
-
 #
 # But no! That is all just dead code.
 # config.log jumps from 
@@ -506,7 +505,7 @@ AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
 #
 
 
-if "cygwin" in sys.argv:
+if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 #
 # merged cygwin (winsup+newlib) tree with gcc tree
 # 
@@ -581,7 +580,6 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
     ChangeLineInFile("  void __stdcall raw_read (void *ptr, size_t& len);\n",
                      "  void raw_read (void *ptr, size_t& len);\n",
                      Source + "/winsup/cygwin/fhandler.h")
-
 #
 # /src/gcc/winsup/cygwin/dtable.cc: In function 'bool handle_to_fn(void*, char*)':
 # /src/gcc/winsup/cygwin/dtable.cc:973: error: jump to label 'unknown'
@@ -760,7 +758,6 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
     ChangeLineInFile("  void mount_info::create_root_entry (const PWCHAR root);\n",
                      "  void create_root_entry (const PWCHAR root);\n",
                      Source + "/winsup/cygwin/shared_info.h")
-
 #
 # workaround problem with gmp/configure detecting flex output file
 # This occurs because Python sets SIGPIPE to be ignored,
@@ -775,6 +772,73 @@ if "gmp" in sys.argv:
     ChangeLineInFile("  M4=m4-not-needed\n",
                      "  : # M4=m4-not-needed\n",
                      Source + "/gmp/configure")
+#
+# i686-pc-mingw32-gcc -DHAVE_CONFIG_H -I. -I/src/gccsvn/binutils -I. -D_GNU_SOURCE
+#  -I. -I/src/gccsvn/binutils -I../bfd -I/src/gccsvn/binutils/../bfd -I/src/gccsvn
+# /binutils/../include -D__USE_MINGW_FSEEK -DLOCALEDIR="\"/usr/local/share/locale\
+# "" -Dbin_dummy_emulation=bin_vanilla_emulation   -W -Wall -Wstrict-prototypes -W
+# missing-prototypes -Werror -g -c /src/gccsvn/binutils/strings.c
+# cc1: warnings being treated as errors
+# /src/gccsvn/binutils/strings.c: In function 'print_strings':
+# /src/gccsvn/binutils/strings.c:596: error: unknown conversion type character 'L'
+#  in format
+# /src/gccsvn/binutils/strings.c:596: error: too many arguments for format
+# /src/gccsvn/binutils/strings.c:611: error: unknown conversion type character 'L'
+#  in format
+# /src/gccsvn/binutils/strings.c:611: error: too many arguments for format
+# /src/gccsvn/binutils/strings.c:626: error: unknown conversion type character 'L'
+#  in format
+# /src/gccsvn/binutils/strings.c:626: error: too many arguments for format
+# make[3]: *** [strings.o] Error 1
+# make[3]: Leaving directory `/obj/gcc.7/i686-pc-mingw32/i686-pc-mingw32/binutils'
+#
+if "binutils" in sys.argv:
+    ChangeLineInFile("#if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)\n",
+                     "#if 0\n",
+                     Source + "/binutils/strings.c")
+#
+# ln -s libgcc.map libgcc.map.def && if [ ! -d ./shlib ]; then mkdir ./shlib else
+# true; fi && ccache /obj/gcc.7/i686-pc-cygwin/i686-pc-mingw32/./gcc/xgcc -B/obj/g
+# cc.7/i686-pc-cygwin/i686-pc-mingw32/./gcc/ -L/obj/gcc.7/i686-pc-cygwin/i686-pc-m
+# ingw32/i686-pc-mingw32/winsup/mingw -L/obj/gcc.7/i686-pc-cygwin/i686-pc-mingw32/
+# i686-pc-mingw32/winsup/w32api/lib -isystem /src/gccsvn/winsup/mingw/include -isy
+# stem /src/gccsvn/winsup/w32api/include -B/usr/local/i686-pc-mingw32/bin/ -B/usr/
+# local/i686-pc-mingw32/lib/ -isystem /usr/local/i686-pc-mingw32/include -isystem
+# /usr/local/i686-pc-mingw32/sys-include -L/obj/gcc.7/i686-pc-cygwin/i686-pc-mingw
+# 32/./ld -I/src/gccsvn/gcc/../winsup/w32api/include  -DIN_GCC -DCROSS_DIRECTORY_S
+# TRUCTURE  -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wca
+# st-qual -Wold-style-definition  -isystem ./include   -g -DHAVE_GTHR_DEFAULT -DIN
+# _LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED  -shared -nodefaultlibs libgcc.map.def -Wl,--o
+# ut-implib,./shlib/libgcc_s.a.tmp -o ./shlib/libgcc_s_1.dll.tmp -g -B./ _chkstk_s
+# .o _muldi3_s.o _negdi2_s.o _lshrdi3_s.o _ashldi3_s.o _ashrdi3_s.o _cmpdi2_s.o _u
+# cmpdi2_s.o _clear_cache_s.o _enable_execute_stack_s.o _trampoline_s.o __main_s.o
+#  _absvsi2_s.o _absvdi2_s.o _addvsi3_s.o _addvdi3_s.o _subvsi3_s.o _subvdi3_s.o _
+# mulvsi3_s.o _mulvdi3_s.o _negvsi2_s.o _negvdi2_s.o _ctors_s.o _ffssi2_s.o _ffsdi
+# 2_s.o _clz_s.o _clzsi2_s.o _clzdi2_s.o _ctzsi2_s.o _ctzdi2_s.o _popcount_tab_s.o
+#  _popcountsi2_s.o _popcountdi2_s.o _paritysi2_s.o _paritydi2_s.o _powisf2_s.o _p
+# owidf2_s.o _powixf2_s.o _powitf2_s.o _mulsc3_s.o _muldc3_s.o _mulxc3_s.o _multc3
+# _s.o _divsc3_s.o _divdc3_s.o _divxc3_s.o _divtc3_s.o _bswapsi2_s.o _bswapdi2_s.o
+#  _fixunssfsi_s.o _fixunsdfsi_s.o _fixunsxfsi_s.o _fixsfdi_s.o _fixdfdi_s.o _fixx
+# fdi_s.o _fixtfdi_s.o _fixunssfdi_s.o _fixunsdfdi_s.o _fixunsxfdi_s.o _fixunstfdi
+# _s.o _floatdisf_s.o _floatdidf_s.o _floatdixf_s.o _floatditf_s.o _floatundisf_s.
+# o _floatundidf_s.o _floatundixf_s.o _floatunditf_s.o _divdi3_s.o _moddi3_s.o _ud
+# ivdi3_s.o _umoddi3_s.o _udiv_w_sdiv_s.o _udivmoddi4_s.o gthr-win32_s.o unwind-dw
+# 2_s.o unwind-dw2-fde_s.o unwind-sjlj_s.o gthr-gnat_s.o unwind-c_s.o emutls_s.o -
+# lmingw32 -lmingwex -lmoldname -lmsvcrt -luser32 -lkernel32 -ladvapi32 -lshell32
+# && /obj/gcc.7/i686-pc-cygwin/i686-pc-mingw32/gcc/../binutils/ar -r ./shlib/libgc
+# c_s.a.tmp _chkstk.o _ctors.o gthr-win32.o && if [ -f ./shlib/libgcc_s_1.dll ]; t
+# hen mv -f ./shlib/libgcc_s_1.dll ./shlib/libgcc_s_1.dll.backup; else true; fi &&
+#  mv ./shlib/libgcc_s_1.dll.tmp ./shlib/libgcc_s_1.dll && mv ./shlib/libgcc_s.a.t
+# mp ./shlib/libgcc_s.a
+# ln: creating symbolic link `libgcc.map.def': File exists
+# make: *** [libgcc_s.dll] Error 1
+#
+ChangeLineInFile("SHLIB_LINK = $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
+                 "SHLIB_LINK = rm -f $(SHLIB_MAP).def; $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
+                 Source + "/gcc/config/i386/t-cygming")
+#
+# or just don't build shared libgcc, which fixes other problems on other platforms
+#
 
 def PatchOutLibIConv(Obj):
 #
@@ -1061,7 +1125,8 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         #
         # see WorkaroundUnableToFindSparc64LibGcc
         #
-        ExtraConfig += " -disable-shared"
+        #ExtraConfig += " -disable-shared -enable-static "
+        pass
 
     if Target.find("-cygwin") != -1:
         #
@@ -1072,8 +1137,21 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         #
         # errors building shared libgcc for lack of -lc and -lpthread on command line
         #
-        ExtraConfig += " -disable-shared"
+        #ExtraConfig += " -disable-shared -enable-static "
+        pass
 
+
+    if Target.find("-mingw") != -1:
+        #
+        # errors building shared libgcc creating symlink that might already exist
+        #
+        #ExtraConfig += " -disable-shared -enable-static "
+        pass
+
+    #
+    # This benefits so many, just do it.
+    #
+    ExtraConfig += " -disable-shared -enable-static "
 
     #
     # cross builds have extra requirements that are not automated,
@@ -1102,7 +1180,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
             # I don't remember why I put this in, but it makes some sense -- no dynamic linking on djgpp.
             #
 
-            ExtraConfig += " -disable-shared -enable-static "
+            #ExtraConfig += " -disable-shared -enable-static "
 
             #
             # djgpp "favors" the pre-sysroot method, via the djgpp cross package
@@ -1213,11 +1291,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 Platform1 = Build
 
 # native
-# DoBuild()
-
-Platform2 = "mips-sgi-irix6.5"
-DoBuild(Platform1, Platform2)
-DoBuild(Platform2, Platform2)
+DoBuild()
 
 Platform2 = "i686-pc-mingw32"
 DoBuild(Platform1, Platform2)
@@ -1235,123 +1309,6 @@ Platform2 = "i586-pc-msdosdjgpp"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
-
-#
-# hardware owned:
-#  mips-sgi (32 bit)
-#  i686-pc
-#  amd64-pc, amd64-sun
-#  ppc-apple
-#  ppc-ibm-aix (in mail)
-#
-# hardware not owned:
-#  {i686,amd64,ppc64}-apple
-#  {mips,ppc,alpha,ia64}-winnt
-#  {vax,alpha,ppc64,hppa,hppa64,arm,ia64}
-#  {vms,hpux,osf}
-#
-# tools built:
-#  i686-pc-cygwin
-#  sparc-sun-solaris2.10
-#  sparc64-sun-solaris2.10
-#
-# sysroots captured and used:
-#  sparc[64]-sun-solaris2.10
-#
-# sysroots captured not yet used:
-#  irix
-#  gnu-linux
-#  openbsd
-#
-# tools building next:
-#  mips-sgi-irix6.5
-#  i586-pc-msdosdjgpp
-#  i686-pc-mingw
-#  i686-pc-gnu-linux
-#  ppc-darwin
-#  ppc-openbsd
-#  sparc64-openbsd
-#
-# candidate tools
-#  needs pruning
-#  needs sysroots
-#  needs config.guess, config.sub
-#  needs hardware
-#
-#
-# i686-apple-darwin
-# i686-sun-solaris
-# i686-unknown-netbsd
-# i686-unknown-freebsd
-# i686-unknown-netbsd
-# i686-unknown-openbsd
-# x86_64-pc-linux
-# x86_64-pc-cygwin
-# x86_64-pc-mingwin
-# x86_64-apple-darwin
-# x86_64-sun-solaris
-# x86_64-unknown-freebsd
-# x86_64-unknown-netbsd
-# x86_64-unknown-openbsd
-# ppc-apple-darwin
-# ppc-unknown-linux
-# ppc-unknown-openbsd
-# ppc-unknown-freebsd
-# ppc-unknown-netbsd
-# ppc-unknown-aix
-# ppc64-apple-darwin
-# ppc64-unknown-linux
-# ppc64-unknown-freebsd
-# ppc64-unknown-netbsd
-# ppc64-unknown-openbsd
-# ppc64-unknown-aix
-# sparc-unknown-linux
-# sparc-unknown-openbsd
-# sparc-unknown-freebsd
-# sparc-unknown-netbsd
-# sparc-sun-solaris
-# sparc64-unknown-linux
-# sparc64-unknown-freebsd
-# sparc64-unknown-netbsd
-# sparc64-unknown-openbsd
-# mips-sgi-linux
-# mips64-sgi-linux
-# alpha-digital-linux
-# alpha-digital-osf
-# alpha-digital-vms
-# hppa-hp-hpux
-# hppa-hp-linux
-# hppa64-hp-hpux
-# hppa64-hp-linux
-# itanium-unknown-linux
-# itanium-unknown-hpux
-# itanium-unknown-vms
-# vax-unknown-linux
-# vax-unknown-freebsd
-# vax-unknown-netbsd
-# vax-unknown-openbsd
-# vax-unknown-vms
-#
-
-
-#
-# some unsolved/worked-around problems
-#
-
-#
-# why not use Python's multithreading:
-#
-# sem_init: Resource temporarily unavailable
-# Traceback (most recent call last):
-#   File "./build.py", line 254, in <module>
-#
-#   File "./build.py", line 165, in Run
-#     t.start()
-#   File "/usr/lib/python2.5/threading.py", line 405, in __init__
-#     self.__block = Condition(Lock())
-# thread.error: can't allocate lock
-# cd /obj/gmp1 && /src/gmp-4.2.2/configure   -verbose -enable-languages=c,ada,c++,
-# d,f77,pascal,java,objc -without-included-gettext -enable-version-specific-runtim
-#
-# can't allocate lock
-#
+Platform2 = "mips-sgi-irix6.5"
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
