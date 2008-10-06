@@ -16,29 +16,66 @@ import os
 import sys
 import re
 
-ObjRoot = "/obj/gcc.7"
-
-if ("gccrel" in sys.argv) == ("gccsvn" in sys.argv):
-    print("ERROR: must specify either gccrel or gccsvn")
-    sys.exit(1)
-
-if "gccrel" in sys.argv:
-    Source = "/src/gccrel"
-    GccVersion = "4.3.2"
-
-if "gccsvn" in sys.argv:
-    Source = "/src/gccsvn"
-    GccVersion = "4.4.0"
+ObjRoot = "/obj/gcc.1"
+Source = "/src"
+Archives = "/net/src"
+GccRelVersion = "4.3.2"
+GccSvnVersion = "4.4.0"
+GccVersion = None
+GmpVersion = "4.2.3"
+MpfrVersion = "2.3.2"
 
 #
 # use canonical names including version
 #  - sometimes they get further canonicalized, sometimes not
 #  - libgcc wants a version in Platform2
+# TBD: run config.guess, or do it ourselves for platforms we support
 #
 Build = "i686-pc-cygwin"
 
 Prefix = "/usr/local"
 # Prefix = "/usr"
+
+
+i = 0
+while i != len(sys.argv):
+    arg = sys.argv[i]
+    if arg == "obj":
+        i += 1
+        ObjRoot = sys.argv[i]
+    elif arg == "archives":
+        i += 1
+        Archives = sys.argv[i]
+    elif arg == "source":
+        i += 1
+        Source = sys.argv[i]
+    elif arg == "gccsvn" or arg == "gcc-svn":
+        Source += "/gccsvn"
+        if not GccVersion:
+            GccVersion = GccSvnVersion
+    elif arg == "gccrel" or arg == "gcc-rel":
+        Source += "/gccrel"
+        if not GccVersion:
+            GccVersion = GccRelVersion
+    elif arg == "gccver" or arg == "gcc-ver":
+        i += 1
+        GccVersion = sys.argv[i]
+    elif arg == "gmpver" or  arg == "gmp-ver":
+        i += 1
+        GmpVersion = sys.argv[i]
+    elif arg == "mpfrver" or arg == "mpfr-ver":
+        i += 1
+        MpfrVersion = sys.argv[i]
+    elif arg == "build":
+        i += 1
+        Build = sys.argv[i]
+    i += 1
+
+if "source" not in sys.argv:
+    if ("gccrel" in sys.argv) == ("gccsvn" in sys.argv):
+        print("ERROR: must specify either gccrel or gccsvn")
+        sys.exit(1)
+
 
 #
 # Check for some basic utilities.
@@ -73,13 +110,13 @@ ConfigCommon = " "
 # ConfigCommon += " -build " + Platform1 + " "
 ConfigCommon += " -verbose "
 
-ConfigCommon += " -prefix=" + Prefix + " " 
+ConfigCommon += " -prefix=" + Prefix + " "
 
 #
 # use cygwin's directory structure
 # for one thing, merge libexec and lib -- fewer directories
 #
-ConfigCommon += " -exec-prefix=" + Prefix + " " 
+ConfigCommon += " -exec-prefix=" + Prefix + " "
 ConfigCommon += " -libdir=" + Prefix + "/lib "
 ConfigCommon += " -libexecdir=" + Prefix + "/lib "
 ConfigCommon += " -mandir=" + Prefix + "/share/man "
@@ -87,7 +124,7 @@ ConfigCommon += " -infodir=" + Prefix + "/share/info "
 
 # -sysconfdir=/etc
 
-# -enable-languages=c,c++,fortran,java,objc,obj-c++ 
+# -enable-languages=c,c++,fortran,java,objc,obj-c++
 # -disable-nls
 # -without-included-gettext
 # -enable-version-specific-runtime-libs
@@ -254,6 +291,43 @@ def CreateDirectories(a):
         os.makedirs(a)
 
 #
+# Favor "gmake" and "gtar" if they appear to be present.
+# In particular, GNU tar is needed for some long symlinks and
+# GNU make is needed for building gcc, at least outside the source directory.
+#
+# In the future when build.py is further extended, such as to build
+# make and tar themselves, bootstrapping some packages with native tar and make
+# is viable. As well, bootstrapping gcc with output in the source directory
+# should be attempted.
+#
+
+Tar = None
+Make = None
+
+def FindGnuTool(CurrentValue, ToolName):
+#
+# favor gnumake, gnutar, then gmake, gtar, then make, tar
+#
+    if not CurrentValue:
+        for g in ["gnu", "g", ""]:
+            CurrentValue = g + ToolName
+            if os.system(CurrentValue + " --help >/dev/null 2>&1") == 0:
+                break
+    #print("using " + CurrentValue + " for " + ToolName)
+    return CurrentValue
+        
+def FindTar():
+    global Tar
+    Tar = FindGnuTool(Tar, "tar")
+
+def FindMake():
+    global Make
+    Make = FindGnuTool(Make, "make")
+
+FindMake()
+FindTar()
+
+#
 # I have recoded my archives to tar+lzma = .tlz.
 # Probe for .tar.gz, .tar.bz2, .tar.lzma, .tgz, .tbz, .tlz.
 # Given gcc-1.2.3 we should also probe for gcc-1.23 and gcc123.
@@ -268,29 +342,33 @@ def Extract(Directory, MarkerDirectory, File):
     #
 
     if os.path.isdir(MarkerDirectory):
-        return
+        return False
+
+    FindTar()
 
     CreateDirectories(Directory);
     for ext in [".tar.gz", ".tgz"]:
         if os.path.exists(File + ext):
-            Run(Directory, "tar --strip-components=1 -zxf " + File + ext)
-            return
+            Run(Directory, Tar + " --strip-components=1 -zxf " + File + ext)
+            return True
 
     for ext in [".tar.bz2", ".tbz"]:
         if os.path.exists(File + ext):
-            Run(Directory, "tar --strip-components=1 -jxf " + File + ext)
-            return
+            Run(Directory, Tar + " --strip-components=1 -jxf " + File + ext)
+            return True
 
     #
     # lzma produces significantly smaller results than bzip2, and faster.
+    # However lzma is written in C++ and therefore harder to bootstrap on, e.g., Irix
     #
 
     for ext in [".tlz", ".tar.lzma"]:
         if os.path.exists(File + ext):
-            Run(Directory, "tar --strip-components=1 --lzma -xf " + File + ext)
-            return
+            Run(Directory, Tar + " --strip-components=1 --lzma -xf " + File + ext)
+            return True
 
-    Run(Directory, "tar --strip-components=1 -xf " + File)
+    Run(Directory, Tar + " --strip-components=1 -xf " + File)
+    return True
 
 #
 # /obj and /src are actually symlinks to /d/obj, /d/src
@@ -307,15 +385,23 @@ def Extract(Directory, MarkerDirectory, File):
 #
 
 if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
-    Extract(Source, Source + "/winsup", "/net/src/" + "cygwin-src-20080912")
+    Extract(Source, Source + "/winsup", Archives + "/" + "cygwin-src-20080912")
+
+ExtractedBinutils = False
 
 if "binutils" in sys.argv:
-    Extract(Source, Source + "/binutils", "/net/src/" + "binutils-2.18")
+    ExtractedBinutils = Extract(Source, Source + "/binutils", Archives + "/" + "binutils-2.18")
 
-if "gccrel" in sys.argv:
-    Extract(Source, Source + "/gcc", "/net/src/" + "gcc-4.3.2")
+if "gccrel" in sys.argv or "gcc-rel" in sys.argv:
+    Marker = Source + "/gcc"
+    if ExtractedBinutils:
+        Marker += "nonexistant"
+    if "gcc-core" in sys.argv or "gcccore" in sys.argv:
+        Extract(Source, Marker, Archives + "/" + "gcc-core-" + GccRelVersion)
+    else:
+        Extract(Source, Marker, Archives + "/" + "gcc-" + GccRelVersion)
 
-if "gccsvn" in sys.argv:
+if "gccsvn" in sys.argv or "gcc-svn" in sys.argv:
     #
     # Where there is no overlap with binutils, use /d for perf.
     # Where is overlap with binutils, don't use /d for correctness.
@@ -330,8 +416,8 @@ if "gccsvn" in sys.argv:
         Run(".", "xcopy /qyi " + ("/dev2/gcc/" + a + " /src/gccsvn/" + a).replace("/", "\\\\"))
 
 if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
-    Extract(Source + "/gmp", Source + "/gmp", "/net/src/" + "gmp-4.2.3")
-    Extract(Source + "/mpfr", Source + "/mpfr", "/net/src/" + "mpfr-2.3.2")
+    Extract(Source + "/gmp", Source + "/gmp", Archives + "/" + "gmp-" + GmpVersion)
+    Extract(Source + "/mpfr", Source + "/mpfr", Archives + "/" + "mpfr-" + MpfrVersion)
 
 def AddLinesToFile(LinesToAdd, FilePath):
     LinesToAdd = dict().fromkeys(LinesToAdd)
@@ -341,7 +427,7 @@ def AddLinesToFile(LinesToAdd, FilePath):
     if len(LinesToAdd) != 0:
         file(FilePath, "a").writelines(LinesToAdd.keys())
 
-def ChangeLineInFile(From, To, FilePath):
+def ChangeLine(From, To, FilePath):
     Changed = False
     NewLines = [ ]
     OldLines = file(FilePath).readlines()
@@ -454,12 +540,13 @@ AddLinesToFile(["LDFLAGS += -Wl,--stack,8388608\n", "CFLAGS += -D__USE_MINGW_ACC
 # > checkfuncs="`echo $checkfuncs | sed -e 's/psignal//'`"
 #
 for File in [Source + "/libiberty/configure", Source + "/libiberty/configure.ac"]:
-    ChangeLineInFile("      checkfuncs=\"`echo $checkfuncs | sed -e 's/strsignal//' -e 's/psignal//'`\"\n",
-                     "      checkfuncs=\"`echo $checkfuncs | sed -e 's/psignal//'`\"\n",
-                     File)
+    ChangeLine(
+        "      checkfuncs=\"`echo $checkfuncs | sed -e 's/strsignal//' -e 's/psignal//'`\"\n",
+        "      checkfuncs=\"`echo $checkfuncs | sed -e 's/psignal//'`\"\n",
+        File)
 #
 # But no! That is all just dead code.
-# config.log jumps from 
+# config.log jumps from
 # configure:4938: checking for pid_t
 # ..
 # configure:4992: result: yes
@@ -486,13 +573,14 @@ for File in [Source + "/libiberty/configure", Source + "/libiberty/configure.ac"
 #
 # Forget it, just do this:
 #
-AddLineAfterLine("#define HAVE_SYS_NERR 1\n",
-                 "#ifdef __CYGWIN__\n#define HAVE_STRSIGNAL 1\n#endif\n",
-                 Source + "/libiberty/configure")
-
-AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
-                 "AC_DEFINE(HAVE_STRSIGNAL)\n",
-                 Source + "/libiberty/configure.ac")
+AddLineAfterLine(
+    "#define HAVE_SYS_NERR 1\n",
+    "#ifdef __CYGWIN__\n#define HAVE_STRSIGNAL 1\n#endif\n",
+    Source + "/libiberty/configure")
+AddLineAfterLine(
+    "AC_DEFINE(HAVE_SYS_NERR)\n",
+    "AC_DEFINE(HAVE_STRSIGNAL)\n",
+    Source + "/libiberty/configure.ac")
 #
 # NOTE this isn't what rebuilding from configure.ac will get you, but
 # it is close enough. There are two occurences of #define HAVE_SYS_NERR 1,
@@ -508,7 +596,7 @@ AddLineAfterLine("AC_DEFINE(HAVE_SYS_NERR)\n",
 if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 #
 # merged cygwin (winsup+newlib) tree with gcc tree
-# 
+#
 # configure -build i686-pc-cygwin -host -i686-pc-cygwin -target i686-pc-mingw32
 # jay@jay-win9 /obj/gcc.1/i686-pc-cygwin/i686-pc-cygwin/i686-pc-cygwin/winsup/mingw
 # $ make
@@ -518,29 +606,31 @@ if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 # clude -mno-cygwin /src/gcc/winsup/mingw/crt1.c -o crt1.o
 # xgcc: error trying to exec 'cc1': execvp: No such file or directory
 # make: *** [crt1.o] Error 1
-# 
+#
 # The problem is that in winsup/mingw/Makefile, CC's -B and -L options are all
 # removed, in order to avoid picking up cygwin files. This code:
-# 
+#
 # CC := @CC@
 # override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}
 # # FIXME: Which is it, CC or CC_FOR_TARGET?
 # CC_FOR_TARGET = $(CC)
 # AS_FOR_TARGET = $(AS)
-# 
+#
 # This is too aggressive.
 # An easy fix is to add -B../../../gcc to the end after the removals.
 # The real point is to add xgcc's directory to -B.
 #
-#ChangeLineInFile("override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
-#                 "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} -B../../../gcc -B../../../../gcc\n",
-#                 Source + "/winsup/mingw/Makefile.in")
+#ChangeLine(
+#   "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
+#   "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} -B../../../gcc -B../../../../gcc\n",
+#   Source + "/winsup/mingw/Makefile.in")
 #
 #
 # Here is a better fix:
 #
-    ChangeLineInFile("override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
-"""\
+    ChangeLine(
+        "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}\n",
+        """\
 #
 # if target contains "cygwin", then remove from CC all -L, -B, -system, -withprefixbefore options,
 # EXCEPT for the first -B option, if it is the second word of CC.
@@ -566,7 +656,7 @@ if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} \\
  ${and ${findstring ${firstword ${filter -B%,$(CC)}},${word 2,$(CC)}},${findstring ${word 2,$(CC)},${firstword ${filter -B%,$(CC)}}}}
 """,
-                Source + "/winsup/mingw/Makefile.in")
+        Source + "/winsup/mingw/Makefile.in")
 
 #
 # In file included from /src/gcc/winsup/cygwin/dcrt0.cc:24:
@@ -577,9 +667,10 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # Either undo that, remove __stdcall, or apply it all of the raw_reads.
 # Here I remove it.
 #
-    ChangeLineInFile("  void __stdcall raw_read (void *ptr, size_t& len);\n",
-                     "  void raw_read (void *ptr, size_t& len);\n",
-                     Source + "/winsup/cygwin/fhandler.h")
+    ChangeLine(
+        "  void __stdcall raw_read (void *ptr, size_t& len);\n",
+        "  void raw_read (void *ptr, size_t& len);\n",
+        Source + "/winsup/cygwin/fhandler.h")
 #
 # /src/gcc/winsup/cygwin/dtable.cc: In function 'bool handle_to_fn(void*, char*)':
 # /src/gcc/winsup/cygwin/dtable.cc:973: error: jump to label 'unknown'
@@ -597,26 +688,31 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # /src/gcc/winsup/cygwin/dtable.cc:862: error:   crosses initialization of 'NTSTATUS res'
 # /src/gcc/winsup/cygwin/dtable.cc:861: error:   crosses initialization of 'OBJECT_NAME_INFORMATION* ntfn'
 #
-    ChangeLineInFile("  WCHAR *w32 = ntfn->Name.Buffer;\n",
-                     "  WCHAR *w32;\n  w32 = ntfn->Name.Buffer;\n",
-                     Source + "/winsup/cygwin/dtable.cc")
-    ChangeLineInFile("  size_t w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
-                     "  size_t w32len;\n  w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
-                     Source + "/winsup/cygwin/dtable.cc")
-    ChangeLineInFile("  OBJECT_NAME_INFORMATION *ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
-                     "  OBJECT_NAME_INFORMATION *ntfn;\n  ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
-                     Source + "/winsup/cygwin/dtable.cc")
-    ChangeLineInFile("  NTSTATUS res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
-                     "  NTSTATUS res;\n  res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
-                     Source + "/winsup/cygwin/dtable.cc")
+    ChangeLine(
+        "  WCHAR *w32 = ntfn->Name.Buffer;\n",
+        "  WCHAR *w32;\n  w32 = ntfn->Name.Buffer;\n",
+        Source + "/winsup/cygwin/dtable.cc")
+    ChangeLine(
+        "  size_t w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
+        "  size_t w32len;\n  w32len = ntfn->Name.Length / sizeof (WCHAR);\n",
+        Source + "/winsup/cygwin/dtable.cc")
+    ChangeLine(
+        "  OBJECT_NAME_INFORMATION *ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
+        "  OBJECT_NAME_INFORMATION *ntfn;\n  ntfn = (OBJECT_NAME_INFORMATION *) alloca (len + sizeof (WCHAR));\n",
+        Source + "/winsup/cygwin/dtable.cc")
+    ChangeLine(
+        "  NTSTATUS res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
+        "  NTSTATUS res;\n  res = NtQueryObject (h, ObjectNameInformation, ntfn, len, NULL);\n",
+        Source + "/winsup/cygwin/dtable.cc")
 #
 # /src/gcc/winsup/cygwin/fhandler_fifo.cc: In member function 'bool fhandler_fifo::wait(bool)':
 # /src/gcc/winsup/cygwin/fhandler_fifo.cc:139: error: jump to case label
 # /src/gcc/winsup/cygwin/fhandler_fifo.cc:134: error:   crosses initialization of 'bool res'
 #
-    ChangeLineInFile("      bool res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
-                     "      bool res;\n      res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
-                     Source + "/winsup/cygwin/fhandler_fifo.cc")
+    ChangeLine(
+        "      bool res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
+        "      bool res;\n      res = ConnectNamedPipe (get_handle (), get_overlapped ());\n",
+        Source + "/winsup/cygwin/fhandler_fifo.cc")
 #
 # /src/gcc/winsup/cygwin/hookapi.cc: In function 'const char* find_first_notloaded_dll(path_conv&)':
 # /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
@@ -631,10 +727,11 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # /src/gcc/winsup/cygwin/hookapi.cc:220: error: jump to label 'out'
 # /src/gcc/winsup/cygwin/hookapi.cc:182: error:   from here
 # /src/gcc/winsup/cygwin/hookapi.cc:202: error:   crosses initialization of 'long int delta'
-# 
-    ChangeLineInFile("  long delta = rvadelta (pExeNTHdr, importRVA);\n",
-                     "  long delta;\n  delta = rvadelta (pExeNTHdr, importRVA);\n",
-                     Source + "/winsup/cygwin/hookapi.cc")
+#
+    ChangeLine(
+        "  long delta = rvadelta (pExeNTHdr, importRVA);\n",
+        "  long delta;\n  delta = rvadelta (pExeNTHdr, importRVA);\n",
+        Source + "/winsup/cygwin/hookapi.cc")
 #
 # /src/gcc/winsup/cygwin/path.cc: In function 'ssize_t cygwin_conv_path(cygwin_conv_path_t, const void*, void*, size_t)':
 # /src/gcc/winsup/cygwin/path.cc:2795: error: jump to case label
@@ -646,18 +743,20 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # /src/gcc/winsup/cygwin/path.cc:2819: error: jump to case label
 # /src/gcc/winsup/cygwin/path.cc:2783: error:   crosses initialization of '_UNICODE_STRING* up'
 #
-    ChangeLineInFile("      PUNICODE_STRING up = p.get_nt_native_path ();\n",
-                     "      PUNICODE_STRING up;\n      up = p.get_nt_native_path ();\n",
-                     Source + "/winsup/cygwin/path.cc")
+    ChangeLine(
+        "      PUNICODE_STRING up = p.get_nt_native_path ();\n",
+        "      PUNICODE_STRING up;\n      up = p.get_nt_native_path ();\n",
+        Source + "/winsup/cygwin/path.cc")
 #
 # /src/gcc/winsup/cygwin/pipe.cc: In constructor 'pipesync::pipesync(void*, DWORD)':
 # /src/gcc/winsup/cygwin/pipe.cc:144: error: jump to label 'out'
 # /src/gcc/winsup/cygwin/pipe.cc:121: error:   from here
 # /src/gcc/winsup/cygwin/pipe.cc:129: error:   crosses initialization of 'void* ht'
 #
-    ChangeLineInFile("  HANDLE ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
-                     "  HANDLE ht;\n  ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
-                     Source + "/winsup/cygwin/pipe.cc")
+    ChangeLine(
+        "  HANDLE ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
+        "  HANDLE ht;\n  ht = CreateThread (&sec_none_nih, 0, pipe_handler, this, 0, &tid);\n",
+        Source + "/winsup/cygwin/pipe.cc")
 #
 # /src/gcc/winsup/cygwin/sec_auth.cc: In function 'void* create_token(cygsid&, user_groups&, passwd*)':
 # /src/gcc/winsup/cygwin/sec_auth.cc:801: warning: suggest explicit braces to avoid ambiguous 'else'
@@ -702,13 +801,15 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # /src/gcc/winsup/cygwin/sec_auth.cc:947: error:   from here
 # /src/gcc/winsup/cygwin/sec_auth.cc:1107: error:   crosses initialization of 'DWORD* csp_end'
 # /src/gcc/winsup/cygwin/sec_auth.cc:1106: error:   crosses initialization of 'DWORD* csp'
-# 
-    ChangeLineInFile("  PDWORD csp = (PDWORD) &authinf->username;\n",
-                     "  PDWORD csp;\n  csp = (PDWORD) &authinf->username;\n",
-                     Source + "/winsup/cygwin/sec_auth.cc")
-    ChangeLineInFile("  PDWORD csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
-                     "  PDWORD csp_end;\n  csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
-                     Source + "/winsup/cygwin/sec_auth.cc")
+#
+    ChangeLine(
+        "  PDWORD csp = (PDWORD) &authinf->username;\n",
+        "  PDWORD csp;\n  csp = (PDWORD) &authinf->username;\n",
+        Source + "/winsup/cygwin/sec_auth.cc")
+    ChangeLine(
+        "  PDWORD csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
+        "  PDWORD csp_end;\n  csp_end = (PDWORD) ((PBYTE) authinf + authinf_size);\n",
+        Source + "/winsup/cygwin/sec_auth.cc")
 #
 # /src/gcc/winsup/cygwin/uinfo.cc: In member function 'void pwdgrp::load(const wchar_t*)':
 # /src/gcc/winsup/cygwin/uinfo.cc:586: error: jump to label 'out'
@@ -727,9 +828,10 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # /src/gcc/winsup/cygwin/uinfo.cc:536: error:   from here
 # /src/gcc/winsup/cygwin/uinfo.cc:580: error:   crosses initialization of 'char* eptr'
 #
-    ChangeLineInFile("  char *eptr = buf;\n",
-                     "  char *eptr;\n  eptr = buf;\n",
-                     Source + "/winsup/cygwin/uinfo.cc")
+    ChangeLine(
+        "  char *eptr = buf;\n",
+        "  char *eptr;\n  eptr = buf;\n",
+        Source + "/winsup/cygwin/uinfo.cc")
 #
 # /src/gcc/winsup/cygwin/syscalls.cc: In function 'FILE* popen(const char*, constchar*)':
 # /src/gcc/winsup/cygwin/syscalls.cc:3529: error: jump to label 'err'
@@ -739,25 +841,28 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # /src/gcc/winsup/cygwin/syscalls.cc:3501: error:   from here
 # /src/gcc/winsup/cygwin/syscalls.cc:3524: error:   crosses initialization of 'fhandler_pipe* fh'
 #
-    ChangeLineInFile("  fhandler_pipe *fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
-                     "  fhandler_pipe *fh;\n  fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
-                     Source + "/winsup/cygwin/syscalls.cc")
+    ChangeLine(
+        "  fhandler_pipe *fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
+        "  fhandler_pipe *fh;\n  fh = (fhandler_pipe *) cygheap->fdtab[fd];\n",
+        Source + "/winsup/cygwin/syscalls.cc")
 #
 # /src/gcc/winsup/utils/cygcheck.cc:129: error: extra qualification 'pathlike::' on member 'check_existence'
 # /src/gcc/winsup/utils/cygcheck.cc: In function 'int display_internet_error(const char*, ...)':
 #
-    ChangeLineInFile("  void pathlike::check_existence (const char *fn, int showall, int verbose,\n",
-                     "  void check_existence (const char *fn, int showall, int verbose,\n",
-                     Source + "/winsup/utils/cygcheck.cc")
+    ChangeLine(
+        "  void pathlike::check_existence (const char *fn, int showall, int verbose,\n",
+        "  void check_existence (const char *fn, int showall, int verbose,\n",
+        Source + "/winsup/utils/cygcheck.cc")
 #
 # In file included from /src/gcc/winsup/cygwin/dcrt0.cc:30:
 # /src/gcc/winsup/cygwin/shared_info.h:98: error: extra qualification 'mount_info::' on member 'create_root_entry'
 #
 # This is fixed in the 8/27 snapshot.
 #
-    ChangeLineInFile("  void mount_info::create_root_entry (const PWCHAR root);\n",
-                     "  void create_root_entry (const PWCHAR root);\n",
-                     Source + "/winsup/cygwin/shared_info.h")
+    ChangeLine(
+        "  void mount_info::create_root_entry (const PWCHAR root);\n",
+        "  void create_root_entry (const PWCHAR root);\n",
+        Source + "/winsup/cygwin/shared_info.h")
 #
 # workaround problem with gmp/configure detecting flex output file
 # This occurs because Python sets SIGPIPE to be ignored,
@@ -767,11 +872,22 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # gcc configures it with cpu=none.
 #
 # This bug is present in at least gmp 4.2.2 and 4.2.3.
+
 #
 if "gmp" in sys.argv:
-    ChangeLineInFile("  M4=m4-not-needed\n",
-                     "  : # M4=m4-not-needed\n",
-                     Source + "/gmp/configure")
+    ChangeLine(
+        "  M4=m4-not-needed\n",
+        "  : # M4=m4-not-needed\n",
+        Source + "/gmp/configure")
+#
+# workaround Irix /usr/WorkShop/usr/bin/ncc:
+#
+ChangeLine(
+    "    return (ivs->bad_uses ? infinite_cost : ivs->cost)\n",
+    "    if (ivs->bad_uses)\n"
+    + "        return infinite_cost;\n"
+    + "    return ivs->cost;\n",
+    Source + "/gcc/tree-ssa-loop-ivopts.c");
 #
 # i686-pc-mingw32-gcc -DHAVE_CONFIG_H -I. -I/src/gccsvn/binutils -I. -D_GNU_SOURCE
 #  -I. -I/src/gccsvn/binutils -I../bfd -I/src/gccsvn/binutils/../bfd -I/src/gccsvn
@@ -840,6 +956,99 @@ ChangeLineInFile("SHLIB_LINK = $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
 # or just don't build shared libgcc, which fixes other problems on other platforms
 #
 
+def ReplaceWithinLines(Strings, Files):
+    print("ReplaceWithinLines:" + Strings[0] + ":" + Files[0])
+    for File in Files:
+        File = Source + "/" + File
+        #print("ReplaceWithinLines: " + File + "..")
+        if not os.path.isfile(File):
+            continue
+        Changed = False
+        NewLines = [ ]
+        OldLines = file(File).readlines()
+        for Line in OldLines:
+            i = 0
+            while i != len(Strings):
+                xLine = Line.replace(Strings[i], Strings[i + 1])
+                if Line != xLine:
+                    Changed = True
+                    Line = xLine
+                i += 2
+            NewLines += Line
+            #sys.stdout.write(".")
+        if Changed:
+            #print("ReplaceWithinLines: " + File + "...")
+            file(File, "w").writelines(NewLines)
+        else:
+            #print("ReplaceWithinLines: " + File + "....")
+            pass
+
+ReplaceWithinLines(
+    [" = obstack_alloc", " = (void *) obstack_alloc",
+    " = oballoc", " = (void *) oballoc"],
+    ["gas/hash.c", "gas/subsegs.c", "gas/symbols.c",
+    "gas/write.c", "gas/config/tc-hppa.c", "gas/config/tc-ia64.c",
+    "gas/config/tc-m68k.c", "gas/config/tc-score.c", "ld/ldlang.c",
+    "gcc/bt-load.c", "gcc/c-parser.c", "gcc/cfg.c", "gcc/collect2.c",
+    "gcc/fix-header.c", "gcc/gcse.c", "gcc/genattrtab.c", "gcc/genautomata.c",
+    "gcc/genpreds.c", "gcc/regrename.c", "gcc/reload1.c", "gcc/reorg.c", "gcc/tlink.c",
+    "gcc/tree-sra.c", "gcc/cp/calls.c", "gcc/cp/mangle.c", "gcc/cp/parser.c"])
+
+def ReplaceLineSequence(From, To, Files):
+    # print("ReplaceLineSequence:" + From[0] + ":" + Files[0])
+    len_From = len(From)
+    for File in Files:
+        File = Source + "/" + File
+        Changed = False
+        NewLines = [ ]
+        OldLines = file(File).readlines()
+        len_OldLines = len(OldLines)
+        i = 0
+        while i != len_OldLines:
+            j = 0
+            while j != len_From:
+                if OldLines[i + j] != From[j]:
+                    break
+                j += 1
+            if j == len(From):
+                Changed = True
+                i += len_From - 1
+                for j in range(len(To)):
+                    NewLines += To[j]
+            else:
+                NewLines += OldLines[i]
+            i += 1
+        if Changed:
+            file(File, "w").writelines(NewLines)
+
+ReplaceLineSequence(
+    ["  const int     bufsz = 4096;\n",
+    "  char          symbuf [bufsz];\n"],
+    ["  char          symbuf [4096];\n",
+    "  const int     bufsz = sizeof(symbuf);\n"],
+    ["bfd/elflink.c"]);
+
+def RemoveCplusplusComments(Files):
+    for File in Files:
+        File = Source + "/" + File
+        if not os.path.isfile(File):
+            continue
+        Changed = False
+        NewLines = [ ]
+        OldLines = file(File).readlines()
+        for Line in OldLines:
+            j = Line.find("//")
+            if (j != -1) and (Line != "/*#define SHOW_NUM 1*//* Uncomment for debugging.  */\n"):
+                Changed = True
+                Line = Line[:j]
+            NewLines += Line
+        if Changed:
+            file(File, "w").writelines(NewLines)
+
+RemoveCplusplusComments(
+    ["gas/bfin-parse.c", "gas/config/obj-coff.c", "gas/config/tc-bfin.c", "gas/config/tc-cr16.c",
+    "gas/config/tc-m68k.c", "gas/config/tc-mips.c", "gas/config/tc-ns32k.c"])
+
 def PatchOutLibIConv(Obj):
 #
 # libiconv is often present on the build machine, but not the later host of the same architecture,
@@ -895,98 +1104,52 @@ def PatchOutOptimizer(Target, Obj):
 #
     PatchName = "CFLAGS=-g"
 
+    T = Target
+
     for a in [
             ".",
             "binutils",
-            "gcc",
-            "gcc/ada",
-            "gmp",
-            "gmp/cxx",
-            "gmp/demos",
-            "gmp/demos/calc",
-            "gmp/demos/expr",
+            "gcc", "gcc/ada",
+            "gmp", "gmp/cxx",
+            "gmp/demos", "gmp/demos/calc", "gmp/demos/expr",
             "gmp/doc",
-            "gmp/mpbsd",
-            "gmp/mpf",
-            "gmp/mpn",
-            "gmp/mpq",
-            "gmp/mpz",
-            "gmp/printf",
-            "gmp/scanf",
-            "gmp/tests",
-            "gmp/tests/cxx",
-            "gmp/tests/devel",
-            "gmp/tests/misc",
-            "gmp/tests/mpbsd",
-            "gmp/tests/mpf",
-            "gmp/tests/mpn",
-            "gmp/tests/mpq",
-            "gmp/tests/mpz",
-            "gmp/tests/rand",
-            "gmp/tune",
-            "libcpp",
-            "libdecnumber",
-            "libiberty",
-            "libstdc++-v3/doc",
-            "libstdc++-v3/include",
-            "libstdc++-v3/libmath",
-            "libstdc++-v3/libsupc++",
-            "libstdc++-v3/po",
-            "libstdc++-v3/src",
+            "gmp/mpbsd", "gmp/mpf", "gmp/mpn",
+            "gmp/mpq", "gmp/mpz", "gmp/printf", "gmp/scanf",
+            "gmp/tests", "gmp/tests/cxx", "gmp/tests/devel",
+            "gmp/tests/misc", "gmp/tests/mpbsd", "gmp/tests/mpf",
+            "gmp/tests/mpn", "gmp/tests/mpq", "gmp/tests/mpz",
+            "gmp/tests/rand", "gmp/tune",
+            "libcpp", "libdecnumber", "libiberty",
+            "libstdc++-v3/doc", "libstdc++-v3/include",
+            "libstdc++-v3/libmath", "libstdc++-v3/libsupc++",
+            "libstdc++-v3/po", "libstdc++-v3/src",
             "libstdc++-v3/testsuite",
-            "mpfr",
-            "mpfr/tests",
-            Target + "/libgcc",
-            Target + "/libgfortran",
-            Target + "/libiberty",
-            Target + "/libiberty/testsuite",
-            Target + "/libstdc++-v3",
-            Target + "/libstdc++-v3/doc",
-            Target + "/libstdc++-v3/include",
-            Target + "/libstdc++-v3/libmath",
-            Target + "/libstdc++-v3/libsupc++",
-            Target + "/libstdc++-v3/po",
-            Target + "/libstdc++-v3/src",
-            Target + "/libstdc++-v3/testsuite",
-            Target + "/newlib",
-            Target + "/newlib/doc",
-            Target + "/newlib/libc",
-            Target + "/newlib/libc/argz",
-            Target + "/newlib/libc/ctype",
-            Target + "/newlib/libc/errno",
-            Target + "/newlib/libc/iconv",
-            Target + "/newlib/libc/iconv/ccs",
-            Target + "/newlib/libc/iconv/ccs/binary",
-            Target + "/newlib/libc/iconv/ces",
-            Target + "/newlib/libc/iconv/lib",
-            Target + "/newlib/libc/locale",
-            Target + "/newlib/libc/machine",
-            Target + "/newlib/libc/machine/i386",
-            Target + "/newlib/libc/misc",
-            Target + "/newlib/libc/posix",
-            Target + "/newlib/libc/reent",
-            Target + "/newlib/libc/search",
-            Target + "/newlib/libc/signal",
-            Target + "/newlib/libc/stdio",
-            Target + "/newlib/libc/stdio64",
-            Target + "/newlib/libc/stdlib",
-            Target + "/newlib/libc/string",
-            Target + "/newlib/libc/sys",
-            Target + "/newlib/libc/syscalls",
-            Target + "/newlib/libc/time",
-            Target + "/newlib/libc/unix",
-            Target + "/newlib/libm",
-            Target + "/newlib/libm/common",
-            Target + "/newlib/libm/machine",
-            Target + "/newlib/libm/machine/i386",
-            Target + "/newlib/libm/math",
-            Target + "/newlib/libm/mathfp",
-            Target + "/winsup/lsaauth",
-            Target + "/winsup/mingw",
-            Target + "/winsup/w32api",
-            Target + "/winsup/w32api/lib",
-            Target + "/winsup/w32api/lib/ddk",
-            Target + "/winsup/w32api/lib/directx",
+            "mpfr", "mpfr/tests",
+            T + "/libgcc", T + "/libgfortran", T + "/libiberty",
+            T + "/libiberty/testsuite", T + "/libstdc++-v3",
+            T + "/libstdc++-v3/doc", T + "/libstdc++-v3/include",
+            T + "/libstdc++-v3/libmath", T + "/libstdc++-v3/libsupc++",
+            T + "/libstdc++-v3/po", T + "/libstdc++-v3/src",
+            T + "/libstdc++-v3/testsuite", T + "/newlib",
+            T + "/newlib/doc", T + "/newlib/libc",
+            T + "/newlib/libc/argz", T + "/newlib/libc/ctype",
+            T + "/newlib/libc/errno", T + "/newlib/libc/iconv",
+            T + "/newlib/libc/iconv/ccs", T + "/newlib/libc/iconv/ccs/binary",
+            T + "/newlib/libc/iconv/ces", T + "/newlib/libc/iconv/lib",
+            T + "/newlib/libc/locale", T + "/newlib/libc/machine",
+            T + "/newlib/libc/machine/i386", T + "/newlib/libc/misc",
+            T + "/newlib/libc/posix", T + "/newlib/libc/reent",
+            T + "/newlib/libc/search", T + "/newlib/libc/signal",
+            T + "/newlib/libc/stdio", T + "/newlib/libc/stdio64",
+            T + "/newlib/libc/stdlib", T + "/newlib/libc/string",
+            T + "/newlib/libc/sys", T + "/newlib/libc/syscalls",
+            T + "/newlib/libc/time", T + "/newlib/libc/unix",
+            T + "/newlib/libm", T + "/newlib/libm/common",
+            T + "/newlib/libm/machine", T + "/newlib/libm/machine/i386",
+            T + "/newlib/libm/math", T + "/newlib/libm/mathfp",
+            T + "/winsup/lsaauth", T + "/winsup/mingw",
+            T + "/winsup/w32api", T + "/winsup/w32api/lib",
+            T + "/winsup/w32api/lib/ddk", T + "/winsup/w32api/lib/directx",
             ]:
         FilePath = Obj + "/" + a
         if not os.path.isdir(FilePath):
@@ -1062,10 +1225,38 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         Target = Build
 
     #
+    # GNU ld does not work for targeting Irix due to not fully
+    # investigated reasons. Therefore only Irix native is supported,
+    # and don't use GNU ld. There are two problems:
+    #  ld does not find libc, even with sys-root
+    #  If you point ld at libc directly, there are assertion failures in ld.
+    #  This has been seen in both Cygwin and GNU/Linux/x86.
+    #
+
+    if Target.find("irix") != -1:
+        if Build == Host and Host == Target:
+            ExtraConfig += " -without-gnu-ld "
+            ExtraConfig += " CC='/usr/WorkShop/usr/bin/ncc -w' "
+            ExtraConfig += " -disable-dependency-tracking "
+            ExtraConfig += " -enable-languages=c "
+        else:
+            print("ERROR: non-native Irix builds will not work due to problems with ld")
+            sys.exit(1)
+    else:
+        #
+        # just to speed it up
+        # works without and supports more languages, such as Fortran and Java
+        #
+        ExtraConfig += " -enable-languages=c,c++ "
+
+    #
     # in particular, avoiding -O2 to speed up the build, and to aid debugging
+    # also set MAKEINFO to a null command for the sake of systems that don't
+    # have it installed (on Debian/Ubuntu -- apt-get install texinfo)
     #
 
     Environ = " "
+    Environ += " MAKEINFO=:"
     Environ += " CFLAGS=-g"
     Environ += " CFLAGS_FOR_BUILD=-g"
     Environ += " BOOT_CFLAGS=-g"
@@ -1088,14 +1279,6 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     #if Host != Build or Host != Target:
     #ExtraConfig += " -enable-languages=c,c++ "
     #ExtraConfig += " -enable-languages=c,c++,fortran,java,objc,ada "
-
-
-    #
-    # just to speed it up
-    # works without and supports more languages, such as Fortran and Java
-    #
-
-    ExtraConfig += " -enable-languages=c,c++ "
 
     #
     # Cross building native does not work for Ada.
@@ -1226,7 +1409,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
             #
             # normal sys-root
             #
-                    
+
             else:
                 if not os.path.isdir(DefaultSysroot):
                     print("ERROR: Please put appropriate subset of " + Target + " file system at " + DefaultSysroot + " (such as /lib, /usr/lib, /usr/include)")
@@ -1240,7 +1423,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     if (Host == Target) and (Host != Build):
         ExtraConfig += " -with-sysroot=/"
         ExtraConfig += " -with-build-sysroot=" + DefaultSysroot
-        
+
 
     ExtraConfig = re.sub("  +", " ", ExtraConfig)
 
@@ -1273,17 +1456,17 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         # configure-build does not exist
         #
         if a != "build":
-            Run(Obj, "make configure-" + a + " " + Environ)
+            Run(Obj, Make + " configure-" + a + " " + Environ)
             PatchOutLibIConv(Obj)
             PatchOutOptimizer(Target, Obj)
-        Run(Obj, "make all-" + a + " " + Environ)
+        Run(Obj, Make + " all-" + a + " " + Environ)
 
-    Run(Obj, "make all " + Environ)
+    Run(Obj, Make + " all " + Environ)
 
     if True:
         print("installing " + Host + "/" + Target)
         Date()
-        Run(Obj, "make install " + ExtraInstall + Environ)
+        Run(Obj, Make + " install " + ExtraInstall + Environ)
 
     if DestDir:
         print("Success; copy " + DestDir + " to your " + Host + " machine")
@@ -1293,15 +1476,15 @@ Platform1 = Build
 # native
 DoBuild()
 
-Platform2 = "i686-pc-mingw32"
-DoBuild(Platform1, Platform2)
-DoBuild(Platform2, Platform2)
-
 Platform2 = "sparc-sun-solaris2.10"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
 Platform2 = "sparc64-sun-solaris2.10"
+DoBuild(Platform1, Platform2)
+DoBuild(Platform2, Platform2)
+
+Platform2 = "i686-pc-mingw32"
 DoBuild(Platform1, Platform2)
 DoBuild(Platform2, Platform2)
 
