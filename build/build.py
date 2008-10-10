@@ -419,13 +419,19 @@ if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
     Extract(Source + "/gmp", Source + "/gmp", Archives + "/" + "gmp-" + GmpVersion)
     Extract(Source + "/mpfr", Source + "/mpfr", Archives + "/" + "mpfr-" + MpfrVersion)
 
-def AddLinesToFile(LinesToAdd, FilePath):
+def RemoveEOL(a):
+    return a.replace("\n", "").replace("\r", "")
+
+def AddLines(LinesToAdd, FilePath):
     LinesToAdd = dict().fromkeys(LinesToAdd)
     ExistingLines = dict().fromkeys(file(FilePath).readlines())
     for i in ExistingLines.keys():
         LinesToAdd.pop(i, None)
     if len(LinesToAdd) != 0:
+        print("AddLines: updating " + FilePath)
         file(FilePath, "a").writelines(LinesToAdd.keys())
+    else:
+        print("AddLines: already up to date " + FilePath)
 
 def ChangeLine(From, To, FilePath):
     Changed = False
@@ -437,7 +443,10 @@ def ChangeLine(From, To, FilePath):
             Line = To
         NewLines += Line
     if Changed:
+        print("ChangeLine: updating " + FilePath)
         file(FilePath, "w").writelines(NewLines)
+    else:
+        print("ChangeLine: already up to date " + FilePath)
 
 def AddLineAfterLine(First, Second, FilePath):
     Changed = False
@@ -450,7 +459,10 @@ def AddLineAfterLine(First, Second, FilePath):
             Line = Second
         NewLines += Line
     if Changed:
+        print("AddLineAfterLine: updating " + FilePath)
         file(FilePath, "w").writelines(NewLines)
+    else:
+        print("AddLineAfterLine: already up to date " + FilePath)
 
 def AddLineBeforeLine(First, Second, FilePath):
     Changed = False
@@ -464,7 +476,10 @@ def AddLineBeforeLine(First, Second, FilePath):
             NewLines += First
         NewLines += Line
     if Changed:
+        print("AddLineBeforeLine: updating " + FilePath)
         file(FilePath, "w").writelines(NewLines)
+    else:
+        print("AddLineBeforeLine: already up to date " + FilePath)
 
 #
 # gcc needs a very large stack to avoid crashing for small source files such
@@ -477,8 +492,8 @@ def AddLineBeforeLine(First, Second, FilePath):
 # The patch has not been applied for 4.3.2 and is most likely
 # needed there too.
 #
-AddLinesToFile(["LDFLAGS += -Wl,--stack,8388608\n"], Source + "/config/mh-cygwin")
-AddLinesToFile(["LDFLAGS += -Wl,--stack,8388608\n", "CFLAGS += -D__USE_MINGW_ACCESS\n"], Source + "/config/mh-mingw")
+AddLines(["LDFLAGS += -Wl,--stack,8388608\n"], Source + "/config/mh-cygwin")
+AddLines(["LDFLAGS += -Wl,--stack,8388608\n", "CFLAGS += -D__USE_MINGW_ACCESS\n"], Source + "/config/mh-mingw")
 
 #
 # /src/gcc/libiberty/strsignal.c:408: error: conflicting types for 'strsignal'
@@ -874,7 +889,7 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # This bug is present in at least gmp 4.2.2 and 4.2.3.
 
 #
-if "gmp" in sys.argv:
+if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
     ChangeLine(
         "  M4=m4-not-needed\n",
         "  : # M4=m4-not-needed\n",
@@ -883,11 +898,147 @@ if "gmp" in sys.argv:
 # workaround Irix /usr/WorkShop/usr/bin/ncc:
 #
 ChangeLine(
-    "    return (ivs->bad_uses ? infinite_cost : ivs->cost)\n",
-    "    if (ivs->bad_uses)\n"
-    + "        return infinite_cost;\n"
-    + "    return ivs->cost;\n",
-    Source + "/gcc/tree-ssa-loop-ivopts.c");
+    "  return (ivs->bad_uses ? infinite_cost : ivs->cost);\n",
+    "  if (ivs->bad_uses)\n"
+    + "    return infinite_cost;\n"
+    + "  return ivs->cost;\n",
+    Source + "/gcc/tree-ssa-loop-ivopts.c")
+#
+# Irix /usr/WorkShop/usr/bin/ncc has trouble preprocessing combine.c
+#
+def ReplaceFunctionIf(FunctionName, Replacement, If, File):
+    if Replacement:
+        xFunctionName = "ReplaceFunctionIf"
+    else:
+        xFunctionName = "RemoveFunctionIf"
+    ChangedFile = False
+    NewLines = [ ]
+    OldLines = file(File).readlines()
+    len_OldLines = len(OldLines)
+    i = 0
+    FunctionParen = FunctionName + " ("
+    FoundFunction = False
+    while i != len_OldLines:
+        ChangedLine = False
+        if (        ((i + 1) != len_OldLines)
+                and ((i + 2) != len_OldLines)
+                and OldLines[i + 1].startswith(FunctionParen)
+                and RemoveEOL(OldLines[i + 1]).endswith(")")
+                and RemoveEOL(OldLines[i + 2]) == "{"):
+
+            FoundFunction = True
+
+            # print("1 found function " + FunctionName + " in " + File + " at line " + str(i))
+
+            if (((not Replacement)
+                    and (  (i < 3)
+                        or (RemoveEOL(OldLines[i - 1]) != "#else")
+                        or (RemoveEOL(OldLines[i - 2]) != "/* nothing */")
+                        or (RemoveEOL(OldLines[i - 3]) != If)))
+                    or (Replacement
+                        and (  ((i + 3) == len_OldLines)
+                            or ((i + 4) == len_OldLines)
+                            or ((i + 5) == len_OldLines)
+                            or (RemoveEOL(OldLines[i + 3]) != If)
+                            or (RemoveEOL(OldLines[i + 4]) != Replacement)
+                            or (RemoveEOL(OldLines[i + 5]) != "#else")))):
+                
+                # print("2 found function " + FunctionName + " in " + File + " at line " + str(i))
+
+                ChangedLine = True
+
+                if not Replacement:
+                    NewLines += If + "\n"
+                    NewLines += "/* nothing */\n"
+                    NewLines += "#else\n"
+
+                NewLines += OldLines[i] # return type
+                NewLines += OldLines[i + 1] # prototype
+                NewLines += OldLines[i + 2] # opening brace
+
+                if Replacement:
+                    NewLines += If + "\n"
+                    NewLines += Replacement + "\n"
+                    NewLines += "#else\n"
+
+                i += 3
+                while i != len_OldLines and ((len(OldLines[i]) > 3) or RemoveEOL(OldLines[i]) != "}"):
+                    NewLines += OldLines[i]
+                    i += 1
+                if i == len_OldLines:
+                    print("ERROR: did not find end of function " + FunctionName)
+                    sys.exit(1)
+                if not Replacement:
+                    NewLines += OldLines[i] # closing brace
+                    i += 1;
+                NewLines += "#endif\n"
+        if ChangedLine:
+            ChangedFile = True
+        else:
+            NewLines += OldLines[i]
+            i += 1
+
+    if not FoundFunction:
+        print("ERROR: did not find function " + FunctionName + " in " + File)
+        sys.exit(1)
+
+    if ChangedFile:
+        print(xFunctionName + ": updating " + FunctionName + " in " + File)
+        file(File, "w").writelines(NewLines)
+    else:
+        print(xFunctionName + ": already up to date " + FunctionName + " in " + File)
+
+def RemoveFunctionIf(FunctionName, If, File):
+    ReplaceFunctionIf(FunctionName, None, If, File)
+
+def CreateFile(File, Contents):
+    if (not os.path.exists(File)) or (Contents != file(File).read()):
+        print("CreateFile: creating or updating " + File)
+        file(File, "w").write(Contents)
+    else:
+        print("CreateFile: already exists and has correct contents " + File)
+
+IfIrixBootstrap = "#if !defined(__GNUC__) && defined(_ABIO32) /* Irix /usr/WorkShop/usr/bin/ncc has trouble preprocessing in this function. */"
+
+RemoveFunctionIf("find_split_point", IfIrixBootstrap, Source + "/gcc/combine.c")
+ReplaceFunctionIf("combine_simplify_rtx", "return x;", IfIrixBootstrap, Source + "/gcc/combine.c")
+ReplaceFunctionIf("try_combine", "return 0;", IfIrixBootstrap, Source + "/gcc/combine.c")
+ReplaceFunctionIf("expand_field_assignment", "return x;", IfIrixBootstrap, Source + "/gcc/combine.c")
+
+#
+# Irix /usr/WorkShop/usr/bin/ncc doesn't like .c files that #include themselves.
+# It compiles them without error, but incorrectly -- their symbols aren't found when linking.
+#
+
+ChangeLine(
+    "libmpfr_la_SOURCES = mpfr.h mpf2mpfr.h mpfr-gmp.h mpfr-impl.h mpfr-longlong.h mpfr-thread.h exceptions.c extract.c uceil_exp2.c uceil_log2.c ufloor_log2.c add.c add1.c add_ui.c agm.c clear.c cmp.c cmp_abs.c cmp_si.c cmp_ui.c comparisons.c div_2exp.c div_2si.c div_2ui.c div.c div_ui.c dump.c eq.c exp10.c exp2.c exp3.c exp.c frac.c get_d.c get_exp.c get_str.c init.c inp_str.c isinteger.c isinf.c isnan.c isnum.c const_log2.c log.c mul_2exp.c mul_2si.c mul_2ui.c mul.c mul_ui.c neg.c next.c out_str.c const_pi.c pow.c pow_si.c pow_ui.c print_raw.c print_rnd_mode.c random2.c random.c reldiff.c round_prec.c set.c setmax.c setmin.c set_d.c set_dfl_prec.c set_exp.c set_rnd.c set_f.c set_prc_raw.c set_prec.c set_q.c set_si.c set_str.c set_str_raw.c set_ui.c set_z.c sqrt.c sqrt_ui.c sub.c sub1.c sub_ui.c rint.c ui_div.c ui_sub.c urandomb.c get_z_exp.c swap.c  factorial.c cosh.c sinh.c tanh.c acosh.c asinh.c atanh.c atan.c cmp2.c exp_2.c asin.c const_euler.c cos.c sin.c tan.c fma.c fms.c hypot.c log1p.c expm1.c log2.c log10.c ui_pow.c ui_pow_ui.c minmax.c dim.c signbit.c copysign.c setsign.c gmp_op.c init2.c acos.c sin_cos.c set_nan.c set_inf.c powerof2.c gamma.c set_ld.c get_ld.c cbrt.c volatile.c fits_s.h fits_sshort.c fits_sint.c fits_slong.c fits_u.h fits_ushort.c fits_uint.c fits_ulong.c fits_uintmax.c fits_intmax.c get_si.c get_ui.c zeta.c cmp_d.c erf.c inits.c inits2.c clears.c sgn.c check.c sub1sp.c version.c mpn_exp.c mpfr-gmp.c mp_clz_tab.c sum.c add1sp.c free_cache.c si_op.c cmp_ld.c set_ui_2exp.c set_si_2exp.c set_uj.c set_sj.c get_sj.c get_uj.c get_z.c iszero.c cache.c sqr.c int_ceil_log2.c isqrt.c strtofr.c pow_z.c logging.c mulders.c get_f.c round_p.c erfc.c atan2.c subnormal.c const_catalan.c root.c gen_inverse.h sec.c csc.c cot.c eint.c sech.c csch.c coth.c round_near_x.c constant.c abort_prec_max.c stack_interface.c lngamma.c zeta_ui.c set_d64.c get_d64.c jn.c yn.c remquo.c get_patches.c",
+    "libmpfr_la_SOURCES = mpfr.h mpf2mpfr.h mpfr-gmp.h mpfr-impl.h mpfr-longlong.h mpfr-thread.h exceptions.c extract.c uceil_exp2.c uceil_log2.c ufloor_log2.c add.c add1.c add_ui.c agm.c clear.c cmp.c cmp_abs.c cmp_si.c cmp_ui.c comparisons.c div_2exp.c div_2si.c div_2ui.c div.c div_ui.c dump.c eq.c exp10.c exp2.c exp3.c exp.c frac.c get_d.c get_exp.c get_str.c init.c inp_str.c isinteger.c isinf.c isnan.c isnum.c const_log2.c log.c mul_2exp.c mul_2si.c mul_2ui.c mul.c mul_ui.c neg.c next.c out_str.c const_pi.c pow.c pow_si.c pow_ui.c print_raw.c print_rnd_mode.c random2.c random.c reldiff.c round_prec.c set.c setmax.c setmin.c set_d.c set_dfl_prec.c set_exp.c set_rnd.c set_f.c set_prc_raw.c set_prec.c set_q.c set_si.c set_str.c set_str_raw.c set_ui.c set_z.c sqrt.c sqrt_ui.c sub.c sub1.c sub_ui.c rint.c ui_div.c ui_sub.c urandomb.c get_z_exp.c swap.c  factorial.c cosh.c sinh.c tanh.c acosh.c asinh.c atanh.c atan.c cmp2.c exp_2.c asin.c const_euler.c cos.c sin.c tan.c fma.c fms.c hypot.c log1p.c expm1.c log2.c log10.c ui_pow.c ui_pow_ui.c minmax.c dim.c signbit.c copysign.c setsign.c gmp_op.c init2.c acos.c sin_cos.c set_nan.c set_inf.c powerof2.c gamma.c set_ld.c get_ld.c cbrt.c volatile.c fits_s.h fits_sshort.c fits_sint.c fits_slong.c fits_u.h fits_ushort.c fits_uint.c fits_ulong.c fits_uintmax.c fits_intmax.c get_si.c get_ui.c zeta.c cmp_d.c erf.c inits.c inits2.c clears.c sgn.c check.c sub1sp.c version.c mpn_exp.c mpfr-gmp.c mp_clz_tab.c sum.c add1sp.c free_cache.c si_op.c cmp_ld.c set_ui_2exp.c set_si_2exp.c set_uj.c set_sj.c get_sj.c get_uj.c get_z.c iszero.c cache.c sqr.c int_ceil_log2.c isqrt.c strtofr.c pow_z.c logging.c mulders.c get_f.c round_p.c erfc.c atan2.c subnormal.c const_catalan.c root.c gen_inverse.h sec.c csc.c cot.c eint.c sech.c csch.c coth.c round_near_x.c constant.c abort_prec_max.c stack_interface.c lngamma.c zeta_ui.c set_d64.c get_d64.c jn.c yn.c remquo1.c remquo2.c get_patches.c",
+    Source + "/mpfr/Makefile.am")
+
+ChangeLine(
+    "	get_d64$U.lo jn$U.lo yn$U.lo remquo$U.lo get_patches$U.lo",
+    "	get_d64$U.lo jn$U.lo yn$U.lo remquo1$U.lo remquo2$U.lo get_patches$U.lo",
+    Source + "/mpfr/Makefile.in")
+
+ChangeLine(
+    "	set_d64.c get_d64.c jn.c yn.c remquo.c get_patches.c",
+    "	set_d64.c get_d64.c jn.c yn.c remquo1.c remquo2.c get_patches.c",
+    Source + "/mpfr/Makefile.in")
+
+CreateFile(
+    Source + "/mpfr/remquo1.c",
+    "#define _INSIDE_REMQUO\n"
+    + "#include \"mpfr-impl.h\"\n"
+    + "#include \"remquo.c\"\n");
+
+CreateFile(
+    Source + "/mpfr/remquo2.c",
+    "#define _INSIDE_REMQUO\n"
+    + "#include \"mpfr-impl.h\"\n"
+    + "#define WANTED_BITS (sizeof(long) * CHAR_BIT - 1)\n"
+    + "#define REMQUO\n"
+    + "#include \"remquo.c\"\n");
+
 #
 # i686-pc-mingw32-gcc -DHAVE_CONFIG_H -I. -I/src/gccsvn/binutils -I. -D_GNU_SOURCE
 #  -I. -I/src/gccsvn/binutils -I../bfd -I/src/gccsvn/binutils/../bfd -I/src/gccsvn
@@ -909,9 +1060,10 @@ ChangeLine(
 # make[3]: Leaving directory `/obj/gcc.7/i686-pc-mingw32/i686-pc-mingw32/binutils'
 #
 if "binutils" in sys.argv:
-    ChangeLineInFile("#if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)\n",
-                     "#if 0\n",
-                     Source + "/binutils/strings.c")
+    ChangeLine(
+        "#if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)\n",
+        "#if 0\n",
+        Source + "/binutils/strings.c")
 #
 # ln -s libgcc.map libgcc.map.def && if [ ! -d ./shlib ]; then mkdir ./shlib else
 # true; fi && ccache /obj/gcc.7/i686-pc-cygwin/i686-pc-mingw32/./gcc/xgcc -B/obj/g
@@ -949,20 +1101,20 @@ if "binutils" in sys.argv:
 # ln: creating symbolic link `libgcc.map.def': File exists
 # make: *** [libgcc_s.dll] Error 1
 #
-ChangeLineInFile("SHLIB_LINK = $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
-                 "SHLIB_LINK = rm -f $(SHLIB_MAP).def; $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
-                 Source + "/gcc/config/i386/t-cygming")
+ChangeLine(
+    "SHLIB_LINK = $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
+    "SHLIB_LINK = rm -f $(SHLIB_MAP).def; $(LN_S) $(SHLIB_MAP) $(SHLIB_MAP).def && \\\n",
+    Source + "/gcc/config/i386/t-cygming")
 #
 # or just don't build shared libgcc, which fixes other problems on other platforms
 #
 
 def ReplaceWithinLines(Strings, Files):
-    print("ReplaceWithinLines:" + Strings[0] + ":" + Files[0])
     for File in Files:
         File = Source + "/" + File
-        #print("ReplaceWithinLines: " + File + "..")
         if not os.path.isfile(File):
             continue
+        #print("ReplaceWithinLines: " + Strings[0] + ":" + File)
         Changed = False
         NewLines = [ ]
         OldLines = file(File).readlines()
@@ -977,11 +1129,10 @@ def ReplaceWithinLines(Strings, Files):
             NewLines += Line
             #sys.stdout.write(".")
         if Changed:
-            #print("ReplaceWithinLines: " + File + "...")
+            print("ReplaceWithinLines: updating " + File)
             file(File, "w").writelines(NewLines)
         else:
-            #print("ReplaceWithinLines: " + File + "....")
-            pass
+            print("ReplaceWithinLines: already up to date " + File)
 
 ReplaceWithinLines(
     [" = obstack_alloc", " = (void *) obstack_alloc",
@@ -995,7 +1146,7 @@ ReplaceWithinLines(
     "gcc/tree-sra.c", "gcc/cp/calls.c", "gcc/cp/mangle.c", "gcc/cp/parser.c"])
 
 def ReplaceLineSequence(From, To, Files):
-    # print("ReplaceLineSequence:" + From[0] + ":" + Files[0])
+    #print("ReplaceLineSequence:" + From[0] + ":" + Files[0])
     len_From = len(From)
     for File in Files:
         File = Source + "/" + File
@@ -1019,7 +1170,10 @@ def ReplaceLineSequence(From, To, Files):
                 NewLines += OldLines[i]
             i += 1
         if Changed:
+            print("ReplaceLineSequence: updating " + File)
             file(File, "w").writelines(NewLines)
+        else:
+            print("ReplaceLineSequence: already up to date " + File)
 
 ReplaceLineSequence(
     ["  const int     bufsz = 4096;\n",
@@ -1043,7 +1197,10 @@ def RemoveCplusplusComments(Files):
                 Line = Line[:j]
             NewLines += Line
         if Changed:
+            print("RemoveCplusplusComments: updating " + File)
             file(File, "w").writelines(NewLines)
+        else:
+            print("RemoveCplusplusComments: already up to date " + File)
 
 RemoveCplusplusComments(
     ["gas/bfin-parse.c", "gas/config/obj-coff.c", "gas/config/tc-bfin.c", "gas/config/tc-cr16.c",
@@ -1056,8 +1213,6 @@ def PatchOutLibIConv(Obj):
 #
 # This is not really needed, but nice to have.
 #
-    PatchName = "libiconv dependency"
-
     for a in ["binutils", "gcc", "libcpp", "libdecnumber"]:
         FilePath = Obj + "/" + a
         if not os.path.isdir(FilePath):
@@ -1091,11 +1246,10 @@ def PatchOutLibIConv(Obj):
                     Changed = True
                 NewLines += NewLine
             if Changed:
+                print("PatchOutLibIConv: updating " + FilePath)
                 file(FilePath, "w").writelines(NewLines)
-            print("done patching " + PatchName + " in " + FilePath)
-
-    print("done patching " + PatchName)
-
+            else:
+                print("PatchOutLibIConv: already up to date " + FilePath)
 
 def PatchOutOptimizer(Target, Obj):
 #
@@ -1187,10 +1341,10 @@ def PatchOutOptimizer(Target, Obj):
                         Changed = True
                 NewLines += NewLine
             if Changed:
+                print("PatchOutOptimizer: updating " + FilePath)
                 file(FilePath, "w").writelines(NewLines)
-            print("done patching " + PatchName + " in " + FilePath)
-
-    print("done patching " + PatchName)
+            else:
+                print("PatchOutOptimizer: already up to date " + FilePath)
 
 def WorkaroundUnableToFindSparc64LibGcc():
 #
@@ -1456,7 +1610,8 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         # configure-build does not exist
         #
         if a != "build":
-            Run(Obj, Make + " configure-" + a + " " + Environ)
+            if not "noconfigure" in sys.argv:
+                Run(Obj, Make + " configure-" + a + " " + Environ)
             PatchOutLibIConv(Obj)
             PatchOutOptimizer(Target, Obj)
         Run(Obj, Make + " all-" + a + " " + Environ)
@@ -1470,6 +1625,9 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     if DestDir:
         print("Success; copy " + DestDir + " to your " + Host + " machine")
+
+if "nobuild" in sys.argv:
+    sys.exit(1)
 
 Platform1 = Build
 
