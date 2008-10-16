@@ -194,6 +194,16 @@ ConfigCommon += " -disable-intl "
 ConfigCommon += " -disable-po "
 
 #
+# Disable-bootstrap is faster, and fixes some problems.
+# e.g. bootstrapping on SGI/Irix fails to build libgcc if you
+# do not disable bootstrap.
+#
+# Do go ahead and install and rebuild though, not automated here.
+#
+
+ConfigCommon += " -disable-bootstrap "
+
+#
 # Cygwin defaults -enable-threads to off, but -enable-threads works, so enable it explicitly.
 # However we'll probably have to remove this for DJGPP.
 #
@@ -556,6 +566,11 @@ def AddLineBeforeLine(First, Second, FilePath):
 AddLines(["LDFLAGS += -Wl,--stack,8388608"], Source + "/config/mh-cygwin")
 AddLines(["LDFLAGS += -Wl,--stack,8388608", "CFLAGS += -D__USE_MINGW_ACCESS"], Source + "/config/mh-mingw")
 
+AddLines(
+    [ "# default heap is 256m and is insufficient for gcc's gen* programs; use 512m",
+      "LDFLAGS += -Wl,-bmaxdata:0x80000000",
+      "BOOT_LDFLAGS += -Wl,-bmaxdata:0x80000000" ],
+    Source + "/config/mh-ppc-aix")
 #
 # /src/gcc/libiberty/strsignal.c:408: error: conflicting types for 'strsignal'
 #   const char *
@@ -1497,9 +1512,6 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     ExtraConfig += " -disable-libjava "
 
-    if "disable-bootstrap" in sys.argv:
-        ExtraConfig += " -disable-bootstrap "
-
     if Target.find("-irix") != -1:
 
         if Build == Host and Host == Target:
@@ -1519,11 +1531,11 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
             # Without a little more work, there's no C++ compiler.
             # /usr/WorkShop/usr/bin/NCC converts C++ to C, so could be wrapped up easily.
             #
-            #Languages = "c"
+            Languages = "c"
 
             # in case of unified source tree
 
-            #ExtraConfig += " disable-libstdc++-v3 "
+            #ExtraConfig += " -disable-libstdc++-v3 "
 
         else:
 
