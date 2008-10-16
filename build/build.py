@@ -16,18 +16,56 @@ import os
 import sys
 import re
 
+# Irix nohup ./build.py gccrel binutils gmp > nohup.out &
+
 #
-# some platforms (we need to run config.guess)
-#  powerpc-ibm-aix5.3.0.0
-#  i686-pc-cygwin
-#  sparc-sun-solaris2.10
-#  sparc64-sun-solaris2.10
-#  i686-pc-mingw32
-#  i586-pc-msdosdjgpp
-#  mips-sgi-irix6.5
+# i686-pc-cygwin
+# i686-pc-mingw32
+# i586-pc-msdosdjgpp
+# sparc-sun-solaris2.10
+# sparc64-sun-solaris2.10
+# mips-sgi-irix6.5
+# powerpc-ibm-aix5.3.0.0
+#
+# use canonical names including version
+#  - sometimes they get further canonicalized, sometimes not
+#  - libgcc wants a version in Platform2
 #
 
-ObjRoot = "/obj/gcc.2"
+Build = ""
+
+def ConfigGuess():
+    global Build
+    u = os.uname()
+    if u[0].startswith("CYGWIN"):
+        Build = "i686-pc-cygwin"
+    elif u[0] == "AIX":
+        Build = "powerpc-ibm-aix" + u[3][0] + "." + u[2][0] + ".0.0"
+    elif u[0] == "IRIX":
+        Build = "mips-sgi-irix" + u[2]
+    elif u[0] == "Linux":
+        #
+        # sometimes config.guess says "unknown", sometimes "pc"
+        #
+        if re.match("i[3456]86", u[4]):
+            Build = u[4] + "-pc-linux-gnu"
+        else:
+            Build = u[4] + "-unknown-linux-gnu"
+    else:
+        print("ERROR: update ConfigGuess for " + u)
+        sys.exit(1)
+
+ConfigGuess()
+print("building on " + Build)
+
+if "patchonly" in sys.argv:
+    sys.argv += ["nobuild"]
+    sys.argv += ["noconfigure"]
+
+print(sys.argv)
+
+ObjRoot = "/obj/gcc.4"
+
 Source = "/src"
 if os.path.isdir("/net/src"):
     Archives = "/net/src"
@@ -38,14 +76,6 @@ GccSvnVersion = "4.4.0"
 GccVersion = None
 GmpVersion = "4.2.3"
 MpfrVersion = "2.3.2"
-
-#
-# use canonical names including version
-#  - sometimes they get further canonicalized, sometimes not
-#  - libgcc wants a version in Platform2
-# TBD: run config.guess, or do it ourselves for platforms we support
-#
-Build = "i686-pc-cygwin"
 
 Prefix = "/usr/local"
 # Prefix = "/usr"
@@ -162,14 +192,6 @@ ConfigCommon += " -infodir=" + Prefix + "/share/info "
 ConfigCommon += " -disable-nls "
 ConfigCommon += " -disable-intl "
 ConfigCommon += " -disable-po "
-
-ConfigCommon += " -with-gnu-as "
-ConfigCommon += " -with-gnu-ld "
-
-#
-# We already build and install the necessary compilers. Don't build them again.
-#
-ConfigCommon += " -disable-bootstrap "
 
 #
 # Cygwin defaults -enable-threads to off, but -enable-threads works, so enable it explicitly.
@@ -367,7 +389,7 @@ def Extract(Directory, MarkerDirectory, FilePath):
 
     CreateDirectories(Directory);
     for ext in [".tar.gz", ".tgz"]:
-        if os.path.exists(FilePath + ext):
+        if os.path.isfile(FilePath + ext):
             Run(Directory, "gzip -d < " + FilePath + ext + " | " + Tar + " --strip-components=1 -xf -")
             return True
 
@@ -376,7 +398,7 @@ def Extract(Directory, MarkerDirectory, FilePath):
     #
 
     for ext in [".tar.bz2", ".tbz"]:
-        if os.path.exists(FilePath + ext):
+        if os.path.isfile(FilePath + ext):
             Run(Directory, "bzip2 -d < " + FilePath + ext + " | " + Tar + " --strip-components=1 -xf -")
             return True
 
@@ -386,7 +408,7 @@ def Extract(Directory, MarkerDirectory, FilePath):
     #
 
     for ext in [".tlz", ".tar.lzma"]:
-        if os.path.exists(FilePath + ext):
+        if os.path.isfile(FilePath + ext):
             Run(Directory, Tar + " --strip-components=1 --lzma -xf " + FilePath + ext)
             return True
 
@@ -1031,7 +1053,7 @@ def RemoveFunctionIf(FunctionName, If, FilePath):
     ReplaceFunctionIf(FunctionName, None, If, FilePath)
 
 def CreateFile(FilePath, Contents):
-    if (not os.path.exists(FilePath)) or (Contents != file(FilePath).read()):
+    if (not os.path.isfile(FilePath)) or (Contents != file(FilePath).read()):
         print("CreateFile: creating or updating " + FilePath)
         file(FilePath, "w").write(Contents)
     else:
@@ -1040,9 +1062,9 @@ def CreateFile(FilePath, Contents):
 IfIrixBootstrap = "#if !defined(__GNUC__) && defined(_ABIO32) /* Irix /usr/WorkShop/usr/bin/ncc has trouble preprocessing in this function. */"
 
 RemoveFunctionIf("find_split_point", IfIrixBootstrap, Source + "/gcc/combine.c")
-ReplaceFunctionIf("combine_simplify_rtx", "return x;", IfIrixBootstrap, Source + "/gcc/combine.c")
-ReplaceFunctionIf("try_combine", "return 0;", IfIrixBootstrap, Source + "/gcc/combine.c")
-ReplaceFunctionIf("expand_field_assignment", "return x;", IfIrixBootstrap, Source + "/gcc/combine.c")
+ReplaceFunctionIf("combine_simplify_rtx", "  return x;", IfIrixBootstrap, Source + "/gcc/combine.c")
+ReplaceFunctionIf("try_combine", "  return 0;", IfIrixBootstrap, Source + "/gcc/combine.c")
+ReplaceFunctionIf("expand_field_assignment", "  return x;", IfIrixBootstrap, Source + "/gcc/combine.c")
 
 #
 # Irix /usr/WorkShop/usr/bin/ncc doesn't like .c files that #include themselves.
@@ -1067,17 +1089,17 @@ if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
 
     CreateFile(
         Source + "/mpfr/remquo1.c",
-        "#define _INSIDE_REMQUO"
-        + "#include \"mpfr-impl.h\""
-        + "#include \"remquo.c\"");
+        "#define _INSIDE_REMQUO\n"
+        + "#include \"mpfr-impl.h\"\n"
+        + "#include \"remquo.c\"\n");
 
     CreateFile(
         Source + "/mpfr/remquo2.c",
-        "#define _INSIDE_REMQUO"
-        + "#include \"mpfr-impl.h\""
-        + "#define WANTED_BITS (sizeof(long) * CHAR_BIT - 1)"
-        + "#define REMQUO"
-        + "#include \"remquo.c\"");
+        "#define _INSIDE_REMQUO\n"
+        + "#include \"mpfr-impl.h\"\n"
+        + "#define WANTED_BITS (sizeof(long) * CHAR_BIT - 1)\n"
+        + "#define REMQUO\n"
+        + "#include \"remquo.c\"\n");
 
 #
 # i686-pc-mingw32-gcc -DHAVE_CONFIG_H -I. -I/src/gccsvn/binutils -I. -D_GNU_SOURCE
@@ -1417,25 +1439,75 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     if Target == None:
         Target = Build
 
+
+    Environ = " "
+
+    # http://gcc.gnu.org/install/specific.html#x-ibm-aix
     #
-    # GNU ld does not work for targeting Irix due to not fully
+    # This too late? Tell user to do it?
+    #
+    #if Build.find("aix") != -1:
+    #    if os.path.isfile("/opt/freeware/bin/bash"):
+    #        sys.environ["CONFIG_SHELL"] = "/opt/freeware/bin/bash"
+    #        Environ += " CONFIG_SHELL=/opt/freeware/bin/bash "
+
+    #
+    # On cross builds GNU ld does not work for targeting Irix due to not fully
     # investigated reasons. Therefore only Irix native is supported,
     # and don't use GNU ld. There are two problems:
     #  ld does not find libc, even with sys-root
     #  If you point ld at libc directly, there are assertion failures in ld.
     #  This has been seen in both Cygwin and GNU/Linux/x86.
     #
-    # It appears native builds can use GNU ld.
+    # It appears native builds can use GNU ld. (Does this refer to Irix?)
+    #
+    # On AIX, system ld is usually recommended, so use system as as well.
+    # On some AIX versions GNU ld is supported.
     #
 
-    if Target.find("irix") != -1:
+    # in case of unified source tree
+
+    ConfigDisableBinutils = (
+        " -disable-ld "
+        + " -disable-gas "
+        + " -disable-binutils "
+        + " -disable-bfd "
+        + " -disable-cpu "
+        + " -disable-gprof "
+        + " -disable-opcodes ");
+
+    if Target.find("-aix") != -1:
+        ExtraConfig += " -enable-threads "
+        # assume native builds
+        ExtraConfig += " -without-gnu-as "
+        ExtraConfig += " -without-gnu-ld "
+        ExtraConfig += " -with-as=/usr/bin/as "
+        ExtraConfig += " -with-ld=/usr/bin/ld "
+        ExtraConfig += ConfigDisableBinutils
+
+    else:
+        ExtraConfig += " -with-gnu-as "
+        ExtraConfig += " -with-gnu-ld "
+
+    if Target.find("-irix") != -1:
+        if (Target != Host) or (Target != Build):
+            print("ERROR: non-native Irix builds not supported")
+
+    # in case of unified source tree
+
+    ExtraConfig += " -disable-libjava "
+
+    if "disable-bootstrap" in sys.argv:
+        ExtraConfig += " -disable-bootstrap "
+
+    if Target.find("-irix") != -1:
+
         if Build == Host and Host == Target:
-            #ExtraConfig += " -without-gnu-ld "
 
             #
             # LOTS of warnings, so quash them all.
             #
-            if not os.path.exists("/usr/local/bin/gcc"):
+            if not os.path.isfile("/usr/local/bin/gcc"):
                 ExtraConfig += " CC='/usr/WorkShop/usr/bin/ncc -w' "
 
             #
@@ -1445,9 +1517,16 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
             #
             # Without a little more work, there's no C++ compiler.
+            # /usr/WorkShop/usr/bin/NCC converts C++ to C, so could be wrapped up easily.
             #
-            Languages = "c"
+            #Languages = "c"
+
+            # in case of unified source tree
+
+            #ExtraConfig += " disable-libstdc++-v3 "
+
         else:
+
             print("ERROR: non-native Irix builds will not work due to problems with ld")
             sys.exit(1)
 
@@ -1459,7 +1538,6 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # have it installed (on Debian/Ubuntu -- apt-get install texinfo)
     #
 
-    Environ = " "
     Environ += " MAKEINFO=:"
     Environ += " CFLAGS=-g"
     Environ += " CFLAGS_FOR_BUILD=-g"
@@ -1500,15 +1578,15 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # make[4]: *** [socket.o] Error 1
     # make[4]: Leaving directory `/obj/gcc.1/i686-pc-cygwin/i586-pc-msdosdjgpp/gcc/ada/rts'
     #
-    if ((Host != Target) or (Build == Host)) and (Target.find("msdosdjgpp") != -1):
+    if ((Host != Target) or (Build == Host)) and (Target.find("-msdosdjgpp") != -1):
         #ExtraConfig += " -enable-languages=all,ada "
         pass
 
-    if Target.find("msdosdjgpp") != -1:
+    if Target.find("-msdosdjgpp") != -1:
         #ExtraConfig += " -enable-languages=c,c++,fortran,java,objc "
         pass
 
-    if (Target.find("sparc64") != -1) and (Target.find("solaris") != -1):
+    if (Target.find("sparc64-") != -1) and (Target.find("-solaris") != -1):
         #
         # see WorkaroundUnableToFindSparc64LibGcc
         #
@@ -1561,7 +1639,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     if Build != Target:
 
-        if Target.find("msdosdjgpp") != -1:
+        if Target.find("-msdosdjgpp") != -1:
 
             #
             # I don't remember why I put this in, but it makes some sense -- no dynamic linking on djgpp.
@@ -1628,7 +1706,6 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         ExtraConfig += " -with-sysroot=/"
         ExtraConfig += " -with-build-sysroot=" + DefaultSysroot
 
-
     ExtraConfig = re.sub("  +", " ", ExtraConfig)
 
     print("starting " + Host + "/" + Target)
@@ -1663,18 +1740,21 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
             if not "noconfigure" in sys.argv:
                 Run(Obj, Make + " configure-" + a + " " + Environ)
             PatchOutLibIConv(Obj)
-            PatchOutOptimizer(Target, Obj)
+            # PatchOutOptimizer(Target, Obj)
         Run(Obj, Make + " all-" + a + " " + Environ)
 
     Run(Obj, Make + " all " + Environ)
 
-    if True:
+    Date()
+    if "noinstall" in sys.argv:
+        print("skipping installing " + Host + "/" + Target)
+    else:
         print("installing " + Host + "/" + Target)
-        Date()
+        Run(Obj, Make + " install-gcc " + ExtraInstall + Environ)
         Run(Obj, Make + " install " + ExtraInstall + Environ)
+        if DestDir:
+            print("Success; copy " + DestDir + " to your " + Host + " machine")
 
-    if DestDir:
-        print("Success; copy " + DestDir + " to your " + Host + " machine")
 
 if "nobuild" in sys.argv:
     sys.exit(1)
