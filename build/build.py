@@ -15,8 +15,12 @@
 import os
 import sys
 import re
+from os import getenv
 
-# Irix nohup ./build.py gccrel binutils gmp > nohup.out &
+# e.g.:
+#   nohup ./build.py binutils gccrel gmp > 1.log &
+#   tail -f 1.log
+# but also ./build.py disable-bootstrap etc.
 
 #
 # i686-pc-cygwin
@@ -36,8 +40,27 @@ Build = ""
 
 def ConfigGuess():
     global Build
-    u = os.uname()
-    if u[0].startswith("CYGWIN"):
+
+    env_OS = getenv("OS")
+    if env_OS == "Windows_NT":
+        def uname():
+            PROCESSOR_ARCHITECTURE = getenv("PROCESSOR_ARCHITECTURE")
+            return (env_OS, "", PROCESSOR_ARCHITECTURE, "", PROCESSOR_ARCHITECTURE)
+        #
+        # cmd can run extensionless executables if this code is enabled.
+        # This can be useful for example with NT386GNU following more Posix-ish
+        # naming styles than even Cygwin usually does.
+        #
+        #pathext = getenv("PATHEXT");
+        #if pathext and not "." in pathext.split(";"):
+        #    pathext = ".;" + pathext
+        #    os.environ["PATHEXT"] = pathext
+        #    print("set PATHEXT=.;%PATHEXT%")
+    else:
+        from os import uname
+
+    u = uname()
+    if u[0].startswith("CYGWIN") or u[0] == "Windows_NT":
         Build = "i686-pc-cygwin"
     elif u[0] == "AIX":
         Build = "powerpc-ibm-aix" + u[3][0] + "." + u[2][0] + ".0.0"
@@ -52,19 +75,34 @@ def ConfigGuess():
         else:
             Build = u[4] + "-unknown-linux-gnu"
     else:
-        print("ERROR: update ConfigGuess for " + u)
+        print("ERROR: update ConfigGuess for " + u[0])
         sys.exit(1)
 
 ConfigGuess()
 print("building on " + Build)
 
-if "patchonly" in sys.argv:
-    sys.argv += ["nobuild"]
-    sys.argv += ["noconfigure"]
+NoExtract = "noextract" in sys.argv
+PatchOnly = "patchonly" in sys.argv
+DisableBootstrap = "disable-bootstrap" in sys.argv
+GmpMpfr = ("gmp" in sys.argv) or ("mpfr" in sys.argv)
+GccRel = ("gccrel" in sys.argv) or ("gcc-rel" in sys.argv)
+GccSvn = ("gccsvn" in sys.argv) or ("gcc-svn" in sys.argv)
+Cygwin = ("cygwin" in sys.argv) or ("winsup" in sys.argv)
+NoBuild = "nobuild" in sys.argv
+NoInstall = "noinstall" in sys.argv
+Binutils = "binutils" in sys.argv
+GccCore = (("gcc-core" in sys.argv) or ("gcccore" in sys.argv))
+CPlusPlus = (("gcc-c++" in sys.argv) or ("gccc++" in sys.argv) or ("c++" in sys.argv))
+NoConfigure = "noconfigure" in sys.argv
+NativeOnly = "nativeonly" in sys.argv
+
+if PatchOnly:
+    NoBuild = True
+    NoConfigure = True
 
 print(sys.argv)
 
-ObjRoot = "/obj/gcc.4"
+ObjRoot = "/obj/gcc.1"
 
 Source = "/src"
 if os.path.isdir("/net/src"):
@@ -80,8 +118,7 @@ MpfrVersion = "2.3.2"
 Prefix = "/usr/local"
 # Prefix = "/usr"
 
-
-i = 0
+i = 1
 while i != len(sys.argv):
     arg = sys.argv[i]
     if arg == "obj":
@@ -113,13 +150,32 @@ while i != len(sys.argv):
     elif arg == "build":
         i += 1
         Build = sys.argv[i]
+    elif ( arg == "binutils"
+            or arg == "gmp"
+            or arg == "mpfr"
+            or arg == "cygwin"
+            or arg == "winsup"
+            or arg == "gcccore"
+            or arg == "gcc-core"
+            or arg == "c++"
+            or arg == "gccc++"
+            or arg == "gcc-c++"
+            or arg == "patchonly"
+            or arg == "noextract"
+            or arg == "nobuild"
+            or arg == "noconfigure"
+            or arg == "noinstall"
+            or arg == "disable-bootstrap"):
+        pass
+    else:
+        print("ERROR: Not understand parameter: " + arg)
+        sys.exit(1)
     i += 1
 
 if "source" not in sys.argv:
-    if ("gccrel" in sys.argv) == ("gccsvn" in sys.argv):
+    if GccRel == GccSvn:
         print("ERROR: must specify either gccrel or gccsvn")
         sys.exit(1)
-
 
 #
 # Check for some basic utilities.
@@ -133,7 +189,6 @@ if "source" not in sys.argv:
 # mkdir (Python builtin doesn't work, related to Cygwin symlinks?)
 # rm (could use Python builtin?)
 #
-
 
 #
 # /usr/<local>/<Platform2>/sys-root must be prepared ahead of time
@@ -185,7 +240,6 @@ ConfigCommon += " -infodir=" + Prefix + "/share/info "
 # -enable-hash-synchronization
 # -enable-libstdcxx-debug
 
-
 #
 # Keep everything in English, and don't waste time otherwise.
 #
@@ -201,7 +255,8 @@ ConfigCommon += " -disable-po "
 # Do go ahead and install and rebuild though, not automated here.
 #
 
-ConfigCommon += " -disable-bootstrap "
+if DisableBootstrap:
+    ConfigCommon += " -disable-bootstrap "
 
 #
 # Cygwin defaults -enable-threads to off, but -enable-threads works, so enable it explicitly.
@@ -212,7 +267,7 @@ ConfigCommon += " -disable-bootstrap "
 #
 # Does this make things better on Solaris?
 #
-ConfigCommon += " -enable-rpath "
+# ConfigCommon += " -enable-rpath "
 
 #
 # -enable-cld is a compatibility deoptimization for Linux/x86 and possibly other x86/AMD64 operating systems.
@@ -256,11 +311,6 @@ ConfigCommon += " -enable-64-bit-bfd "
 ConfigCommon += " -disable-multilib "
 
 #
-# unfortunate, but fixes multiple problems on multiple platforms
-#
-ConfigCommon += " -disable-shared -enable-static "
-
-#
 # random speeds ups, some people will want these
 #
 ConfigCommon += " -disable-libgomp "
@@ -276,7 +326,6 @@ ConfigCommon += " -disable-libssp "
 #
 
 ConfigCommon = re.sub(" +", " ", ConfigCommon)
-
 
 # not yet used
 #TargetDjgppEnv = "ac_cv_func_shl_load=no"
@@ -357,7 +406,7 @@ def FindGnuTool(CurrentValue, ToolName):
     if not CurrentValue:
         for g in ["gnu", "g", ""]:
             CurrentValue = g + ToolName
-            if os.system(CurrentValue + " --help >/dev/null 2>&1") == 0:
+            if os.system(CurrentValue + " --help >" + os.devnull + " 2>&1") == 0:
                 break
     #print("using " + CurrentValue + " for " + ToolName)
     return CurrentValue
@@ -380,6 +429,9 @@ FindTar()
 # We should also support .zip, and try to support the DJGPP names.
 #
 def Extract(Directory, MarkerDirectory, FilePath):
+
+    if NoExtract:
+        return False
 
     #
     # It is a common bootstrapping problem for tar to either
@@ -439,12 +491,12 @@ def Extract(Directory, MarkerDirectory, FilePath):
 # cygwin and binutils must precede gcc so that gcc replaces common files
 #
 
-if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
+if Cygwin:
     Extract(Source, Source + "/winsup", Archives + "/" + "cygwin-src-20080912")
 
 ExtractedBinutils = False
 
-if "binutils" in sys.argv:
+if Binutils:
     ExtractedBinutils = Extract(Source, Source + "/binutils", Archives + "/" + "binutils-2.18")
 
 #
@@ -453,13 +505,13 @@ if "binutils" in sys.argv:
 #
 Languages = "c,c++"
 
-if "gccrel" in sys.argv or "gcc-rel" in sys.argv:
+if GccRel:
     Marker = Source + "/gcc"
     if ExtractedBinutils:
         Marker += "nonexistant"
-    if "gcc-core" in sys.argv or "gcccore" in sys.argv or "gcc-c++" in sys.argv or "gccc++" in sys.argv or "c++" in sys.argv:
+    if GccCore or CPlusPlus:
         Extract(Source, Marker, Archives + "/" + "gcc-core-" + GccRelVersion)
-        if "gcc-c++" in sys.argv or "gccc++" in sys.argv or "c++" in sys.argv:
+        if CPlusPlus:
             Extract(Source, Marker, Archives + "/" + "gcc-c++-" + GccRelVersion)
         else:
             Languages = "c"
@@ -467,9 +519,9 @@ if "gccrel" in sys.argv or "gcc-rel" in sys.argv:
         Extract(Source, Marker, Archives + "/" + "gcc-" + GccRelVersion)
 
 #
-# NOTE gccsvn offers no filtering of core/c++/objc/ada/java
+# NOTE: gccsvn offers no filtering of core/c++/objc/ada/java
 #
-if "gccsvn" in sys.argv or "gcc-svn" in sys.argv:
+if GccSvn:
     #
     # Where there is no overlap with binutils, use /d for perf.
     # Where is overlap with binutils, don't use /d for correctness.
@@ -480,10 +532,13 @@ if "gccsvn" in sys.argv or "gcc-svn" in sys.argv:
     # non recursive at the root
     Run(".", "xcopy /qyi " + "/dev2/gcc /src/gccsvn".replace("/", "\\\\"))
 
+    #
+    # NOTE: need to port to Unix or make portable
+    #
     for a in ["libiberty", "config", "include", "intl"]:
         Run(".", "xcopy /qyi " + ("/dev2/gcc/" + a + " /src/gccsvn/" + a).replace("/", "\\\\"))
 
-if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
+if GmpMpfr:
     Extract(Source + "/gmp", Source + "/gmp", Archives + "/" + "gmp-" + GmpVersion)
     Extract(Source + "/mpfr", Source + "/mpfr", Archives + "/" + "mpfr-" + MpfrVersion)
 
@@ -493,18 +548,24 @@ def RemoveEOL(a):
 def AddEOL(a):
     return a + "\n"
 
-def AddLines(LinesToAdd, FilePath):
-    LinesToAdd = dict().fromkeys(LinesToAdd)
+def AddLines(inorder_LinesToAdd, FilePath):
+    LinesToAdd = dict().fromkeys(inorder_LinesToAdd)
+    if not os.path.isfile(FilePath) and PatchOnly:
+        return
     ExistingLines = dict().fromkeys(map(RemoveEOL, file(FilePath).readlines()))
     for i in ExistingLines.keys():
         LinesToAdd.pop(i, None)
     if len(LinesToAdd) != 0:
         print("AddLines: updating " + FilePath)
-        file(FilePath, "a").writelines(map(AddEOL, LinesToAdd.keys()))
+        for Line in inorder_LinesToAdd:
+            if Line in LinesToAdd:
+                file(FilePath, "a").writelines(AddEOL(Line))
     else:
         print("AddLines: already up to date " + FilePath)
 
 def ChangeLine(From, To, FilePath):
+    if not os.path.isfile(FilePath) and PatchOnly:
+        return
     Changed = False
     NewLines = [ ]
     OldLines = map(RemoveEOL, file(FilePath).readlines())
@@ -520,6 +581,8 @@ def ChangeLine(From, To, FilePath):
         print("ChangeLine: already up to date " + FilePath)
 
 def AddLineAfterLine(First, Second, FilePath):
+    if not os.path.isfile(FilePath) and PatchOnly:
+        return
     Changed = False
     NewLines = [ ]
     OldLines = map(RemoveEOL, file(FilePath).readlines())
@@ -536,6 +599,8 @@ def AddLineAfterLine(First, Second, FilePath):
         print("AddLineAfterLine: already up to date " + FilePath)
 
 def AddLineBeforeLine(First, Second, FilePath):
+    if not os.path.isfile(FilePath) and PatchOnly:
+        return
     Changed = False
     NewLines = [ ]
     OldLines = map(RemoveEOL, file(FilePath).readlines())
@@ -560,16 +625,15 @@ def AddLineBeforeLine(First, Second, FilePath):
 # It is probably needed for more platforms.
 #
 # This is needed for 4.3.1.
-# The patch has not been applied for 4.3.2 and is most likely
-# needed there too.
+# The patch has not been applied for 4.3.2 and is most likely needed there too.
 #
 AddLines(["LDFLAGS += -Wl,--stack,8388608"], Source + "/config/mh-cygwin")
 AddLines(["LDFLAGS += -Wl,--stack,8388608", "CFLAGS += -D__USE_MINGW_ACCESS"], Source + "/config/mh-mingw")
 
 AddLines(
-    [ "# default heap is 256m and is insufficient for gcc's gen* programs; use 512m",
-      "LDFLAGS += -Wl,-bmaxdata:0x80000000",
-      "BOOT_LDFLAGS += -Wl,-bmaxdata:0x80000000" ],
+    [ "# default heap is 256MB and is insufficient for gcc's gen* programs; use 512MB",
+      "LDFLAGS += -Wl,-bmaxdata:0x20000000",
+      "BOOT_LDFLAGS += -Wl,-bmaxdata:0x20000000" ],
     Source + "/config/mh-ppc-aix")
 #
 # /src/gcc/libiberty/strsignal.c:408: error: conflicting types for 'strsignal'
@@ -673,9 +737,9 @@ AddLineAfterLine(
     "AC_DEFINE(HAVE_STRSIGNAL)",
     Source + "/libiberty/configure.ac")
 #
-# NOTE this isn't what rebuilding from configure.ac will get you, but
+# NOTE: This isn't what rebuilding from configure.ac will get you, but
 # it is close enough. There are two occurences of #define HAVE_SYS_NERR 1,
-# one is in the dead code, like 5675, guarded by if x = y. really this time,
+# one is in the dead code, like 5675, guarded by if x = y. Really this time,
 # followed by HAVE_SYS_SIGLIST. The other is in a Cygwin-specific lump,
 # line 6021, not dead, and what we want to hit (it also applies to mingwin;
 # will that hurt us? We'll find out much later. Yes, it appears likely.
@@ -683,8 +747,7 @@ AddLineAfterLine(
 # So the right fix to configure.ac will include breaking up the switch on platform.
 #
 
-
-if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
+if Cygwin:
 #
 # merged cygwin (winsup+newlib) tree with gcc tree
 #
@@ -707,9 +770,10 @@ if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 # CC_FOR_TARGET = $(CC)
 # AS_FOR_TARGET = $(AS)
 #
-# This is too aggressive.
+# is too aggressive.
 # An easy fix is to add -B../../../gcc to the end after the removals.
 # The real point is to add xgcc's directory to -B.
+# Is this correct for multi-stage bootstrap? I think so, but keep reading.
 #
 #ChangeLine(
 #   "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}",
@@ -723,7 +787,7 @@ if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
         "override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}}",
         """\
 #
-# if target contains "cygwin", then remove from CC all -L, -B, -system, -withprefixbefore options,
+# If target contains "cygwin", then remove from CC all -L, -B, -system, -withprefixbefore options,
 # EXCEPT for the first -B option, if it is the second word of CC.
 # CC is typically like CC := /obj/gcc.4/./gcc/xgcc -B/obj/gcc.4/./gcc/ ...
 # and if that first -B option is omitted, then:
@@ -734,6 +798,8 @@ if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 # We want instead:
 #   /obj/gcc.4/./gcc/xgcc -B/obj/gcc.4/./gcc/ -nostdinc -c -D__CRTDLL__ -U__MSVCRT__ -O2 -g -g -O2   -I/src/gcc/winsup/mingw/include -I/src/gcc/winsup/mingw/../include -nostdinc -iwithprefixbefore include -I /src/gcc/winsup/mingw/../w32api/include -mno-cygwin /src/gcc/winsup/mingw/crt1.c -o crt1.o
 #
+# This way we don't have to know the correct parameter for -B, just that it is normally the first
+# part of CC and keep it.
 # Another good implementation would be that if the first word of CC ends in "./gcc/xgcc", then
 # add -B of the first word's dir.
 #
@@ -741,14 +807,13 @@ if ("cygwin" in sys.argv) or ("winsup" in sys.argv):
 # then preserve the second word.
 #
 # It does not appear one can check for string equality.
-# Therefore, we use findstring(a,b) and findstr(b,a) to imply a == b.
+# Therefore, we use findstring(a,b) and findstring(b,a) to imply a == b.
 # And since findstring and "and" return the input non-empty string for a true output, the result of and is what we append.
 #
 override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-iwithprefixbefore\)  *[^ ]*\( \|$$\)% %g'}} \\
  ${and ${findstring ${firstword ${filter -B%,$(CC)}},${word 2,$(CC)}},${findstring ${word 2,$(CC)},${firstword ${filter -B%,$(CC)}}}}
 """,
         Source + "/winsup/mingw/Makefile.in")
-
 #
 # In file included from /src/gcc/winsup/cygwin/dcrt0.cc:24:
 # /src/gcc/winsup/cygwin/fhandler.h:545: error: conflicting type attributes specified for 'virtual void fhandler_pipe::raw_read(void*, size_t&)'
@@ -963,9 +1028,8 @@ override CC := ${filter-out -L% -B%,${shell echo $(CC) | sed -e 's%\(-isystem\|-
 # gcc configures it with cpu=none.
 #
 # This bug is present in at least gmp 4.2.2 and 4.2.3.
-
 #
-if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
+if GmpMpfr:
     ChangeLine(
         "  M4=m4-not-needed",
         "  : # M4=m4-not-needed",
@@ -983,6 +1047,8 @@ ChangeLine(
 # Irix /usr/WorkShop/usr/bin/ncc has trouble preprocessing combine.c
 #
 def ReplaceFunctionIf(FunctionName, Replacement, If, FilePath):
+    if not os.path.isfile(FilePath) and PatchOnly:
+        return
     if Replacement:
         xFunctionName = "ReplaceFunctionIf"
     else:
@@ -1068,12 +1134,18 @@ def RemoveFunctionIf(FunctionName, If, FilePath):
     ReplaceFunctionIf(FunctionName, None, If, FilePath)
 
 def CreateFile(FilePath, Contents):
+    if not os.path.isfile(FilePath) and PatchOnly:
+        return
     if (not os.path.isfile(FilePath)) or (Contents != file(FilePath).read()):
         print("CreateFile: creating or updating " + FilePath)
         file(FilePath, "w").write(Contents)
     else:
         print("CreateFile: already exists and has correct contents " + FilePath)
 
+#
+# This must be one line for our patching code to work. It would be nice to put the comment
+# on a separate line.
+#
 IfIrixBootstrap = "#if !defined(__GNUC__) && defined(_ABIO32) /* Irix /usr/WorkShop/usr/bin/ncc has trouble preprocessing in this function. */"
 
 RemoveFunctionIf("find_split_point", IfIrixBootstrap, Source + "/gcc/combine.c")
@@ -1084,9 +1156,9 @@ ReplaceFunctionIf("expand_field_assignment", "  return x;", IfIrixBootstrap, Sou
 #
 # Irix /usr/WorkShop/usr/bin/ncc doesn't like .c files that #include themselves.
 # It compiles them without error, but incorrectly -- their symbols aren't found when linking.
+# This construct is reportedly removed in the next version of mpfr but I haven't checked/tested yet.
 #
-
-if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
+if GmpMpfr:
     ChangeLine(
         "libmpfr_la_SOURCES = mpfr.h mpf2mpfr.h mpfr-gmp.h mpfr-impl.h mpfr-longlong.h mpfr-thread.h exceptions.c extract.c uceil_exp2.c uceil_log2.c ufloor_log2.c add.c add1.c add_ui.c agm.c clear.c cmp.c cmp_abs.c cmp_si.c cmp_ui.c comparisons.c div_2exp.c div_2si.c div_2ui.c div.c div_ui.c dump.c eq.c exp10.c exp2.c exp3.c exp.c frac.c get_d.c get_exp.c get_str.c init.c inp_str.c isinteger.c isinf.c isnan.c isnum.c const_log2.c log.c mul_2exp.c mul_2si.c mul_2ui.c mul.c mul_ui.c neg.c next.c out_str.c const_pi.c pow.c pow_si.c pow_ui.c print_raw.c print_rnd_mode.c random2.c random.c reldiff.c round_prec.c set.c setmax.c setmin.c set_d.c set_dfl_prec.c set_exp.c set_rnd.c set_f.c set_prc_raw.c set_prec.c set_q.c set_si.c set_str.c set_str_raw.c set_ui.c set_z.c sqrt.c sqrt_ui.c sub.c sub1.c sub_ui.c rint.c ui_div.c ui_sub.c urandomb.c get_z_exp.c swap.c  factorial.c cosh.c sinh.c tanh.c acosh.c asinh.c atanh.c atan.c cmp2.c exp_2.c asin.c const_euler.c cos.c sin.c tan.c fma.c fms.c hypot.c log1p.c expm1.c log2.c log10.c ui_pow.c ui_pow_ui.c minmax.c dim.c signbit.c copysign.c setsign.c gmp_op.c init2.c acos.c sin_cos.c set_nan.c set_inf.c powerof2.c gamma.c set_ld.c get_ld.c cbrt.c volatile.c fits_s.h fits_sshort.c fits_sint.c fits_slong.c fits_u.h fits_ushort.c fits_uint.c fits_ulong.c fits_uintmax.c fits_intmax.c get_si.c get_ui.c zeta.c cmp_d.c erf.c inits.c inits2.c clears.c sgn.c check.c sub1sp.c version.c mpn_exp.c mpfr-gmp.c mp_clz_tab.c sum.c add1sp.c free_cache.c si_op.c cmp_ld.c set_ui_2exp.c set_si_2exp.c set_uj.c set_sj.c get_sj.c get_uj.c get_z.c iszero.c cache.c sqr.c int_ceil_log2.c isqrt.c strtofr.c pow_z.c logging.c mulders.c get_f.c round_p.c erfc.c atan2.c subnormal.c const_catalan.c root.c gen_inverse.h sec.c csc.c cot.c eint.c sech.c csch.c coth.c round_near_x.c constant.c abort_prec_max.c stack_interface.c lngamma.c zeta_ui.c set_d64.c get_d64.c jn.c yn.c remquo.c get_patches.c",
         "libmpfr_la_SOURCES = mpfr.h mpf2mpfr.h mpfr-gmp.h mpfr-impl.h mpfr-longlong.h mpfr-thread.h exceptions.c extract.c uceil_exp2.c uceil_log2.c ufloor_log2.c add.c add1.c add_ui.c agm.c clear.c cmp.c cmp_abs.c cmp_si.c cmp_ui.c comparisons.c div_2exp.c div_2si.c div_2ui.c div.c div_ui.c dump.c eq.c exp10.c exp2.c exp3.c exp.c frac.c get_d.c get_exp.c get_str.c init.c inp_str.c isinteger.c isinf.c isnan.c isnum.c const_log2.c log.c mul_2exp.c mul_2si.c mul_2ui.c mul.c mul_ui.c neg.c next.c out_str.c const_pi.c pow.c pow_si.c pow_ui.c print_raw.c print_rnd_mode.c random2.c random.c reldiff.c round_prec.c set.c setmax.c setmin.c set_d.c set_dfl_prec.c set_exp.c set_rnd.c set_f.c set_prc_raw.c set_prec.c set_q.c set_si.c set_str.c set_str_raw.c set_ui.c set_z.c sqrt.c sqrt_ui.c sub.c sub1.c sub_ui.c rint.c ui_div.c ui_sub.c urandomb.c get_z_exp.c swap.c  factorial.c cosh.c sinh.c tanh.c acosh.c asinh.c atanh.c atan.c cmp2.c exp_2.c asin.c const_euler.c cos.c sin.c tan.c fma.c fms.c hypot.c log1p.c expm1.c log2.c log10.c ui_pow.c ui_pow_ui.c minmax.c dim.c signbit.c copysign.c setsign.c gmp_op.c init2.c acos.c sin_cos.c set_nan.c set_inf.c powerof2.c gamma.c set_ld.c get_ld.c cbrt.c volatile.c fits_s.h fits_sshort.c fits_sint.c fits_slong.c fits_u.h fits_ushort.c fits_uint.c fits_ulong.c fits_uintmax.c fits_intmax.c get_si.c get_ui.c zeta.c cmp_d.c erf.c inits.c inits2.c clears.c sgn.c check.c sub1sp.c version.c mpn_exp.c mpfr-gmp.c mp_clz_tab.c sum.c add1sp.c free_cache.c si_op.c cmp_ld.c set_ui_2exp.c set_si_2exp.c set_uj.c set_sj.c get_sj.c get_uj.c get_z.c iszero.c cache.c sqr.c int_ceil_log2.c isqrt.c strtofr.c pow_z.c logging.c mulders.c get_f.c round_p.c erfc.c atan2.c subnormal.c const_catalan.c root.c gen_inverse.h sec.c csc.c cot.c eint.c sech.c csch.c coth.c round_near_x.c constant.c abort_prec_max.c stack_interface.c lngamma.c zeta_ui.c set_d64.c get_d64.c jn.c yn.c remquo1.c remquo2.c get_patches.c",
@@ -1115,7 +1187,6 @@ if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
         + "#define WANTED_BITS (sizeof(long) * CHAR_BIT - 1)\n"
         + "#define REMQUO\n"
         + "#include \"remquo.c\"\n");
-
 #
 # i686-pc-mingw32-gcc -DHAVE_CONFIG_H -I. -I/src/gccsvn/binutils -I. -D_GNU_SOURCE
 #  -I. -I/src/gccsvn/binutils -I../bfd -I/src/gccsvn/binutils/../bfd -I/src/gccsvn
@@ -1136,7 +1207,7 @@ if ("gmp" in sys.argv) or ("mpfr" in sys.argv):
 # make[3]: *** [strings.o] Error 1
 # make[3]: Leaving directory `/obj/gcc.7/i686-pc-mingw32/i686-pc-mingw32/binutils'
 #
-if "binutils" in sys.argv:
+if Binutils:
     ChangeLine(
         "#if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)",
         "#if 0",
@@ -1252,7 +1323,7 @@ def ReplaceLineSequence(From, To, Files):
         else:
             print("ReplaceLineSequence: already up to date " + FilePath)
 
-if "binutils" in sys.argv:
+if Binutils:
     ReplaceLineSequence(
         ["  const int     bufsz = 4096;",
         "  char          symbuf [bufsz];"],
@@ -1270,9 +1341,9 @@ def RemoveCplusplusComments(Files):
         OldLines = map(RemoveEOL, file(FilePath).readlines())
         for Line in OldLines:
             j = Line.find("//")
-            if (j != -1) and (Line != "/*#define SHOW_NUM 1*//* Uncomment for debugging.  */"):
+            if (j != -1) and (Line != "/*#define SHOW_NUM 1*//* Uncomment for debugging.  */") and (Line.find("http://") == -1):
                 Changed = True
-                Line = Line[:j]
+                Line = Line[:j] + "/*" + Line[j + 2:] + " */"
             NewLines.append(Line)
         if Changed:
             print("RemoveCplusplusComments: updating " + FilePath)
@@ -1420,27 +1491,6 @@ def PatchOutOptimizer(Target, Obj):
             else:
                 print("PatchOutOptimizer: already up to date " + FilePath)
 
-def WorkaroundUnableToFindSparc64LibGcc():
-#
-# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37079
-# ld: cannot find -lgcc_s
-# collect2: ld returned 1 exit status
-# make[4]: *** [libstdc++.la] Error 1
-# make[4]: Leaving directory /obj/gcc.1/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/libstdc++-v3/src
-#
-# -disable-shared is probably also a good workaround here
-#
-    #Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
-    #Run(".", "mkdir -p " + Directory)
-    #Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
-    #Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
-    #
-    # disable shared instead
-    #
-    pass
-
-WorkaroundUnableToFindSparc64LibGcc()
-
 def Date():
     Run(".", "@sh -c date")
 
@@ -1460,12 +1510,26 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # http://gcc.gnu.org/install/specific.html#x-ibm-aix
     #
     # This too late? Tell user to do it?
+    # Check user setting if present, else do it for them.
     #
-    #if Build.find("aix") != -1:
-    #    if os.path.isfile("/opt/freeware/bin/bash"):
-    #        sys.environ["CONFIG_SHELL"] = "/opt/freeware/bin/bash"
-    #        Environ += " CONFIG_SHELL=/opt/freeware/bin/bash "
-
+    if Build.find("aix") != -1:
+        env_ConfigShell = os.environ.get("CONFIG_SHELL")
+        Candidates = ["/bin/bash", "/opt/freeware/bin/bash"]
+        if env_ConfigShell:
+            if (env_ConfigShell != "bash") and (not env_ConfigShell.endswith("/bash")):
+                print("WARNING: AIX: CONFIG_SHELL should be set to bash for performance")
+                for a in Candidates:
+                    if os.path.isfile(a):
+                        print("WARNING: e.g. export CONFIG_SHELL=" + a)
+        else:
+            for a in Candidates:
+                if os.path.isfile(a):
+                    print("export CONFIG_SHELL=" + a)
+                    os.environ["CONFIG_SHELL"] = a
+                    Environ += "WARNING: AIX: CONFIG_SHELL=" + a + " "
+                    break
+            else:
+                print("WARNING: AIX: CONFIG_SHELL should be set to bash for performance, but I could not find bash")
     #
     # On cross builds GNU ld does not work for targeting Irix due to not fully
     # investigated reasons. Therefore only Irix native is supported,
@@ -1483,12 +1547,12 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # in case of unified source tree
 
     ConfigDisableBinutils = (
-        " -disable-ld "
-        + " -disable-gas "
-        + " -disable-binutils "
+          " -disable-cpu "
         + " -disable-bfd "
-        + " -disable-cpu "
+        + " -disable-binutils "
+        + " -disable-gas "
         + " -disable-gprof "
+        + " -disable-ld "
         + " -disable-opcodes ");
 
     if Target.find("-aix") != -1:
@@ -1500,30 +1564,21 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         ExtraConfig += " -with-ld=/usr/bin/ld "
         ExtraConfig += ConfigDisableBinutils
 
-    else:
-        ExtraConfig += " -with-gnu-as "
-        ExtraConfig += " -with-gnu-ld "
-
-    if Target.find("-irix") != -1:
+    elif Target.find("-irix") != -1:
         if (Target != Host) or (Target != Build):
-            print("ERROR: non-native Irix builds not supported")
+            print("ERROR: IRIX: non-native Irix builds will not work due to problems with ld")
+            sys.exit(1)
 
-    # in case of unified source tree
-
-    ExtraConfig += " -disable-libjava "
-
-    if Target.find("-irix") != -1:
-
-        if Build == Host and Host == Target:
-
-            #
-            # LOTS of warnings, so quash them all.
-            #
-            if not os.path.isfile("/usr/local/bin/gcc"):
-                ExtraConfig += " CC='/usr/WorkShop/usr/bin/ncc -w' "
+        #
+        # Use the "free" old O32 EDG.
+        # There are many warnings, so -w to quash them all.
+        #
+        if not os.path.isfile("/usr/local/bin/gcc"):
+            ExtraConfig += " CC='/usr/WorkShop/usr/bin/ncc -w' "
 
             #
             # I don't remember why, but this was needed.
+            # (presumably related to the ncc compiler)
             #
             ExtraConfig += " -disable-dependency-tracking "
 
@@ -1531,17 +1586,34 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
             # Without a little more work, there's no C++ compiler.
             # /usr/WorkShop/usr/bin/NCC converts C++ to C, so could be wrapped up easily.
             #
-            Languages = "c"
+            if DisableBootstrap:
+                Languages = "c"
 
-            # in case of unified source tree
+        # in case of unified source tree
 
-            #ExtraConfig += " -disable-libstdc++-v3 "
+        #ExtraConfig += " -disable-libstdc++-v3 "
 
+        #
+        # GNU ld hits assertion failure, to be investigated,
+        # and GNU as is required.
+        #
+
+        ExtraConfig += " -disable-ld "
+        ExtraConfig += " -without-gnu-ld "
+        if Binutils:
+            ExtraConfig += " -with-gnu-as "
         else:
+            print("ERROR: IRIX: Irix requires gnu as -- add binutils to command line")
+            sys.exit(1)            
+            # ExtraConfig += " -without-gnu-as "
 
-            print("ERROR: non-native Irix builds will not work due to problems with ld")
-            sys.exit(1)
+    else:
+        ExtraConfig += " -with-gnu-as "
+        ExtraConfig += " -with-gnu-ld "
 
+    # in case of unified source tree
+
+    ExtraConfig += " -disable-libjava "
     ExtraConfig += " -enable-languages=" + Languages + " "
 
     #
@@ -1550,17 +1622,17 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # have it installed (on Debian/Ubuntu -- apt-get install texinfo)
     #
 
-    Environ += " MAKEINFO=:"
-    Environ += " CFLAGS=-g"
-    Environ += " CFLAGS_FOR_BUILD=-g"
-    Environ += " BOOT_CFLAGS=-g"
-    Environ += " CXXFLAGS=-g"
-    Environ += " CXXFLAGS_FOR_BUILD=-g"
-    Environ += " FCFLAGS=-g"
-    Environ += " GNATLIBCFLAGS=-g"
-    #Environ += " STAGE_CC_WRAPPER=ccache"
+    Environ += " MAKEINFO=: "
+    # Environ += " CFLAGS=-g "
+    #Environ += " CFLAGS_FOR_BUILD=-g "
+    #Environ += " BOOT_CFLAGS=-g "
+    #Environ += " CXXFLAGS=-g "
+    #Environ += " CXXFLAGS_FOR_BUILD=-g "
+    #Environ += " FCFLAGS=-g "
+    #Environ += " GNATLIBCFLAGS=-g "
+    #Environ += " STAGE_CC_WRAPPER=ccache "
     #
-    # Environ += " CC=\"ccache gcc\""
+    # Environ += " CC=\"ccache gcc\" "
     # This breaks Canadian.
     #
     Environ = re.sub("  +", " ", Environ)
@@ -1600,9 +1672,22 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     if (Target.find("sparc64-") != -1) and (Target.find("-solaris") != -1):
         #
-        # see WorkaroundUnableToFindSparc64LibGcc
+        # WorkaroundUnableToFindSparc64LibGcc()
         #
-        #ExtraConfig += " -disable-shared -enable-static "
+        # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37079
+        # ld: cannot find -lgcc_s
+        # collect2: ld returned 1 exit status
+        # make[4]: *** [libstdc++.la] Error 1
+        # make[4]: Leaving directory /obj/gcc.1/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/libstdc++-v3/src
+        #
+        #Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
+        #Run(".", "mkdir -p " + Directory)
+        #Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
+        #Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
+        #
+        # disable shared instead
+        #
+        ExtraConfig += " -disable-shared -enable-static "
         pass
 
     if Target.find("-cygwin") != -1:
@@ -1614,7 +1699,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         #
         # errors building shared libgcc for lack of -lc and -lpthread on command line
         #
-        #ExtraConfig += " -disable-shared -enable-static "
+        ExtraConfig += " -disable-shared -enable-static "
         pass
 
 
@@ -1622,13 +1707,8 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         #
         # errors building shared libgcc creating symlink that might already exist
         #
-        #ExtraConfig += " -disable-shared -enable-static "
+        ExtraConfig += " -disable-shared -enable-static "
         pass
-
-    #
-    # This benefits so many, just do it.
-    #
-    ExtraConfig += " -disable-shared -enable-static "
 
     #
     # cross builds have extra requirements that are not automated,
@@ -1653,11 +1733,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
         if Target.find("-msdosdjgpp") != -1:
 
-            #
-            # I don't remember why I put this in, but it makes some sense -- no dynamic linking on djgpp.
-            #
-
-            #ExtraConfig += " -disable-shared -enable-static "
+            ExtraConfig += " -disable-shared -enable-static "
 
             #
             # djgpp "favors" the pre-sysroot method, via the djgpp cross package
@@ -1744,37 +1820,45 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     print("making " + Host + "/" + Target)
     Date()
 
-    for a in ["build", "host", "target"]:
-        #
-        # configure-build does not exist
-        #
-        if a != "build":
-            if not "noconfigure" in sys.argv:
-                Run(Obj, Make + " configure-" + a + " " + Environ)
-            PatchOutLibIConv(Obj)
-            # PatchOutOptimizer(Target, Obj)
-        Run(Obj, Make + " all-" + a + " " + Environ)
+    if DisableBootstrap:
+        for a in ["build", "host", "target"]:
+            #
+            # configure-build does not exist
+            #
+            if a != "build":
+                if not NoConfigure:
+                    Run(Obj, Make + " configure-" + a + " " + Environ)
+                PatchOutLibIConv(Obj)
+                # PatchOutOptimizer(Target, Obj)
+            Run(Obj, Make + " all-" + a + " " + Environ)
+        else:
+            # needs work to achieve the goal, but works ok just
+            # progressing to make
+            pass
 
-    Run(Obj, Make + " all " + Environ)
+    Run(Obj, Make + " " + Environ)
 
     Date()
-    if "noinstall" in sys.argv:
+    if NoInstall:
         print("skipping installing " + Host + "/" + Target)
     else:
         print("installing " + Host + "/" + Target)
-        Run(Obj, Make + " install-gcc " + ExtraInstall + Environ)
+        # Run(Obj, Make + " install-gcc " + ExtraInstall + Environ)
         Run(Obj, Make + " install " + ExtraInstall + Environ)
         if DestDir:
             print("Success; copy " + DestDir + " to your " + Host + " machine")
 
 
-if "nobuild" in sys.argv:
+if NoBuild:
     sys.exit(1)
 
 Platform1 = Build
 
 # native
 DoBuild()
+
+if NativeOnly:
+    sys.exit(0)
 
 Platform2 = "sparc-sun-solaris2.10"
 DoBuild(Platform1, Platform2)
