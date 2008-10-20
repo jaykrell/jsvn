@@ -1529,6 +1529,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
     Environ = " "
 
+    #
     # http://gcc.gnu.org/install/specific.html#x-ibm-aix
     #
     # This too late? Tell user to do it?
@@ -1536,7 +1537,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     #
     if Build.find("aix") != -1:
         env_ConfigShell = os.environ.get("CONFIG_SHELL")
-        Candidates = ["/bin/bash", "/opt/freeware/bin/bash"]
+        Candidates = ["/bin/bash", "/usr/bin/bash", "/usr/local/bin/bash", "/opt/freeware/bin/bash"]
         if env_ConfigShell:
             if (env_ConfigShell != "bash") and (not env_ConfigShell.endswith("/bash")):
                 print("WARNING: AIX: CONFIG_SHELL should be set to bash for performance")
