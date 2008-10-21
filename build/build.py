@@ -165,6 +165,7 @@ while i != len(sys.argv):
             or arg == "nobuild"
             or arg == "noconfigure"
             or arg == "noinstall"
+            or arg == "nativeonly"
             or arg == "disable-bootstrap"):
         pass
     else:
@@ -1282,7 +1283,20 @@ def ReplaceWithinLines(Strings, Files):
         else:
             print("ReplaceWithinLines: already up to date " + FilePath)
 
+#
+#iris1 25% gmake hash.o
+#/usr/WorkShop/usr/bin/ncc -w -DHAVE_CONFIG_H -I. -I/src/binutils-2.18/gas -I. -D
+#_GNU_SOURCE -I. -I/src/binutils-2.18/gas -I../bfd -I/src/binutils-2.18/gas/confi
+#g -I/src/binutils-2.18/gas/../include -I/src/binutils-2.18/gas/.. -I/src/binutil
+#s-2.18/gas/../bfd -DLOCALEDIR="\"/usr/local/share/locale\""    -g -c /src/binuti
+#ls-2.18/gas/hash.c
+#"/src/binutils-2.18/gas/hash.c", line 119: error(3611): a value of type
+#          "char *" cannot be assigned to an entity of type
+#          "struct hash_entry **"
+#    ret->table = obstack_alloc (&ret->memory, alloc);
+#
 if False:
+    # works, but rejected upstream
     ReplaceWithinLines(
         [" = obstack_alloc", " = (void *) obstack_alloc",
         " = oballoc", " = (void *) oballoc"],
@@ -1294,22 +1308,18 @@ if False:
         "gcc/genpreds.c", "gcc/regrename.c", "gcc/reload1.c", "gcc/reorg.c", "gcc/tlink.c",
         "gcc/tree-sra.c", "gcc/cp/calls.c", "gcc/cp/mangle.c", "gcc/cp/parser.c"])
 else:
-    #
-    #iris1 25% gmake hash.o
-    #/usr/WorkShop/usr/bin/ncc -w -DHAVE_CONFIG_H -I. -I/src/binutils-2.18/gas -I. -D
-    #_GNU_SOURCE -I. -I/src/binutils-2.18/gas -I../bfd -I/src/binutils-2.18/gas/confi
-    #g -I/src/binutils-2.18/gas/../include -I/src/binutils-2.18/gas/.. -I/src/binutil
-    #s-2.18/gas/../bfd -DLOCALEDIR="\"/usr/local/share/locale\""    -g -c /src/binuti
-    #ls-2.18/gas/hash.c
-    #"/src/binutils-2.18/gas/hash.c", line 119: error(3611): a value of type
-    #          "char *" cannot be assigned to an entity of type
-    #          "struct hash_entry **"
-    #    ret->table = obstack_alloc (&ret->memory, alloc);
-    #
-    ChangeLine(
-        "# define __INT_TO_PTR(P) ((P) + (char *) 0)",
-        "# define __INT_TO_PTR(P) ((void*) ((P) + (char *) 0))",
-        Source + "/include/obstack.h")
+    if False:
+        # works, but rejected upstream
+        ChangeLine(
+            "# define __INT_TO_PTR(P) ((P) + (char *) 0)",
+            "# define __INT_TO_PTR(P) ((void*) ((P) + (char *) 0))",
+            Source + "/include/obstack.h")
+    else:
+        # applied upstream
+        ChangeLine(
+            "  __INT_TO_PTR ((h)->temp))",
+            "  (void*) __INT_TO_PTR ((h)->temp))",
+            Source + "/include/obstack.h")
 
 def ChangeLine(From, To, FilePath):
     if not os.path.isfile(FilePath) and PatchOnly:
