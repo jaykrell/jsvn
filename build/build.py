@@ -64,7 +64,7 @@ def ConfigGuess():
         Build = "i686-pc-cygwin"
     elif u[0] == "AIX":
         Build = "powerpc-ibm-aix" + u[3][0] + "." + u[2][0] + ".0.0"
-    elif u[0] == "IRIX":
+    elif u[0] == "IRIX" or u[0] == "IRIX64":
         Build = "mips-sgi-irix" + u[2]
     elif u[0] == "Linux":
         #
@@ -246,7 +246,7 @@ ConfigCommon += " -infodir=" + Prefix + "/share/info "
 #
 ConfigCommon += " -disable-nls "
 ConfigCommon += " -disable-intl "
-ConfigCommon += " -disable-po "
+# ConfigCommon += " -disable-po "
 
 #
 # Disable-bootstrap is faster, and fixes some problems.
@@ -283,7 +283,7 @@ ConfigCommon += " -enable-version-specific-runtime-libs "
 #
 # "Checking" reportedly is a significant slowdown, and rarely finds any problems.
 #
-ConfigCommon += " -disable-checking "
+# ConfigCommon += " -disable-checking "
 
 #
 # On some platforms, enable targeting multiple targets with one toolset, typically
@@ -309,13 +309,13 @@ ConfigCommon += " -enable-64-bit-bfd "
 # to target each other, which is maybe ok, that support can be confusing,
 # prone to not work, and not very valuable.
 #
-ConfigCommon += " -disable-multilib "
+# ConfigCommon += " -disable-multilib "
 
 #
 # random speeds ups, some people will want these
 #
-ConfigCommon += " -disable-libgomp "
-ConfigCommon += " -disable-libssp "
+# ConfigCommon += " -disable-libgomp "
+# ConfigCommon += " -disable-libssp "
 
 #
 # This is probably a losing battle, but for now we use identical

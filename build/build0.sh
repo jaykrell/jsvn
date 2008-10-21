@@ -88,16 +88,19 @@ do
     test -d $a || gzip -d < $a.tar.gz | tar -xf -
 done
 
-GMAKE=$HOME/src/make-3.81/make
-
 P=make-3.81
+cd $HOME/src
+test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
 cd $HOME/src/${P}
 test -f Makefile || $HOME/src/${P}/configure -program-prefix=g
 make
 ./make install
 rehash || true
 
+
 P=bash-3.2
+cd $HOME/src
+test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
 mkdir -p $HOME/obj/${P} || true
 cd $HOME/obj/${P}
 test -f Makefile || $HOME/src/${P}/configure
@@ -107,6 +110,8 @@ rehash || true
 
 
 P=Python-2.5.2
+cd $HOME/src
+test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
 mkdir -p $HOME/obj/${P} || true
 cd $HOME/obj/${P}
 test -f Makefile || $HOME/src/${P}/configure ${configure_python}
@@ -114,6 +119,22 @@ cd $HOME/src/${P}/Modules
 test -f _sre.c.orig || cp _sre.c _sre.c.orig
 sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
 cd $HOME/obj/${P}
+gmake
+gmake install
+rehash || true
+
+
+#
+# TBD get tar to work on Irix
+#
+
+
+P=tar-1.20
+cd $HOME/src
+test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+test -f Makefile || $HOME/src/${P}/configure
 gmake
 gmake install
 rehash || true
