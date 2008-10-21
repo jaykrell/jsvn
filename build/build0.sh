@@ -37,10 +37,43 @@
 set -e
 set -x
 
-#
-# need to fiddle with uname
-#
+packages=bash-3.2 tar-1.20 make-3.81 Python-2.5.2
 
+# same as uname -s
+# IRIX
+# AIX
+unameS=`uname -s`
+
+# IRIX: mips
+# AIX: powerpc
+unameP=`uname -p`
+
+# revision
+# IRIX: 6.5
+# AIX: 3
+unameR=`uname -r`
+
+# version
+# IRIX: gibberish
+# AIX: 5
+unameV=`uname -v`
+
+platform=$unameP-$unameS
+
+configure=-disable-dependency-tracking -disable-nls
+
+case "${uname}" in
+
+  AIX)
+    # Do not use xlC (I don't have it.)
+    configure_python=-with-gcc
+  ;;
+
+  IRIX)
+    CC='/usr/WorkShop/usr/bin/ncc -w'
+  ;;
+
+esac
 
 #
 # clean
@@ -48,11 +81,11 @@ set -x
 
 rm -rf ~/pkg
 cd ~/src
-rm -rf bash-3.2
-rm -rf tar-1.20
-rm -rf make-3.81
+for a in $packages
+do
+    rm -rf $a
+done
 rm -rf perl-5.10.0
-rm -rf Python-2.5.2
 rm -rf /usr/local
 
 #
@@ -60,10 +93,10 @@ rm -rf /usr/local
 #
 
 cd ~/src
-gzip -d < bash-3.2.tar.gz | tar -xf -
-gzip -d < tar-1.20.tar.gz | tar -xf -
-gzip -d < make-3.81.tar.gz | tar -xf -
-gzip -d < Python-2.5.2.tar.gz | tar -xf -
+for a in $packages
+do
+    gzip -d < $a.tar.gz | tar -xf -
+done
 
 #
 # configure and make
@@ -77,65 +110,42 @@ gzip -d < Python-2.5.2.tar.gz | tar -xf -
 #
 
 cd ~/src/bash-3.2
-./configure -disable-dependency-tracking -disable-nls
+./configure ${configure}
 make
 
-cd ~/src/tar-1.20
-./configure -disable-dependency-tracking -disable-nls -program-prefix=g
-make
-
-cd ~/src/make-3.81
-./configure -disable-dependency-tracking -disable-nls -program-prefix=g
-make
-
-#
-# -with-gcc needed on AIX to avoid trying cc/xlc
-# Something else will be needed on Irix, like CC='/usr/WorkShop/usr/bin/ncc -w'.
-# -disable-ipv6 needed on AIX; sounds reasonable.
-#
+for a in tar-1.20 make-3.81
+do
+    cd ~/src/$a
+    ./configure ${configure} -program-prefix=g
+    make
+done
 
 cd ~/src/Python-2.5.2
-./configure -disable-dependency-tracking -disable-nls -with-gcc -disable-ipv6
+./configure ${configure} ${configure_python} -disable-ipv6
 make
 
 #
 # install fakeroot (make install DESTDIR)
-#
-
-cd ~/src/bash-3.2
-make install DESTDIR=$HOME/pkg/bash-3.2
-
-cd ~/src/tar-1.20
-make install DESTDIR=$HOME/pkg/tar-1.20
-
-cd ~/src/make-3.81
-make install DESTDIR=$HOME/pkg/make-3.81
-
-cd ~/src/Python-2.5.2
-make install DESTDIR=$HOME/pkg/Python-2.5.2
-
-#
 # make packages (.tar.gz)
 #
 
-cd ~/pkg
-tar -cf - bash-3.2 | gzip > bash-3.2.tar.gz
-
-cd ~/src/tar-1.20
-tar -cf - tar-1.20 | gzip > tar-1.20.tar.gz
-
-cd ~/src/make-3.81
-tar -cf - make-3.81 | gzip > make-3.81.tar.gz
-
-cd ~/src/Python-2.5.2
-tar -cf - Python-2.5.2 | gzip > Python-2.5.2.tar.gz
+for a in $packages
+do
+    cd ~/src/$a
+    make install DESTDIR=$HOME/pkg/$a
+    cd ~/pkg/$a
+    rm ../$a.tar.gz
+    tar -cf - . | gzip > ../$a-$platform.tar.gz
+    cd ..
+    rm -rf $a
+done
 
 #
 # install packages (untar)
 #
 
-cd ~/src
-gzip -d < bash-3.2.tar.gz | tar -xf - -C /
-gzip -d < make-3.81.tar.gz | tar -xf - -C /
-gzip -d < tar-1.20.tar.gz | tar -xf - -C /
-gzip -d < Python-2.5.2.tar.gz | tar -xf - -C /
+cd /
+for a in $packages
+do
+    gzip -d < $HOME/pkg/$a-$platform.tar.gz | tar -xf -
+done
