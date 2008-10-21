@@ -18,7 +18,7 @@ import re
 from os import getenv
 
 # e.g.:
-#   nohup ./build.py binutils gccrel gmp > 1.log &
+#   nohup ./build.py binutils gccrel gmp nativeonly > 1.log &
 #   tail -f 1.log
 # but also ./build.py disable-bootstrap etc.
 
@@ -1559,7 +1559,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
                 if os.path.isfile(a):
                     print("export CONFIG_SHELL=" + a)
                     os.environ["CONFIG_SHELL"] = a
-                    Environ += "WARNING: AIX: CONFIG_SHELL=" + a + " "
+                    Environ += "CONFIG_SHELL=" + a + " "
                     break
             else:
                 print("WARNING: AIX: CONFIG_SHELL should be set to bash for performance, but I could not find bash")
@@ -1591,10 +1591,10 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     if Target.find("-aix") != -1:
         ExtraConfig += " -enable-threads "
         # assume native builds
-        ExtraConfig += " -without-gnu-as "
-        ExtraConfig += " -without-gnu-ld "
-        ExtraConfig += " -with-as=/usr/bin/as "
-        ExtraConfig += " -with-ld=/usr/bin/ld "
+        # ExtraConfig += " -without-gnu-as "
+        # ExtraConfig += " -without-gnu-ld "
+        # ExtraConfig += " -with-as=/usr/bin/as "
+        # ExtraConfig += " -with-ld=/usr/bin/ld "
         ExtraConfig += ConfigDisableBinutils
 
     elif Target.find("-irix") != -1:
