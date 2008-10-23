@@ -1881,7 +1881,7 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
 
 
 if NoBuild:
-    sys.exit(1)
+    sys.exit(0)
 
 Platform1 = Build
 
