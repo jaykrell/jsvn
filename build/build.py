@@ -1135,8 +1135,6 @@ def RemoveFunctionIf(FunctionName, If, FilePath):
     ReplaceFunctionIf(FunctionName, None, If, FilePath)
 
 def CreateFile(FilePath, Contents):
-    if not os.path.isfile(FilePath) and PatchOnly:
-        return
     if (not os.path.isfile(FilePath)) or (Contents != file(FilePath).read()):
         print("CreateFile: creating or updating " + FilePath)
         file(FilePath, "w").write(Contents)

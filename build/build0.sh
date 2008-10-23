@@ -1,64 +1,30 @@
 #!/bin/sh
 
-#
-# pass 0:
-#
-# prereqs:
-# tar, make, sh, gzip, bash
-# somewhat working C compiler
-# not done yet:
-#  use uncompressed tar-1.20 and build gzip
-#
-# vendor tar often can't extract gcc
-# vendor make often can't build gcc
-# Python is used for scripting hereafter
-# bash has nice command line history
-#  and is recommended for AIX gcc configure
-#
-# Then switch to build.py (or build2.py)
-#
-# pass 1:
-#  build binutils, gcc
-#
-# pass 2:
-#  rebuild tar, make, sh, gzip, bash, add perl 5.10
-#  rebuild gcc
-#
-
-#
-# pass 0 -- build up to date
-#   bash
-#   make
-#   tar
-#   python
-#   gzip (not yet)
-#
 
 set -e
 set -x
 
-packages='bash-3.2 tar-1.20 make-3.81 Python-2.5.2'
 
 # same as uname -s
 # IRIX
 # AIX
-unameS=`uname -s`
+UnameS=`uname -s`
 
 # Irix: mips
 # AIX: powerpc
-unameP=`uname -p`
+UnameP=`uname -p`
 
 # revision
 # Irix: 6.5
 # AIX: 3
-unameR=`uname -r`
+UnameR=`uname -r`
 
 # version
 # Irix: gibberish
 # AIX: 5
-unameV=`uname -v`
+UnameV=`uname -v`
 
-platform=$unameP-$unameS
+platform=$UnameP-$UnameS
 
 #
 # -disable-dependency-tracking is for speed and more importantly
@@ -67,74 +33,316 @@ platform=$unameP-$unameS
 # -disable-nls: I'm an arrogant American.
 #
 
-case "${unameS}" in
+rm -rf /usr/local/*
+rm -rf $HOME/obj/*
+rm -rf $HOME/src/gccrel $HOME/src/*0 $HOME/src/*1 $HOME/src/*2 $HOME/src/*3 $HOME/src/*4 $HOME/src/*5 $HOME/src/*6 $HOME/src/*7 $HOME/src/*8 $HOME/src/*9
+
+TAR=tar
+MAKE=make MAKEINFO=:
+
+ConfigCommon=" "
+ConfigCommon0=" "
+ConfigGcc=" "
+ConfigGcc0=" "
+
+ConfigCommon=" ${ConfigCommon} -disable-nls "
+ConfigCommon="${ConfigCommon}"
+
+ConfigCommon0="${ConfigCommon}"
+ConfigCommon0=" ${ConfigCommon0} -disable-dependency-tracking "
+ConfigCommon0=" ${ConfigCommon0} -disable-shared "
+ConfigCommon0=" ${ConfigCommon0} -enable-static "
+ConfigCommon0="${ConfigCommon0}"
+
+
+ConfigDisableBinutils=" "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-cpu "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-bfd "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-binutils "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-gas "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-gprof "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-ld "
+ConfigDisableBinutils="${ConfigDisableBinutils} -disable-opcode "
+
+
+ConfigGcc="${ConfigGcc} -disable-bootstrap"
+
+
+case "${UnameS}" in
 AIX)
     # For Python, do not use xlC (I don't have it.)
-    configure_python="-with-gcc -disable-ipv6"
+    ConfigPython="-with-gcc -disable-ipv6"
+    ConfigGcc="${ConfigGcc} -without-gnu-ld -without-gnu-as -with-as=/usr/bin/as -with-ld=/usr/bin/ld ${ConfigDisableBinutils}"
     ;;
-IRIX*)
+IRIX|IRIX64)
     CC='/usr/WorkShop/usr/bin/ncc -w'
     export CC
+    ConfigGcc="${ConfigGcc} -without-gnu-ld -with-gnu-as -disable-ld"
     ;;
 esac
 
-#
-# extract (gzip | tar)
-#
 
-cd $HOME/src
-for a in $packages
-do
-    test -d $a || gzip -d < $a.tar.gz | tar -xf -
-done
+ConfigGcc0="${ConfigGcc}"
+ConfigGcc0=" ${ConfigGcc0} -disable-multilib "
+ConfigGcc0=" ${ConfigGcc0} -disable-libgomp "
+ConfigGcc0=" ${ConfigGcc0} -disable-libssp "
+ConfigGcc0=" ${ConfigGcc0}"
+
+
+#
+# Vendor make (AIX) can't build out of tree, so the first
+# thing we build is GNU make using vendor make, with output
+# in the source tree.
+#
+# Thereafter, we use gmake.
+#
 
 P=make-3.81
 cd $HOME/src
-test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
 cd $HOME/src/${P}
-test -f Makefile || $HOME/src/${P}/configure -program-prefix=g
-make
+$HOME/src/${P}/configure -program-prefix=g ${ConfigCommon0}
+${MAKE}
 ./make install
 rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
 
 
-P=bash-3.2
-cd $HOME/src
-test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
-mkdir -p $HOME/obj/${P} || true
-cd $HOME/obj/${P}
-test -f Makefile || $HOME/src/${P}/configure
-gmake
-gmake install
-rehash || true
-
-
-P=Python-2.5.2
-cd $HOME/src
-test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
-mkdir -p $HOME/obj/${P} || true
-cd $HOME/obj/${P}
-test -f Makefile || $HOME/src/${P}/configure ${configure_python}
-cd $HOME/src/${P}/Modules
-test -f _sre.c.orig || cp _sre.c _sre.c.orig
-sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
-cd $HOME/obj/${P}
-gmake
-gmake install
-rehash || true
+MAKE=gmake MAKEINFO=:
 
 
 #
-# TBD get tar to work on Irix
+# Python with bootstrap compiler
+#
+
+P=Python-2.5.2
+cd $HOME/src
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+$HOME/src/${P}/configure ${ConfigPython} ${ConfigCommon0}
+cd $HOME/src/${P}/Modules
+cp _sre.c _sre.c.orig
+sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
+cd $HOME/obj/${P}
+${MAKE}
+${MAKE} -k install || true
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+#
+# gcc/binutils/gmp/mpfr with bootstrap compiler
+# Only "gcc core" -- just the C compiler.
+# Vendor tar (Solaris) can't extract the full source.
+#
+
+P=gcc-4.3.2
+rm -rf $HOME/src/${P}
+
+cd $HOME/src
+Q=binutils-2.18
+gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+mv ${Q} ${P}
+
+cd $HOME/src
+gzip -d < gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+
+cd $HOME/src/${P}
+Q=gmp-4.2.3
+gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+mv ${Q} gmp
+
+cd $HOME/src/${P}
+Q=mpfr-2.3.2
+gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+mv ${Q} mpfr
+
+python $HOME/build.py patchonly source $HOME/src/${P}
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+$HOME/src/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
+${MAKE}
+${MAKE} install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+#
+# gcc from here on out
+# 
+# ??
+
+CC=
+unset CC
+
+#
+# tar with first build of gcc
+# Vendor tar (Solaris) can't extract the full gcc tree, due to the "LongLink"
+# in libstdcxx, so now make GNU tar, and use it to extract from here on out.
+#
+
+P=tar-1.20
+cd $HOME/src
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+$HOME/src/${P}/configure
+${MAKE}
+${MAKE} install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+TAR=gtar
+
+
+#
+# make with first build of gcc
+#
+# We now have a reasonably well working gcc, but it can't build itself
+# due to a miscompilation of make, so rebuild make.
+# In particular, libgcc is empty.
+#
+
+P=make-3.81
+cd $HOME/src
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
+cd $HOME/src/${P}
+$HOME/src/${P}/configure -program-prefix=g ${ConfigCommon}
+${MAKE}
+./make install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+#
+# Now build gcc with itself.
+#
+
+P=gcc-4.3.2
+rm -rf $HOME/src/${P}
+
+cd $HOME/src
+Q=binutils-2.18
+gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+mv ${Q} ${P}
+
+cd $HOME/src
+gzip -d < gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+gzip -d < gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
+
+cd $HOME/src/${P}
+Q=gmp-4.2.3
+gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+mv ${Q} gmp
+
+cd $HOME/src/${P}
+Q=mpfr-2.3.2
+gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+mv ${Q} mpfr
+
+
+python $HOME/build.py patchonly source $HOME/src/${P}
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+$HOME/src/${P}/configure ${ConfigCommon} ${ConfigGcc}
+${MAKE}
+${MAKE} install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+#
+# bash with second and final gcc
+#
+
+P=bash-3.2
+cd $HOME/src
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+$HOME/src/${P}/configure ${ConfigCommon}
+${MAKE}
+${MAKE} install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+#
+# Python with second and final gcc
+#
+
+P=Python-2.5.2
+cd $HOME/src
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
+mkdir -p $HOME/obj/${P} || true
+cd $HOME/obj/${P}
+$HOME/src/${P}/configure ${ConfigPython} ${ConfigCommon}
+cd $HOME/src/${P}/Modules
+cp _sre.c _sre.c.orig
+sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
+cd $HOME/obj/${P}
+${MAKE}
+${MAKE} install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+
+#
+# tar with second and final gcc
 #
 
 
 P=tar-1.20
 cd $HOME/src
-test -d ${P} || gzip -d < ${P}.tar.gz | tar -xf -
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
 mkdir -p $HOME/obj/${P} || true
 cd $HOME/obj/${P}
-test -f Makefile || $HOME/src/${P}/configure
-gmake
-gmake install
+$HOME/src/${P}/configure
+${MAKE}
+${MAKE} install
 rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+#
+# make with second and final gcc
+#
+
+
+P=make-3.81
+cd $HOME/src
+gzip -d < ${P}.tar.gz | ${TAR} -xf -
+cd $HOME/src/${P}
+$HOME/src/${P}/configure -program-prefix=g ${ConfigCommon}
+${MAKE}
+./make install
+rehash || true
+cd $HOME
+rm -rf $HOME/src/${P} $HOME/obj/${P}
+
+
+#
+# more packages here (or in the Python)
+# and cross tools
+# gzip
+# bzip2
+# lzma
+# sed
+# tcl
+# expect
+# perl 5.10
+# automake
+# autoconf
+# autogen
+# gawk
+#
