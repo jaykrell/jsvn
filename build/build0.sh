@@ -33,13 +33,15 @@ platform=$UnameP-$UnameS
 # -disable-nls: I'm an arrogant American.
 #
 
-# rm -rf /usr/local/*
-# rm -rf $HOME/obj/*
-# rm -rf $HOME/src/gccrel $HOME/src/*0 $HOME/src/*1 $HOME/src/*2 $HOME/src/*3 $HOME/src/*4 $HOME/src/*5 $HOME/src/*6 $HOME/src/*7 $HOME/src/*8 $HOME/src/*9
+rm -rf /usr/local/*
+rm -rf $HOME/obj/*
+rm -rf $HOME/src/gccrel $HOME/src/*0 $HOME/src/*1 $HOME/src/*2 $HOME/src/*3 $HOME/src/*4 $HOME/src/*5 $HOME/src/*6 $HOME/src/*7 $HOME/src/*8 $HOME/src/*9
 
 TAR=tar
-MAKE=make MAKEINFO=':'
-MAKE=make
+MAKE='make MAKEINFO=:'
+
+# MAKEINFO=':'
+# export MAKEINFO
 
 ConfigCommon=" "
 ConfigCommon0=" "
@@ -47,9 +49,9 @@ ConfigGcc=" "
 ConfigGcc0=" "
 
 ConfigCommon=" ${ConfigCommon} -disable-nls "
-# ConfigCommon=" ${ConfigCommon} -disable-po "
-# ConfigCommon=" ${ConfigCommon} -disable-doc "
 ConfigCommon=" ${ConfigCommon} -disable-intl "
+ConfigCommon=" ${ConfigCommon} -disable-po "
+ConfigCommon=" ${ConfigCommon} -disable-doc "
 ConfigCommon="${ConfigCommon}"
 
 ConfigCommon0="${ConfigCommon}"
@@ -107,6 +109,9 @@ build_make0() {
 #
 # Thereafter, we use gmake.
 #
+    set -e
+    set -x
+
     P=make-3.81
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
@@ -119,15 +124,17 @@ build_make0() {
     rm -rf $HOME/src/${P} $HOME/obj/${P}
 }
 
-# build_make0
-MAKE=gmake MAKEINFO=':'
-MAKE=gmake
+build_make0
+MAKE='gmake MAKEINFO=:'
 
 
 build_python0() {
 #
 # Python with bootstrap compiler
 #
+    set -e
+    set -x
+
     P=Python-2.5.2
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
@@ -145,7 +152,7 @@ build_python0() {
     rm -rf $HOME/src/${P} $HOME/obj/${P}
 }
 
-# build_python0
+build_python0
 
 
 build_gcc0() {
@@ -154,6 +161,9 @@ build_gcc0() {
 # Only "gcc core" -- just the C compiler.
 # Vendor tar (Solaris) can't extract the full source.
 #
+    set -e
+    set -x
+
     P=gcc-4.3.2
     rm -rf $HOME/src/${P}
     rm -rf $HOME/obj/${P}
@@ -176,15 +186,11 @@ build_gcc0() {
     gzip -d < ../${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} mpfr
 
-    python $HOME/build.py patchonly source $HOME/src/${P} binutils
+    python $HOME/build.py patchonly source $HOME/src/${P} binutils gcc
 
     mkdir -p $HOME/obj/${P} || true
     cd $HOME/obj/${P}
     $HOME/src/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
-
-    cd $HOME/src/${P}/bfd
-    test -f bfd/elflink.c.orig || mv elflink.c elflink.c.orig
-    sed -e 's/    char          symbuf \[bufsz\];/    char          symbuf \[4096\];/' < elflink.c.orig > elflink.c
 
     cd $HOME/obj/${P}
     ${MAKE}
@@ -210,12 +216,15 @@ build_tar1() {
 # Vendor tar (Solaris) can't extract the full gcc tree, due to the "LongLink"
 # in libstdcxx, so now make GNU tar, and use it to extract from here on out.
 #
+    set -e
+    set -x
+
     P=tar-1.20
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
     mkdir -p $HOME/obj/${P} || true
     cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon}
+    $HOME/src/${P}/configure ${ConfigCommon} -program-prefix=g
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -237,6 +246,9 @@ TAR=gtar
 #
 
 build_make1() {
+    set -e
+    set -x
+
     P=make-3.81
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
@@ -255,6 +267,9 @@ build_gcc() {
 #
 # Now build gcc with itself.
 #
+    set -e
+    set -x
+
     P=gcc-4.3.2
     rm -rf $HOME/src/${P}
 
@@ -294,6 +309,9 @@ build_bash() {
 #
 # bash with second and final gcc
 #
+    set -e
+    set -x
+
     P=bash-3.2
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
@@ -313,6 +331,9 @@ build_python() {
 #
 # Python with second and final gcc
 #
+    set -e
+    set -x
+
     P=Python-2.5.2
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
@@ -336,12 +357,15 @@ build_tar() {
 #
 # tar with second and final gcc
 #
+    set -e
+    set -x
+
     P=tar-1.20
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -
     mkdir -p $HOME/obj/${P} || true
     cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon}
+    $HOME/src/${P}/configure ${ConfigCommon} -program-prefix=g
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -355,6 +379,9 @@ build_make() {
 #
 # make with second and final gcc
 #
+    set -e
+    set -x
+
     P=make-3.81
     cd $HOME/src
     gzip -d < ${P}.tar.gz | ${TAR} -xf -

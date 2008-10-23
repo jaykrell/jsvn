@@ -150,7 +150,16 @@ while i != len(sys.argv):
     elif arg == "build":
         i += 1
         Build = sys.argv[i]
-    elif ( arg == "binutils"
+    elif (     arg == "gcc"
+            or arg == "binutils"
+            or arg == "tar"
+            or arg == "make"
+            or arg == "gzip"
+            or arg == "bzip2"
+            or arg == "lzma"
+            or arg == "perl"
+            or arg == "python"
+            or arg == "bash"
             or arg == "gmp"
             or arg == "mpfr"
             or arg == "cygwin"
