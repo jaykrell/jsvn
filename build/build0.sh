@@ -28,16 +28,18 @@ platform=$UnameP-$UnameS
 
 SOURCE=${HOME}/src
 OBJ=${HOME}/obj
+DONE=${HOME}/done
 
-rm -rf /usr/local/*
-rm -rf ${OBJ}/*
-rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
+# rm -rf /usr/local/*
+# rm -rf ${OBJ}/*
+# rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
+mkdir -p ${DONE}
 
 TAR=tar
 MAKE="make MAKEINFO=:"
 
-Prefix = "/usr/local"
-# Prefix = "/usr"
+Prefix="/usr/local"
+# Prefix="/usr"
 
 ConfigCommon=" "
 ConfigCommon0=" "
@@ -111,6 +113,7 @@ ConfigGcc0=" ${ConfigGcc0} -disable-libgomp "
 ConfigGcc0=" ${ConfigGcc0} -disable-libssp "
 ConfigGcc0=" ${ConfigGcc0}"
 
+
 build_make0() {
 #
 # Vendor make (AIX) can't build out of tree, so the first
@@ -130,12 +133,14 @@ build_make0() {
     ${MAKE}
     ./make install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
-
-build_make0
+test -f ${DONE}/make0 || build_make0
+touch -f ${DONE}/make0
 MAKE="gmake MAKEINFO=:"
 
 
@@ -149,7 +154,7 @@ build_python0() {
     P=Python-2.5.2
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P} || true
+    mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
     cd ${SOURCE}/${P}/Modules
@@ -159,19 +164,21 @@ build_python0() {
     ${MAKE}
     ${MAKE} -k install || true
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
-build_python0
+test -f ${DONE}/python0 || build_python0
+touch -f ${DONE}/python0
+
 
 extract_gcc_core() {
     set -e
     set -x
 
     P=gcc-4.3.2
-    rm -rf ${SOURCE}/${P}
-    rm -rf ${OBJ}/${P}
 
     cd ${SOURCE}
     Q=binutils-2.18
@@ -192,6 +199,7 @@ extract_gcc_core() {
     mv ${Q} mpfr
 }
 
+
 extract_gcc() {
     set -e
     set -x
@@ -200,6 +208,32 @@ extract_gcc() {
     cd ${SOURCE}
     gzip -d < ${SOURCE}/gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
 }
+
+
+extract_all() {
+    set -e
+    set -x
+
+    extract_gcc_core
+
+    P=gcc-4.3.2
+
+    cd ${SOURCE}/${P}
+    Q=bash-3.2
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} make
+
+    cd ${SOURCE}/${P}
+    Q=make-3.81
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} make
+
+    cd ${SOURCE}/${P}
+    Q=tar-1.20
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} tar
+}
+
 
 build_gcc0() {
 #
@@ -215,7 +249,7 @@ build_gcc0() {
 
     python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
 
-    mkdir -p ${OBJ}/${P} || true
+    mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
 
@@ -223,11 +257,15 @@ build_gcc0() {
     ${MAKE}
     ${MAKE} install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
-build_gcc0
+test -f ${DONE}/gcc0 || build_gcc0
+touch -f ${DONE}/gcc0
+
 
 #
 # gcc from here on out
@@ -237,36 +275,11 @@ build_gcc0
 CC=
 unset CC
 
-build_tar1() {
-#
-# tar with first build of gcc
-# Vendor tar (Solaris) can't extract the full gcc tree, due to the "LongLink"
-# in libstdcxx, so now make GNU tar, and use it to extract from here on out.
-#
-    set -e
-    set -x
-
-    P=tar-1.20
-    cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P} || true
-    cd ${OBJ}/${P}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
-    ${MAKE}
-    ${MAKE} install
-    rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
-}
-
-build_tar1
-TAR=gtar
-
 
 #
 # make with first build of gcc
 #
-# We now have a reasonably well working gcc, but it can't build itself
+# We now have a reasonably well working gcc, but it can't build itself or tar.
 # due to a miscompilation of make, so rebuild make.
 # In particular, libgcc is empty.
 # This will be a bit painful to track down.
@@ -284,15 +297,70 @@ build_make1() {
     ${MAKE}
     ./make install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
 }
 
-build_make1
+test -f ${DONE}/make1 || build_make1
+touch -f ${DONE}/make1
+
+
+build_gcc1() {
+#
+# Now build gcc with itself, still just core, because
+# the first build of gcc can't build tar, and vendor tar can't extract g++.
+#
+    set -e
+    set -x
+
+    P=gcc-4.3.2
+    extract_gcc_core
+
+    mkdir -p ${OBJ}/${P}
+    cd ${OBJ}/${P}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    ${MAKE}
+    ${MAKE} install
+    rehash || true
+
+    cd ${HOME}
+}
+
+test -f ${DONE}/gcc1 || build_gcc1
+touch -f ${DONE}/gcc1
+
+
+build_tar() {
+#
+# tar with gcc
+# tar won't build with ncc for a few reasons, give up on patching it for now.
+# Vendor tar (Solaris) can't extract the full gcc tree, due to the "LongLink"
+# in libstdcxx, so now make GNU tar, and use it to extract from here on out.
+#
+    set -e
+    set -x
+
+    P=tar-1.20
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${P}
+    cd ${OBJ}/${P}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
+    ${MAKE}
+    ${MAKE} install
+    rehash || true
+
+    cd ${HOME}
+}
+
+test -f ${DONE}/tar || build_tar
+touch -f ${DONE}/tar
+TAR=gtar
+
 
 build_gcc() {
 #
-# Now build gcc with itself.
+# Now build gcc with itself, including g++
 #
     set -e
     set -x
@@ -300,23 +368,23 @@ build_gcc() {
     P=gcc-4.3.2
     extract_gcc
 
-    # python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
-
-    mkdir -p ${OBJ}/${P} || true
+    mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE}
     ${MAKE} install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
 }
 
-build_gcc
+test -f ${DONE}/gcc || build_gcc
+touch -f ${DONE}/gcc
+
 
 build_bash() {
 #
-# bash with second and final gcc
+# bash with self-built gcc
 #
     set -e
     set -x
@@ -324,21 +392,23 @@ build_bash() {
     P=bash-3.2
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P} || true
+    mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon}
     ${MAKE}
     ${MAKE} install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
 }
 
-build_bash
+test -f ${DONE}/bash || build_bash
+touch -f ${DONE}/bash
+
 
 build_python() {
 #
-# Python with second and final gcc
+# Python with self-built gcc
 #
     set -e
     set -x
@@ -346,7 +416,7 @@ build_python() {
     P=Python-2.5.2
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P} || true
+    mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
     # cd ${SOURCE}/${P}/Modules
@@ -356,38 +426,17 @@ build_python() {
     ${MAKE}
     ${MAKE} install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
 }
 
-build_python
+test -f ${DONE}/python || build_python
+touch -f ${DONE}/python
 
-build_tar() {
-#
-# tar with second and final gcc
-#
-    set -e
-    set -x
-
-    P=tar-1.20
-    cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-
-    mkdir -p ${OBJ}/${P} || true
-    cd ${OBJ}/${P}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
-    ${MAKE}
-    ${MAKE} install
-    rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
-}
-
-build_tar
 
 build_make() {
 #
-# make with second and final gcc
+# make with self-built gcc
 #
     set -e
     set -x
@@ -400,11 +449,13 @@ build_make() {
     ${MAKE}
     ./make install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
 }
 
-build_make
+test -f ${DONE}/make || build_make
+touch -f ${DONE}/make
+
 
 build_gcc4() {
 #
@@ -415,22 +466,21 @@ build_gcc4() {
     set -x
 
     P=gcc-4.3.2
+
     extract_gcc
 
-    # python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
-
-    mkdir -p ${OBJ}/${P} || true
+    mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE} bootstrap4-lean
     ${MAKE} install
     rehash || true
-    cd $HOME
-    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+
+    cd ${HOME}
 }
 
-build_gcc4
-
+test -f ${DONE}/gcc4 || build_gcc4
+touch -f ${DONE}/gcc4
 
 #
 # more packages here (or in the Python)
