@@ -17,25 +17,21 @@ UnameP=`uname -p`
 # revision
 # Irix: 6.5
 # AIX: 3
-UnameR=`uname -r`
+# UnameR=`uname -r`
 
 # version
 # Irix: gibberish
 # AIX: 5
-UnameV=`uname -v`
+# UnameV=`uname -v`
 
 platform=$UnameP-$UnameS
 
-#
-# -disable-dependency-tracking is for speed and more importantly
-# problems with Irix /usr/WorkShop/usr/bin/ncc
-#
-# -disable-nls: I'm an arrogant American.
-#
+SOURCE=${HOME}/src
+OBJ=${HOME}/obj
 
 rm -rf /usr/local/*
-rm -rf $HOME/obj/*
-rm -rf $HOME/src/gccrel $HOME/src/*0 $HOME/src/*1 $HOME/src/*2 $HOME/src/*3 $HOME/src/*4 $HOME/src/*5 $HOME/src/*6 $HOME/src/*7 $HOME/src/*8 $HOME/src/*9
+rm -rf ${OBJ}/*
+rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
 
 TAR=tar
 MAKE='make MAKEINFO=:'
@@ -47,6 +43,13 @@ ConfigCommon=" "
 ConfigCommon0=" "
 ConfigGcc=" "
 ConfigGcc0=" "
+
+#
+# -disable-dependency-tracking is for speed and more importantly
+# problems with Irix /usr/WorkShop/usr/bin/ncc
+#
+# -disable-nls: I'm an arrogant American.
+#
 
 ConfigCommon=" ${ConfigCommon} -disable-nls "
 ConfigCommon=" ${ConfigCommon} -disable-intl "
@@ -113,15 +116,15 @@ build_make0() {
     set -x
 
     P=make-3.81
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    cd $HOME/src/${P}
-    $HOME/src/${P}/configure -program-prefix=g ${ConfigCommon0}
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    cd ${SOURCE}/${P}
+    ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon0}
     ${MAKE}
     ./make install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_make0
@@ -136,20 +139,20 @@ build_python0() {
     set -x
 
     P=Python-2.5.2
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigPython} ${ConfigCommon0}
-    cd $HOME/src/${P}/Modules
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
+    cd ${SOURCE}/${P}/Modules
     cp _sre.c _sre.c.orig
     sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
-    cd $HOME/obj/${P}
+    cd ${OBJ}/${P}
     ${MAKE}
     ${MAKE} -k install || true
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_python0
@@ -165,39 +168,39 @@ build_gcc0() {
     set -x
 
     P=gcc-4.3.2
-    rm -rf $HOME/src/${P}
-    rm -rf $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P}
+    rm -rf ${OBJ}/${P}
 
-    cd $HOME/src
+    cd ${SOURCE}
     Q=binutils-2.18
-    gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} ${P}
 
-    cd $HOME/src
-    gzip -d < gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
 
-    cd $HOME/src/${P}
+    cd ${SOURCE}/${P}
     Q=gmp-4.2.3
-    gzip -d < ../${Q}.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} gmp
 
-    cd $HOME/src/${P}
+    cd ${SOURCE}/${P}
     Q=mpfr-2.3.2
-    gzip -d < ../${Q}.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} mpfr
 
-    python $HOME/build.py patchonly source $HOME/src/${P} binutils gcc
+    python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc
 
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
 
-    cd $HOME/obj/${P}
+    cd ${OBJ}/${P}
     ${MAKE}
     ${MAKE} install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_gcc0
@@ -220,16 +223,16 @@ build_tar1() {
     set -x
 
     P=tar-1.20
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon} -program-prefix=g
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
     ${MAKE}
     ${MAKE} install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_tar1
@@ -250,15 +253,15 @@ build_make1() {
     set -x
 
     P=make-3.81
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    cd $HOME/src/${P}
-    $HOME/src/${P}/configure -program-prefix=g ${ConfigCommon}
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    cd ${SOURCE}/${P}
+    ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
     ${MAKE}
     ./make install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_make1
@@ -271,36 +274,36 @@ build_gcc() {
     set -x
 
     P=gcc-4.3.2
-    rm -rf $HOME/src/${P}
+    rm -rf ${SOURCE}/${P}
 
-    cd $HOME/src
+    cd ${SOURCE}
     Q=binutils-2.18
-    gzip -d < ${Q}.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} ${P}
 
-    cd $HOME/src
-    gzip -d < gcc-core-4.3.2.tar.gz | ${TAR} -xf -
-    gzip -d < gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
 
-    cd $HOME/src/${P}
+    cd ${SOURCE}/${P}
     Q=gmp-4.2.3
-    gzip -d < ../${Q}.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} gmp
 
-    cd $HOME/src/${P}
+    cd ${SOURCE}/${P}
     Q=mpfr-2.3.2
-    gzip -d < ../${Q}.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} mpfr
 
-    # python $HOME/build.py patchonly source $HOME/src/${P}
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    # python ${HOME}/build.py patchonly source ${SOURCE}/${P}
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE}
     ${MAKE} install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_gcc
@@ -313,16 +316,16 @@ build_bash() {
     set -x
 
     P=bash-3.2
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon}
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigCommon}
     ${MAKE}
     ${MAKE} install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_bash
@@ -335,20 +338,20 @@ build_python() {
     set -x
 
     P=Python-2.5.2
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigPython} ${ConfigCommon}
-    # cd $HOME/src/${P}/Modules
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
+    # cd ${SOURCE}/${P}/Modules
     # cp _sre.c _sre.c.orig
     # sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
-    cd $HOME/obj/${P}
+    cd ${OBJ}/${P}
     ${MAKE}
     ${MAKE} install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_python
@@ -361,16 +364,16 @@ build_tar() {
     set -x
 
     P=tar-1.20
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    mkdir -p $HOME/obj/${P} || true
-    cd $HOME/obj/${P}
-    $HOME/src/${P}/configure ${ConfigCommon} -program-prefix=g
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
     ${MAKE}
     ${MAKE} install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_tar
@@ -383,18 +386,62 @@ build_make() {
     set -x
 
     P=make-3.81
-    cd $HOME/src
-    gzip -d < ${P}.tar.gz | ${TAR} -xf -
-    cd $HOME/src/${P}
-    $HOME/src/${P}/configure -program-prefix=g ${ConfigCommon}
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    cd ${SOURCE}/${P}
+    ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
     ${MAKE}
     ./make install
     rehash || true
     cd $HOME
-    rm -rf $HOME/src/${P} $HOME/obj/${P}
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
 build_make
+
+build_gcc4() {
+#
+# on Irix, stage 2 and 3 compare differently
+# go ahead and try a 4 stage build
+#
+    set -e
+    set -x
+
+    P=gcc-4.3.2
+    rm -rf ${SOURCE}/${P}
+
+    cd ${SOURCE}
+    Q=binutils-2.18
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} ${P}
+
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+    gzip -d < ${SOURCE}/gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
+
+    cd ${SOURCE}/${P}
+    Q=gmp-4.2.3
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} gmp
+
+    cd ${SOURCE}/${P}
+    Q=mpfr-2.3.2
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} mpfr
+
+    # python ${HOME}/build.py patchonly source ${SOURCE}/${P}
+    mkdir -p ${OBJ}/${P} || true
+    cd ${OBJ}/${P}
+    ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    ${MAKE} bootstrap4-lean
+    ${MAKE} install
+    rehash || true
+    cd $HOME
+    rm -rf ${SOURCE}/${P} ${OBJ}/${P}
+}
+
+build_gcc
+
 
 #
 # more packages here (or in the Python)
