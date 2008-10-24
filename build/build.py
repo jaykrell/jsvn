@@ -99,6 +99,7 @@ NativeOnly = "nativeonly" in sys.argv
 if PatchOnly:
     NoBuild = True
     NoConfigure = True
+    NoExtract = True
 
 print(sys.argv)
 

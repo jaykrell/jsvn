@@ -1,4 +1,4 @@
-#!/bin/sh
+#! /bin/sh
 
 
 set -e
@@ -30,9 +30,9 @@ SOURCE=${HOME}/src
 OBJ=${HOME}/obj
 DONE=${HOME}/done
 
-# rm -rf /usr/local/*
-# rm -rf ${OBJ}/*
-# rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
+rm -rf /usr/local/*
+rm -rf ${OBJ}/*
+rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
 mkdir -p ${DONE}
 
 TAR=tar
@@ -125,7 +125,7 @@ build_make0() {
 
     P=make-3.81
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon0}
     ${MAKE}
@@ -151,7 +151,7 @@ build_python0() {
 
     P=Python-2.5.2
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
@@ -181,23 +181,31 @@ extract_gcc_core() {
 
     P=gcc-4.3.2
 
-    cd ${SOURCE}
-    Q=binutils-2.18
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} ${P}
+    if test ! -f ${SOURCE}/${P}/binutils/Makefile.in; then
+      cd ${SOURCE}
+      Q=binutils-2.18
+      gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+      mv ${Q} ${P}
+    fi
 
-    cd ${SOURCE}
-    gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+    if test ! -f ${SOURCE}/${P}/gcc/Makefile.in; then
+      cd ${SOURCE}
+      gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
+    fi
 
-    cd ${SOURCE}/${P}
-    Q=gmp-4.2.3
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} gmp
+    if test ! -f ${SOURCE}/${P}/gmp/Makefile.in; then
+      cd ${SOURCE}/${P}
+      Q=gmp-4.2.3
+      gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+      mv ${Q} gmp
+    fi
 
-    cd ${SOURCE}/${P}
-    Q=mpfr-2.3.2
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} mpfr
+    if test ! -f ${SOURCE}/${P}/mpfr/Makefile.in; then
+      cd ${SOURCE}/${P}
+      Q=mpfr-2.3.2
+      gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+      mv ${Q} mpfr
+    fi
 }
 
 
@@ -215,24 +223,60 @@ extract_all() {
     set -e
     set -x
 
-    extract_gcc_core
-
     P=gcc-4.3.2
 
+    mkdir -p ${SOURCE}/${P}
     cd ${SOURCE}/${P}
+
     Q=bash-3.2
     gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} make
 
-    cd ${SOURCE}/${P}
     Q=make-3.81
     gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} make
 
-    cd ${SOURCE}/${P}
     Q=tar-1.20
     gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} tar
+
+    Q=m4-1.4.11
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} m4
+
+    Q=texinfo-4.12
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} texinfo
+
+    Q=gettext-0.17
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} gettext
+
+    Q=bzip2-1.0.5
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} bzip2
+
+    Q=flex-2.5.35
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} flex
+
+    Q=bison-2.3
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} bison
+
+    Q=gdb-6.8
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} gdb
+
+    Q=gawk-3.1.6
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} gawk
+
+    Q=sed-4.1.5
+    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
+    mv ${Q} sed
+
+    extract_gcc_core
 }
 
 
@@ -240,7 +284,7 @@ build_gcc0() {
 #
 # gcc/binutils/gmp/mpfr with bootstrap compiler
 # Only "gcc core" -- just the C compiler.
-# Vendor tar (Solaris) can't extract the full source.
+# Vendor tar (Solaris, Irix) can't extract the full source.
 #
     set -e
     set -x
@@ -271,10 +315,16 @@ touch -f ${DONE}/gcc0
 #
 # gcc from here on out
 # 
-# ??
+# How to unset a variable?
+#
 
-CC=
-unset CC
+case "${UnameS}" in
+IRIX|IRIX64)
+    CC=
+    export CC
+    unset CC
+    ;;
+esac
 
 
 #
@@ -292,7 +342,7 @@ build_make1() {
 
     P=make-3.81
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
     ${MAKE}
@@ -300,6 +350,8 @@ build_make1() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/make1 || build_make1
@@ -309,7 +361,7 @@ touch -f ${DONE}/make1
 build_gcc1() {
 #
 # Now build gcc with itself, still just core, because
-# the first build of gcc can't build tar, and vendor tar can't extract g++.
+# the first build of gcc can't build tar, and vendor tar (Solaris, Irix) can't extract g++.
 # (Testing on Irix lately, I just remember that Solaris tar had problems, and
 # I think they were in libstdcxx but I have to confrm later.)
 #
@@ -327,6 +379,8 @@ build_gcc1() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/gcc1 || build_gcc1
@@ -337,7 +391,7 @@ build_tar() {
 #
 # tar with gcc
 # tar won't build with ncc for a few reasons, give up on patching it for now.
-# Vendor tar (Solaris) can't extract the full gcc tree, due to the "LongLink"
+# Vendor tar (Solaris, Irix) can't extract the full gcc tree, due to the "LongLink"
 # in libstdcxx, so now make GNU tar, and use it to extract from here on out.
 #
     set -e
@@ -345,7 +399,7 @@ build_tar() {
 
     P=tar-1.20
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
@@ -354,6 +408,8 @@ build_tar() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/tar || build_tar
@@ -379,6 +435,8 @@ build_gcc() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/gcc || build_gcc
@@ -394,7 +452,7 @@ build_bash() {
 
     P=bash-3.2
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon}
@@ -403,6 +461,8 @@ build_bash() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/bash || build_bash
@@ -418,7 +478,7 @@ build_python() {
 
     P=Python-2.5.2
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
@@ -428,6 +488,8 @@ build_python() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/python || build_python
@@ -443,7 +505,7 @@ build_make() {
 
     P=make-3.81
     cd ${SOURCE}
-    gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
     ${MAKE}
@@ -451,6 +513,8 @@ build_make() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/make || build_make
@@ -477,6 +541,8 @@ build_gcc4() {
     rehash || true
 
     cd ${HOME}
+    rm -rf ${OBJ}/${P}
+    rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/gcc4 || build_gcc4
