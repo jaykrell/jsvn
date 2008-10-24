@@ -34,10 +34,10 @@ rm -rf ${OBJ}/*
 rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
 
 TAR=tar
-MAKE='make MAKEINFO=:'
+MAKE=make
 
-# MAKEINFO=':'
-# export MAKEINFO
+MAKEINFO=':'
+export MAKEINFO
 
 ConfigCommon=" "
 ConfigCommon0=" "
@@ -127,8 +127,9 @@ build_make0() {
     rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
+
 build_make0
-MAKE='gmake MAKEINFO=:'
+MAKE=gmake
 
 
 build_python0() {
@@ -157,13 +158,7 @@ build_python0() {
 
 build_python0
 
-
-build_gcc0() {
-#
-# gcc/binutils/gmp/mpfr with bootstrap compiler
-# Only "gcc core" -- just the C compiler.
-# Vendor tar (Solaris) can't extract the full source.
-#
+extract_gcc_core() {
     set -e
     set -x
 
@@ -188,8 +183,30 @@ build_gcc0() {
     Q=mpfr-2.3.2
     gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
     mv ${Q} mpfr
+}
 
-    python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc
+extract_gcc() {
+    set -e
+    set -x
+
+    extract_gcc_core
+    cd ${SOURCE}
+    gzip -d < ${SOURCE}/gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
+}
+
+build_gcc0() {
+#
+# gcc/binutils/gmp/mpfr with bootstrap compiler
+# Only "gcc core" -- just the C compiler.
+# Vendor tar (Solaris) can't extract the full source.
+#
+    set -e
+    set -x
+
+    P=gcc-4.3.2
+    extract_gcc_core
+
+    python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
 
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
@@ -274,28 +291,10 @@ build_gcc() {
     set -x
 
     P=gcc-4.3.2
-    rm -rf ${SOURCE}/${P}
+    extract_gcc
 
-    cd ${SOURCE}
-    Q=binutils-2.18
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} ${P}
+    # python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
 
-    cd ${SOURCE}
-    gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
-    gzip -d < ${SOURCE}/gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
-
-    cd ${SOURCE}/${P}
-    Q=gmp-4.2.3
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} gmp
-
-    cd ${SOURCE}/${P}
-    Q=mpfr-2.3.2
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} mpfr
-
-    # python ${HOME}/build.py patchonly source ${SOURCE}/${P}
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
     ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
@@ -366,6 +365,7 @@ build_tar() {
     P=tar-1.20
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
     ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
@@ -408,28 +408,10 @@ build_gcc4() {
     set -x
 
     P=gcc-4.3.2
-    rm -rf ${SOURCE}/${P}
+    extract_gcc
 
-    cd ${SOURCE}
-    Q=binutils-2.18
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} ${P}
+    # python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
 
-    cd ${SOURCE}
-    gzip -d < ${SOURCE}/gcc-core-4.3.2.tar.gz | ${TAR} -xf -
-    gzip -d < ${SOURCE}/gcc-g++-4.3.2.tar.gz | ${TAR} -xf -
-
-    cd ${SOURCE}/${P}
-    Q=gmp-4.2.3
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} gmp
-
-    cd ${SOURCE}/${P}
-    Q=mpfr-2.3.2
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} mpfr
-
-    # python ${HOME}/build.py patchonly source ${SOURCE}/${P}
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
     ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
@@ -440,7 +422,7 @@ build_gcc4() {
     rm -rf ${SOURCE}/${P} ${OBJ}/${P}
 }
 
-build_gcc
+build_gcc4
 
 
 #
