@@ -2,13 +2,23 @@
 
 #
 # inputs:
-#  sh, make, tar
+#  sh, make, tar, gzip
 #  Irix: /usr/WorkShop/usr/bin/ncc
 #  AIX: gcc (4.0)
 #  source archives
+#
 # outputs:
 #  up to date gcc, g++, Python, GNU make, GNU tar
 #  Irix: GNU ld
+#
+# Notes:
+#  build GNU make first, since vendor make generally inadequate
+#  build g++ after GNU tar, since vendor tar generally can't extract it
+#  must rebuild GNU make after gcc, and then gcc again, as Irix ncc
+#    miscompiles make, leading to an empty libgcc, and then gcc can't build itself
+#  Tar and make are configured with program-prefix=g -- gtar and gmake.
+#  Irix builds GNU as, and not ld.
+#  AIX builds neither GNU as nor ld.
 #
 
 set -e
