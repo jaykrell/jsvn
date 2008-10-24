@@ -168,7 +168,7 @@ build_python0() {
 
     # Irix ncc doesn't like files that #include themselves, so make it include a copy of itself.
     cd ${SOURCE}/${P}/Modules
-    cp _sre.c _sre.c.orig
+    test -f _sre.c.orig || cp _sre.c _sre.c.orig
     sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
 
     cd ${OBJ}/${P}
