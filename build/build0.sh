@@ -46,17 +46,9 @@ ConfigCommon0=" "
 ConfigGcc=" "
 ConfigGcc0=" "
 
-#
-# -disable-dependency-tracking is for speed and more importantly
-# problems with Irix /usr/WorkShop/usr/bin/ncc
-#
-# -disable-nls: I'm an arrogant American.
-#
 
 ConfigCommon=" ${ConfigCommon} -disable-nls "
 ConfigCommon=" ${ConfigCommon} -disable-intl "
-# ConfigCommon=" ${ConfigCommon} -disable-po "
-# ConfigCommon=" ${ConfigCommon} -disable-doc "
 ConfigCommon=" ${ConfigCommon} -verbose "
 ConfigCommon=" ${ConfigCommon} -prefix=${Prefix} "
 ConfigCommon=" ${ConfigCommon} -exec-prefix=${Prefix} "
@@ -64,7 +56,12 @@ ConfigCommon=" ${ConfigCommon} -libdir=${Prefix}/lib "
 ConfigCommon=" ${ConfigCommon} -libexecdir=${Prefix}/lib "
 ConfigCommon=" ${ConfigCommon} -mandir=${Prefix}/share/man "
 ConfigCommon=" ${ConfigCommon} -infodir=${Prefix}/share/info "
+ConfigCommon=" ${ConfigCommon} -enable-version-specific-runtime-libs "
+ConfigCommon=" ${ConfigCommon} -disable-checking "
+ConfigCommon=" ${ConfigCommon} -disable-checking "
+ConfigCommon=" ${ConfigCommon} -enable-64-bit-bfd "
 ConfigCommon="${ConfigCommon}"
+
 
 ConfigCommon0="${ConfigCommon}"
 ConfigCommon0=" ${ConfigCommon0} -disable-dependency-tracking "
@@ -90,7 +87,7 @@ ConfigGcc="${ConfigGcc} ${ConfigCommon0}"
 # which is an error. Investigate that later.
 #
 
-ConfigGcc="${ConfigGcc} -disable-bootstrap"
+# ConfigGcc="${ConfigGcc} -disable-bootstrap"
 
 
 case "${UnameS}" in
@@ -111,6 +108,7 @@ ConfigGcc0="${ConfigGcc}"
 ConfigGcc0=" ${ConfigGcc0} -disable-multilib "
 ConfigGcc0=" ${ConfigGcc0} -disable-libgomp "
 ConfigGcc0=" ${ConfigGcc0} -disable-libssp "
+ConfigGcc0=" ${ConfigGcc0} -disable-bootstrap "
 ConfigGcc0=" ${ConfigGcc0}"
 
 
@@ -157,9 +155,12 @@ build_python0() {
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
-    cd ${SOURCE}/${P}/Modules
-    cp _sre.c _sre.c.orig
-    sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
+
+    # Irix ncc doesn't like files that #include themselves, so make it include a copy of itself.
+        cd ${SOURCE}/${P}/Modules
+        cp _sre.c _sre.c.orig
+        sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
+
     cd ${OBJ}/${P}
     ${MAKE}
     ${MAKE} -k install || true
@@ -279,7 +280,7 @@ unset CC
 #
 # make with first build of gcc
 #
-# We now have a reasonably well working gcc, but it can't build itself or tar.
+# We now have a reasonably well working gcc, but it can't build itself or tar
 # due to a miscompilation of make, so rebuild make.
 # In particular, libgcc is empty.
 # This will be a bit painful to track down.
@@ -309,6 +310,8 @@ build_gcc1() {
 #
 # Now build gcc with itself, still just core, because
 # the first build of gcc can't build tar, and vendor tar can't extract g++.
+# (Testing on Irix lately, I just remember that Solaris tar had problems, and
+# I think they were in libstdcxx but I have to confrm later.)
 #
     set -e
     set -x
@@ -318,7 +321,7 @@ build_gcc1() {
 
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc} -disable-bootstrap
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -370,7 +373,7 @@ build_gcc() {
 
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc} -disable-bootstrap
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -419,9 +422,6 @@ build_python() {
     mkdir -p ${OBJ}/${P}
     cd ${OBJ}/${P}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
-    # cd ${SOURCE}/${P}/Modules
-    # cp _sre.c _sre.c.orig
-    # sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
     cd ${OBJ}/${P}
     ${MAKE}
     ${MAKE} install
