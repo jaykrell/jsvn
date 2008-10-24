@@ -1,5 +1,15 @@
 #! /bin/sh
 
+#
+# inputs:
+#  sh, make, tar
+#  Irix: /usr/WorkShop/usr/bin/ncc
+#  AIX: gcc (4.0)
+#  source archives
+# outputs:
+#  up to date gcc, g++, Python, GNU make, GNU tar
+#  Irix: GNU ld
+#
 
 set -e
 set -x
@@ -157,9 +167,9 @@ build_python0() {
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
 
     # Irix ncc doesn't like files that #include themselves, so make it include a copy of itself.
-        cd ${SOURCE}/${P}/Modules
-        cp _sre.c _sre.c.orig
-        sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
+    cd ${SOURCE}/${P}/Modules
+    cp _sre.c _sre.c.orig
+    sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
 
     cd ${OBJ}/${P}
     ${MAKE}
