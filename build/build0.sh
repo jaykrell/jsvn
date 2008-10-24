@@ -34,10 +34,10 @@ rm -rf ${OBJ}/*
 rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
 
 TAR=tar
-MAKE=make
+MAKE="make MAKEINFO=:"
 
-MAKEINFO=':'
-export MAKEINFO
+Prefix = "/usr/local"
+# Prefix = "/usr"
 
 ConfigCommon=" "
 ConfigCommon0=" "
@@ -53,8 +53,15 @@ ConfigGcc0=" "
 
 ConfigCommon=" ${ConfigCommon} -disable-nls "
 ConfigCommon=" ${ConfigCommon} -disable-intl "
-ConfigCommon=" ${ConfigCommon} -disable-po "
-ConfigCommon=" ${ConfigCommon} -disable-doc "
+# ConfigCommon=" ${ConfigCommon} -disable-po "
+# ConfigCommon=" ${ConfigCommon} -disable-doc "
+ConfigCommon=" ${ConfigCommon} -verbose "
+ConfigCommon=" ${ConfigCommon} -prefix=${Prefix} "
+ConfigCommon=" ${ConfigCommon} -exec-prefix=${Prefix} "
+ConfigCommon=" ${ConfigCommon} -libdir=${Prefix}/lib "
+ConfigCommon=" ${ConfigCommon} -libexecdir=${Prefix}/lib "
+ConfigCommon=" ${ConfigCommon} -mandir=${Prefix}/share/man "
+ConfigCommon=" ${ConfigCommon} -infodir=${Prefix}/share/info "
 ConfigCommon="${ConfigCommon}"
 
 ConfigCommon0="${ConfigCommon}"
@@ -91,7 +98,7 @@ AIX)
     ConfigGcc="${ConfigGcc} -without-gnu-ld -without-gnu-as -with-as=/usr/bin/as -with-ld=/usr/bin/ld ${ConfigDisableBinutils}"
     ;;
 IRIX|IRIX64)
-    CC='/usr/WorkShop/usr/bin/ncc -w'
+    CC="/usr/WorkShop/usr/bin/ncc -w"
     export CC
     ConfigGcc="${ConfigGcc} -without-gnu-ld -with-gnu-as -disable-ld"
     ;;
@@ -119,7 +126,7 @@ build_make0() {
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
-    ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon0}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon0}
     ${MAKE}
     ./make install
     rehash || true
@@ -129,7 +136,7 @@ build_make0() {
 
 
 build_make0
-MAKE=gmake
+MAKE="gmake MAKEINFO=:"
 
 
 build_python0() {
@@ -144,7 +151,7 @@ build_python0() {
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
     cd ${SOURCE}/${P}/Modules
     cp _sre.c _sre.c.orig
     sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
@@ -210,7 +217,7 @@ build_gcc0() {
 
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
 
     cd ${OBJ}/${P}
     ${MAKE}
@@ -244,7 +251,7 @@ build_tar1() {
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -273,7 +280,7 @@ build_make1() {
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
-    ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
     ${MAKE}
     ./make install
     rehash || true
@@ -297,7 +304,7 @@ build_gcc() {
 
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -319,7 +326,7 @@ build_bash() {
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigCommon}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon}
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -341,7 +348,7 @@ build_python() {
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
     # cd ${SOURCE}/${P}/Modules
     # cp _sre.c _sre.c.orig
     # sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
@@ -368,7 +375,7 @@ build_tar() {
 
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -389,7 +396,7 @@ build_make() {
     cd ${SOURCE}
     gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
-    ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
     ${MAKE}
     ./make install
     rehash || true
@@ -414,7 +421,7 @@ build_gcc4() {
 
     mkdir -p ${OBJ}/${P} || true
     cd ${OBJ}/${P}
-    ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE} bootstrap4-lean
     ${MAKE} install
     rehash || true
