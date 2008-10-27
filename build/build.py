@@ -432,8 +432,16 @@ def FindMake():
     global Make
     Make = FindGnuTool(Make, "make")
 
-FindMake()
-FindTar()
+def Refresh():
+    global Tar
+    global Make
+    Tar = None
+    Make = None
+
+    FindMake()
+    FindTar()
+
+Refresh()
 
 #
 # I have recoded my archives to tar+lzma = .tlz.
