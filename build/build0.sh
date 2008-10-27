@@ -50,9 +50,9 @@ SOURCE=${HOME}/src
 OBJ=${HOME}/obj
 DONE=${HOME}/done
 
-rm -rf /usr/local/*
-rm -rf ${OBJ}/*
-rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
+# rm -rf /usr/local/*
+# rm -rf ${OBJ}/*
+# rm -rf ${SOURCE}/gccrel ${SOURCE}/*0 ${SOURCE}/*1 ${SOURCE}/*2 ${SOURCE}/*3 ${SOURCE}/*4 ${SOURCE}/*5 ${SOURCE}/*6 ${SOURCE}/*7 ${SOURCE}/*8 ${SOURCE}/*9
 mkdir -p ${DONE}
 
 TAR=tar
@@ -117,12 +117,9 @@ AIX)
     ConfigGcc="${ConfigGcc} -without-gnu-ld -without-gnu-as -with-as=/usr/bin/as -with-ld=/usr/bin/ld ${ConfigDisableBinutils}"
     ;;
 IRIX|IRIX64)
-    CC="/usr/WorkShop/usr/bin/ncc -w"
-    export CC
     ConfigGcc="${ConfigGcc} -without-gnu-ld -with-gnu-as -disable-ld"
     ;;
 esac
-
 
 ConfigGcc0="${ConfigGcc}"
 ConfigGcc0=" ${ConfigGcc0} -disable-multilib "
@@ -131,6 +128,29 @@ ConfigGcc0=" ${ConfigGcc0} -disable-libssp "
 ConfigGcc0=" ${ConfigGcc0} -disable-bootstrap "
 ConfigGcc0=" ${ConfigGcc0}"
 
+SetCC0() {
+    case "${UnameS}" in
+    IRIX|IRIX64)
+        CC="/usr/WorkShop/usr/bin/ncc -w"
+        export CC
+        ;;
+    esac
+}
+
+SetCC1() {
+    CC="${Prefix}/bin/gcc"
+    export CC
+}
+
+UnsetCC() {
+# ??
+    CC=
+    export CC
+    unset CC
+}
+
+UnsetCC
+SetCC0
 
 build_make0() {
 #
@@ -144,6 +164,8 @@ build_make0() {
     set -x
 
     P=make-3.81
+    Q=make0
+
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
@@ -153,7 +175,7 @@ build_make0() {
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
@@ -164,16 +186,21 @@ MAKE="gmake MAKEINFO=:"
 
 build_python0() {
 #
-# Python with bootstrap compiler
+# Build Python with bootstrap compiler
+# Python is important as it is our preferred scripting language.
+# We have written patches to gcc in it.
+# We should escape from sh to Python ASAP.
 #
     set -e
     set -x
 
     P=Python-2.5.2
+    Q=python0
+
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon0}
 
     # Irix ncc doesn't like files that #include themselves, so make it include a copy of itself.
@@ -181,13 +208,12 @@ build_python0() {
     test -f _sre.c.orig || cp _sre.c _sre.c.orig
     sed -e 's/#include "_sre.c"/#include "_sre.c.orig"/' < _sre.c.orig > _sre.c
 
-    cd ${OBJ}/${P}
-    ${MAKE}
+    cd ${OBJ}/${Q}
     ${MAKE} -k install || true
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
@@ -309,43 +335,37 @@ build_gcc0() {
     set -e
     set -x
 
-    P=gcc-4.3.2
     extract_gcc_core
+
+    P=gcc-4.3.2
+    Q=gcc0
 
     python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
 
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon0} ${ConfigGcc0}
 
-    cd ${OBJ}/${P}
+    cd ${OBJ}/${Q}
     ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
+#
+# Now that we have python, to apply patches to gcc,
+# build our first version of gcc.
+# Note that this version is flawed, but it is a useful step.
+# The flaw is induced by a miscompilation of make, which
+# we should really debug and patch, to make this all simpler and faster.
+#
+
 test -f ${DONE}/gcc0 || build_gcc0
 touch -f ${DONE}/gcc0
-
-
-#
-# gcc from here on out
-# 
-# How to unset a variable?
-#
-
-case "${UnameS}" in
-IRIX|IRIX64)
-    CC=
-    export CC
-    unset CC
-    ;;
-esac
-
 
 #
 # make with first build of gcc
@@ -361,6 +381,8 @@ build_make1() {
     set -x
 
     P=make-3.81
+    Q=make1
+
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
@@ -370,9 +392,12 @@ build_make1() {
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
+
+UnsetCC
+SetCC1
 
 test -f ${DONE}/make1 || build_make1
 touch -f ${DONE}/make1
@@ -380,32 +405,43 @@ touch -f ${DONE}/make1
 
 build_gcc1() {
 #
-# Now build gcc with itself, still just core, because
-# the first build of gcc can't build tar, and vendor tar (Solaris, Irix) can't extract g++.
-# (Testing on Irix lately, I just remember that Solaris tar had problems, and
-# I think they were in libstdcxx but I have to confrm later.)
+# Now build gcc again with the bootstrap compiler, but a more working version of make.
+# Again note that we cannot yet extract g++ because we don't have GNU tar, and we
+# can't yet build GNU tar because gcc doesn't work well enough.
 #
     set -e
     set -x
 
-    P=gcc-4.3.2
     extract_gcc_core
 
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    P=gcc-4.3.2
+    Q=gcc1
+
+    python ${HOME}/build.py patchonly source ${SOURCE}/${P} binutils gcc gmp mpfr
+
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc} -disable-bootstrap
     ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
+
+UnsetCC
+SetCC0
 
 test -f ${DONE}/gcc1 || build_gcc1
 touch -f ${DONE}/gcc1
 
+#
+# gcc from here on out, but let configure find it.
+# 
+
+UnsetCC
 
 build_tar() {
 #
@@ -418,17 +454,18 @@ build_tar() {
     set -x
 
     P=tar-1.20
+    Q=tar
+
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
-    ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
@@ -444,18 +481,21 @@ build_gcc() {
     set -e
     set -x
 
-    P=gcc-4.3.2
     extract_gcc
+    # extract_all
 
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    P=gcc-4.3.2
+    Q=gcc
+
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc} -disable-bootstrap
     ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
@@ -471,49 +511,23 @@ build_bash() {
     set -x
 
     P=bash-3.2
+    Q=bash
+
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon}
-    ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/bash || build_bash
 touch -f ${DONE}/bash
-
-
-build_python() {
-#
-# Python with self-built gcc
-#
-    set -e
-    set -x
-
-    P=Python-2.5.2
-    cd ${SOURCE}
-    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
-    cd ${OBJ}/${P}
-    ${MAKE}
-    ${MAKE} install
-    rehash || true
-
-    cd ${HOME}
-    rm -rf ${OBJ}/${P}
-    rm -rf ${SOURCE}/${P}
-}
-
-test -f ${DONE}/python || build_python
-touch -f ${DONE}/python
 
 
 build_make() {
@@ -524,6 +538,8 @@ build_make() {
     set -x
 
     P=make-3.81
+    Q=make
+
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     cd ${SOURCE}/${P}
@@ -533,7 +549,7 @@ build_make() {
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
@@ -549,24 +565,57 @@ build_gcc4() {
     set -e
     set -x
 
-    P=gcc-4.3.2
-
     extract_gcc
+    # extract_all
 
-    mkdir -p ${OBJ}/${P}
-    cd ${OBJ}/${P}
+    P=gcc-4.3.2
+    Q=gcc4
+
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE} bootstrap4-lean
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
-    rm -rf ${OBJ}/${P}
+    # rm -rf ${OBJ}/${Q}
     rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/gcc4 || build_gcc4
 touch -f ${DONE}/gcc4
+
+build_python() {
+#
+# Python with self-built gcc
+# This is last at least for now because it fails to due problems
+# with select, fsync, chdir.
+# Possible workaround is removing HAVE_UNISTD, HAVE_FSYNC, HAVE_CHDIR from pyconfig.h.
+#
+    set -e
+    set -x
+
+    P=Python-2.5.2
+    Q=python
+
+    cd ${SOURCE}
+    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/${Q}
+    cd ${OBJ}/${Q}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
+    cd ${OBJ}/${Q}
+    ${MAKE} install
+    rehash || true
+
+    cd ${HOME}
+    # rm -rf ${OBJ}/${Q}
+    rm -rf ${SOURCE}/${P}
+}
+
+test -f ${DONE}/python || build_python
+touch -f ${DONE}/python
+
 
 #
 # more packages here (or in the Python)
