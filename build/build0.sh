@@ -421,7 +421,7 @@ build_gcc1() {
 
     mkdir -p ${OBJ}/${Q}
     cd ${OBJ}/${Q}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc} -disable-bootstrap
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc0}
     ${MAKE}
     ${MAKE} install
     rehash || true
@@ -574,7 +574,7 @@ build_gcc4() {
     mkdir -p ${OBJ}/${Q}
     cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
-    ${MAKE} bootstrap4-lean
+    ${MAKE} bootstrap4
     ${MAKE} install
     rehash || true
 
