@@ -1339,10 +1339,6 @@ else:
             "  (void*) __INT_TO_PTR ((h)->temp))",
             Source + "/include/obstack.h")
 
-def ChangeLine(From, To, FilePath):
-    if not os.path.isfile(FilePath) and PatchOnly:
-        return
-
 def ReplaceLineSequence(From, To, Files):
     #print("ReplaceLineSequence:" + From[0] + ":" + Files[0])
     len_From = len(From)
@@ -1374,6 +1370,11 @@ def ReplaceLineSequence(From, To, Files):
             print("ReplaceLineSequence: already up to date " + FilePath)
 
 if Binutils:
+    ChangeLine(
+        "      chunk_nread = cache_bread_1 (abfd, buf + nread, chunk_size);",
+        "      chunk_nread = cache_bread_1 (abfd, (char*) buf + nread, chunk_size);",
+        "bfd/cache.c")
+
     ReplaceLineSequence(
         ["  const int     bufsz = 4096;",
         "  char          symbuf [bufsz];"],
