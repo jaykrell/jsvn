@@ -69,22 +69,24 @@ ConfigGcc0=" "
 
 ConfigCommon=" ${ConfigCommon} -disable-nls "
 ConfigCommon=" ${ConfigCommon} -disable-intl "
-ConfigCommon=" ${ConfigCommon} -verbose "
-ConfigCommon=" ${ConfigCommon} -prefix=${Prefix} "
-ConfigCommon=" ${ConfigCommon} -exec-prefix=${Prefix} "
-ConfigCommon=" ${ConfigCommon} -libdir=${Prefix}/lib "
-ConfigCommon=" ${ConfigCommon} -libexecdir=${Prefix}/lib "
-ConfigCommon=" ${ConfigCommon} -mandir=${Prefix}/share/man "
-ConfigCommon=" ${ConfigCommon} -infodir=${Prefix}/share/info "
 ConfigCommon=" ${ConfigCommon} -enable-version-specific-runtime-libs "
 ConfigCommon=" ${ConfigCommon} -disable-checking "
-ConfigCommon=" ${ConfigCommon} -disable-checking "
 ConfigCommon=" ${ConfigCommon} -enable-64-bit-bfd "
+ConfigCommon=" ${ConfigCommon} -enable-cld "
+ConfigCommon=" ${ConfigCommon} -disable-win32-registry "
+ConfigCommon=" ${ConfigCommon} -disable-dependency-tracking "
+
+# ConfigCommon=" ${ConfigCommon} -verbose "
+# ConfigCommon=" ${ConfigCommon} -prefix=${Prefix} "
+# ConfigCommon=" ${ConfigCommon} -exec-prefix=${Prefix} "
+# ConfigCommon=" ${ConfigCommon} -libdir=${Prefix}/lib "
+# ConfigCommon=" ${ConfigCommon} -libexecdir=${Prefix}/lib "
+# ConfigCommon=" ${ConfigCommon} -mandir=${Prefix}/share/man "
+# ConfigCommon=" ${ConfigCommon} -infodir=${Prefix}/share/info "
+
 ConfigCommon="${ConfigCommon}"
 
-
 ConfigCommon0="${ConfigCommon}"
-ConfigCommon0=" ${ConfigCommon0} -disable-dependency-tracking "
 ConfigCommon0=" ${ConfigCommon0} -disable-shared "
 ConfigCommon0=" ${ConfigCommon0} -enable-static "
 ConfigCommon0="${ConfigCommon0}"
@@ -265,67 +267,6 @@ extract_gcc() {
 }
 
 
-extract_all() {
-    set -e
-    set -x
-
-    P=gcc-4.3.2
-
-    mkdir -p ${SOURCE}/${P}
-    cd ${SOURCE}/${P}
-
-    Q=bash-3.2
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} make
-
-    Q=make-3.81
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} make
-
-    Q=tar-1.20
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} tar
-
-    Q=m4-1.4.11
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} m4
-
-    Q=texinfo-4.12
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} texinfo
-
-    Q=gettext-0.17
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} gettext
-
-    Q=bzip2-1.0.5
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} bzip2
-
-    Q=flex-2.5.35
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} flex
-
-    Q=bison-2.3
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} bison
-
-    Q=gdb-6.8
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} gdb
-
-    Q=gawk-3.1.6
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} gawk
-
-    Q=sed-4.1.5
-    gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
-    mv ${Q} sed
-
-    extract_gcc_core
-}
-
-
 build_gcc0() {
 #
 # gcc/binutils/gmp/mpfr with bootstrap compiler
@@ -385,15 +326,16 @@ build_make1() {
 
     cd ${SOURCE}
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    cd ${SOURCE}/${P}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure -program-prefix=g ${ConfigCommon}
-    ${MAKE}
+    mkdir -p ${OBJ}/${Q}
+
+    cd ${OBJ}/${Q}
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} -program-prefix=g
     ./make install
     rehash || true
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
 UnsetCC
@@ -428,7 +370,7 @@ build_gcc1() {
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
 UnsetCC
@@ -466,7 +408,7 @@ build_tar() {
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/tar || build_tar
@@ -489,14 +431,14 @@ build_gcc() {
 
     mkdir -p ${OBJ}/${Q}
     cd ${OBJ}/${Q}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc} -disable-bootstrap
+    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
     ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/gcc || build_gcc
@@ -517,13 +459,13 @@ build_bash() {
     test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/${Q}
     cd ${OBJ}/${Q}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon}
+    test -f ./Makefile || ${SOURCE}/${P}/configure ${ConfigCommon}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/bash || build_bash
@@ -550,18 +492,14 @@ build_make() {
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
 test -f ${DONE}/make || build_make
 touch -f ${DONE}/make
 
 
-build_gcc4() {
-#
-# on Irix, stage 2 and 3 compare differently
-# go ahead and try a 4 stage build
-#
+build_gcc() {
     set -e
     set -x
 
@@ -569,66 +507,57 @@ build_gcc4() {
     # extract_all
 
     P=gcc-4.3.2
-    Q=gcc4
+    Q=gcc
 
     mkdir -p ${OBJ}/${Q}
     cd ${OBJ}/${Q}
     test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigCommon} ${ConfigGcc}
-    ${MAKE} bootstrap4
+    ${MAKE}
     ${MAKE} install
     rehash || true
 
     cd ${HOME}
     # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    # rm -rf ${SOURCE}/${P}
 }
 
-test -f ${DONE}/gcc4 || build_gcc4
-touch -f ${DONE}/gcc4
+test -f ${DONE}/gcc || build_gcc
+touch -f ${DONE}/gcc
 
-build_python() {
-#
-# Python with self-built gcc
-# This is last at least for now because it fails to due problems
-# with select, fsync, chdir.
-# Possible workaround is removing HAVE_UNISTD, HAVE_FSYNC, HAVE_CHDIR from pyconfig.h.
-#
+build() {
     set -e
     set -x
 
-    P=Python-2.5.2
-    Q=python
-
     cd ${SOURCE}
-    test -f ${SOURCE}/${P}/Makefile.in || gzip -d < ${SOURCE}/${P}.tar.gz | ${TAR} -xf -
-    mkdir -p ${OBJ}/${Q}
-    cd ${OBJ}/${Q}
-    test -f ${SOURCE}/${P}/Makefile || ${SOURCE}/${P}/configure ${ConfigPython} ${ConfigCommon}
-    cd ${OBJ}/${Q}
-    ${MAKE} install
+    test -f ${SOURCE}/$1-$2/Makefile.in || gzip -d < ${SOURCE}/$1-$2.tar.gz | ${TAR} -xf -
+    mkdir -p ${OBJ}/$1
+    cd -p ${OBJ}/$1
+    test -f ./${P}/Makefile || ${SOURCE}/${P}/configure -disable-nls
+    ${MAKE}
     rehash || true
 
     cd ${HOME}
-    # rm -rf ${OBJ}/${Q}
-    rm -rf ${SOURCE}/${P}
+    touch -f ${DONE}/${Q}
 }
 
-test -f ${DONE}/python || build_python
-touch -f ${DONE}/python
-
-
-#
-# more packages here (or in the Python)
-# and cross tools
-# gzip
-# bzip2
-# lzma
-# sed
-# tcl
-# expect
-# perl 5.10
-# automake
-# autoconf
-# autogen
-# gawk
-#
+build bash-3.2 bash
+build tar-1.20 tar
+build make-3.81 make
+build m4-1.4.11 m4
+build texinfo-4.12 texinfo
+build gettext-0.17 gettext
+build flex-2.5.35 flex
+build bison-2.3 bison
+build sed 4.1.5
+build gawk 3.1.6
+build gdb 6.8
+# build bzip2 1.0.5
+# build lzma
+# build tcl
+# build tk
+# build perl 5.10
+# build autoconf
+# build autogen
+# build automake
+# build guile
+# build expect
