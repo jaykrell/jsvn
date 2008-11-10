@@ -229,10 +229,12 @@ ConfigCommon += " -prefix=" + Prefix + " "
 # for one thing, merge libexec and lib -- fewer directories
 #
 ConfigCommon += " -exec-prefix=" + Prefix + " "
-ConfigCommon += " -libdir=" + Prefix + "/lib "
+# ConfigCommon += " -libdir=" + Prefix + "/lib "
 ConfigCommon += " -libexecdir=" + Prefix + "/lib "
-ConfigCommon += " -mandir=" + Prefix + "/share/man "
-ConfigCommon += " -infodir=" + Prefix + "/share/info "
+# ConfigCommon += " -libdir=" + Prefix + "/bin "
+# ConfigCommon += " -libexecdir=" + Prefix + "/bin "
+# ConfigCommon += " -mandir=" + Prefix + "/share/man "
+# ConfigCommon += " -infodir=" + Prefix + "/share/info "
 
 # -sysconfdir=/etc
 
@@ -338,7 +340,7 @@ ConfigCommon += " -enable-64-bit-bfd "
 # usually ignore.
 #
 
-ConfigCommon = re.sub(" +", " ", ConfigCommon)
+ConfigCommon = re.sub("  +", " ", ConfigCommon)
 
 # not yet used
 #TargetDjgppEnv = "ac_cv_func_shl_load=no"
@@ -518,6 +520,8 @@ if Cygwin:
 ExtractedBinutils = False
 
 if Binutils:
+    # 2.19  undefined reference to `sha1_init_ctx'
+    # ExtractedBinutils = Extract(Source, Source + "/binutils", Archives + "/" + "binutils-2.19")
     ExtractedBinutils = Extract(Source, Source + "/binutils", Archives + "/" + "binutils-2.18")
 
 #
@@ -1373,7 +1377,7 @@ if Binutils:
     ChangeLine(
         "      chunk_nread = cache_bread_1 (abfd, buf + nread, chunk_size);",
         "      chunk_nread = cache_bread_1 (abfd, (char*) buf + nread, chunk_size);",
-        "bfd/cache.c")
+        Source + "/bfd/cache.c")
 
     ReplaceLineSequence(
         ["  const int     bufsz = 4096;",
@@ -1405,6 +1409,19 @@ def RemoveCplusplusComments(Files):
 RemoveCplusplusComments(
     ["gas/bfin-parse.c", "gas/config/obj-coff.c", "gas/config/tc-bfin.c", "gas/config/tc-cr16.c",
     "gas/config/tc-m68k.c", "gas/config/tc-mips.c", "gas/config/tc-ns32k.c"])
+
+if False:
+    ChangeLine(
+    # cc1: warnings being treated as errors
+    # /src/gdb-6.8/gdb/remote.c: In function 'extended_remote_attach_1':
+    # /src/gdb-6.8/gdb/remote.c:2859: error: format '%x' expects type 'unsigned int',
+    # but argument 3 has type 'pid_t'
+    #
+    # newer source makes this change
+    #
+        "  pid_t pid;",
+        "  int pid;",
+        Source + "/gdb/remote.c")
 
 def PatchOutLibIConv(Obj):
 #
@@ -1455,6 +1472,8 @@ def PatchOutOptimizer(Target, Obj):
 # This is not really needed, but should provide a nice
 # speed boost to building the compiler.
 #
+    return
+
     T = Target
 
     for a in [
@@ -1616,6 +1635,15 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         # ExtraConfig += " -with-ld=/usr/bin/ld "
         ExtraConfig += ConfigDisableBinutils
 
+    elif Target.find("-solaris") != -1 and Host == Target and Host != Build:
+        # use Sun native as/ld; GNU are ok too
+        ExtraConfig += " -without-gnu-as "
+        ExtraConfig += " -without-gnu-ld "
+        ExtraConfig += ConfigDisableBinutils
+
+        if Target.find("sparc64") != -1:
+            ExtraConfig += " gcc_cv_as_sparc_register_op=yes"
+
     elif Target.find("-irix") != -1:
         if (Target != Host) or (Target != Build):
             print("ERROR: IRIX: non-native Irix builds will not work due to problems with ld")
@@ -1732,14 +1760,14 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
         # make[4]: *** [libstdc++.la] Error 1
         # make[4]: Leaving directory /obj/gcc.1/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/sparc64-sun-solaris2.10/libstdc++-v3/src
         #
-        #Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
-        #Run(".", "mkdir -p " + Directory)
-        #Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
-        #Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
+        Directory = Prefix + "/lib/gcc/sparc64-sun-solaris2.10/" + GccVersion
+        Run(".", "mkdir -p " + Directory)
+        Run(Directory, "-ln -s sparcv9/libgcc_s.so libgcc_s.so")
+        Run(Directory, "-ln -s sparcv9/libgcc_s.so.1 libgcc_s.so.1")
         #
         # disable shared instead
         #
-        ExtraConfig += " -disable-shared -enable-static "
+        #ExtraConfig += " -disable-shared -enable-static "
         pass
 
     if Target.find("-cygwin") != -1:
@@ -1843,8 +1871,18 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37036
     #
     if (Host == Target) and (Host != Build):
-        ExtraConfig += " -with-sysroot=/"
         ExtraConfig += " -with-build-sysroot=" + DefaultSysroot
+        #ExtraConfig += " -with-sysroot=/"
+        # -with-sysroot breaks using native Sun ld, so come up with another way
+        ExtraConfig += " -disable-fixincludes"
+        Run(Obj, "mkdir gcc")
+        for a in [
+                "stmp-int-hdrs" "fixinc_list",
+                "s-fixinc_list", "stmp-fixinc",
+                "macro_list", "install-mkheaders",
+                "install-headers", "install-headers-tar", "install-headers-cpio",
+                "real-install-headers-tar", "real-install-headers-cpio", "real-install-headers-cp"]:
+            Run(Obj, "touch gcc/" + a)
 
     ExtraConfig = re.sub("  +", " ", ExtraConfig)
 
@@ -1911,6 +1949,17 @@ DoBuild()
 
 if NativeOnly:
     sys.exit(0)
+
+Platform2 = "mips64-openbsd"
+Platform2 = "mips64-unknown-openbsd4.3"
+#DoBuild(Platform1, Platform2)
+#DoBuild(Platform2, Platform2)
+
+#Platform2 = "armv5tejl-unknown-linux-gnu"
+#Platform2 = "arm-linux-uclibc"
+Platform2 = "arm-linux-gnu"
+#DoBuild(Platform1, Platform2)
+#DoBuild(Platform2, Platform2)
 
 Platform2 = "sparc-sun-solaris2.10"
 DoBuild(Platform1, Platform2)

@@ -101,7 +101,6 @@ ConfigDisableBinutils="${ConfigDisableBinutils} -disable-gprof "
 ConfigDisableBinutils="${ConfigDisableBinutils} -disable-ld "
 ConfigDisableBinutils="${ConfigDisableBinutils} -disable-opcode "
 
-
 ConfigGcc="${ConfigGcc} ${ConfigCommon0}"
 
 #
@@ -116,10 +115,14 @@ case "${UnameS}" in
 AIX)
     # For Python, do not use xlC (I don't have it.)
     ConfigPython="-with-gcc -disable-ipv6"
-    ConfigGcc="${ConfigGcc} -without-gnu-ld -without-gnu-as -with-as=/usr/bin/as -with-ld=/usr/bin/ld ${ConfigDisableBinutils}"
+
+    # AIX requires native ld and native as in all but very few configurations
+    ConfigGcc="${ConfigGcc} -without-gnu-ld  -with-ld=/usr/bin/ld -without-gnu-as -with-as=/usr/bin/as ${ConfigDisableBinutils}"
     ;;
 IRIX|IRIX64)
-    ConfigGcc="${ConfigGcc} -without-gnu-ld -with-gnu-as -disable-ld"
+    # Irix requires GNU as.
+    # GNU ld has problems to be debugged and native ld works.
+    ConfigGcc="${ConfigGcc} -without-gnu-ld -with-ld=/usr/bin/ld -with-gnu-as -disable-ld"
     ;;
 esac
 
@@ -231,7 +234,8 @@ extract_gcc_core() {
 
     if test ! -f ${SOURCE}/${P}/binutils/Makefile.in; then
       cd ${SOURCE}
-      Q=binutils-2.18
+      # 2.18 works
+      Q=binutils-2.19
       gzip -d < ${SOURCE}/${Q}.tar.gz | ${TAR} -xf -
       mv ${Q} ${P}
     fi
@@ -532,7 +536,8 @@ build() {
     test -f ${SOURCE}/$1-$2/Makefile.in || gzip -d < ${SOURCE}/$1-$2.tar.gz | ${TAR} -xf -
     mkdir -p ${OBJ}/$1
     cd -p ${OBJ}/$1
-    test -f ./${P}/Makefile || ${SOURCE}/${P}/configure -disable-nls
+    test -f ./${P}/Makefile || ${SOURCE}/${P}/configure -disable-nls -disable-intl -disable-dependency-tracking
+
     ${MAKE}
     rehash || true
 
