@@ -74,6 +74,12 @@ def ConfigGuess():
             Build = u[4] + "-pc-linux-gnu"
         else:
             Build = u[4] + "-unknown-linux-gnu"
+    elif u[0] == "SunOS":
+        if u[4] == "sun4u":
+            Processor = "sparc64"
+        else:
+            print("ERROR: update ConfigGuess for " + u[4])
+        Build = Processor + "-sun-solaris" + u[2]
     else:
         print("ERROR: update ConfigGuess for " + u[0])
         sys.exit(1)
@@ -118,6 +124,7 @@ MpfrVersion = "2.3.2"
 
 Prefix = "/usr/local"
 # Prefix = "/usr"
+# Prefix = "/opt"
 
 i = 1
 while i != len(sys.argv):
@@ -1386,6 +1393,134 @@ if Binutils:
         "  const int     bufsz = sizeof(symbuf);"],
         ["bfd/elflink.c"]);
 
+# lots of errors bootstrapping with Sun cc
+# "/src/gcc-4.3.2/gcc/c-common.c", line 2259: invalid token:  short_fract_type_no...
+
+ReplaceLineSequence([
+"",
+"#define C_COMMON_FIXED_TYPES(SAT,NAME) \\",
+"  if (type1 == SAT ## short_ ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_short_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_short_ ## NAME ## _type_node \\",
+"		     : SAT ## short_ ## NAME ## _type_node; \\",
+"  if (type1 == SAT ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_ ## NAME ## _type_node \\",
+"		     : SAT ## NAME ## _type_node; \\",
+"  if (type1 == SAT ## long_ ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_long_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_long_ ## NAME ## _type_node \\",
+"		     : SAT ## long_ ## NAME ## _type_node; \\",
+"  if (type1 == SAT ## long_long_ ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_long_long_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_long_long_ ## NAME ## _type_node \\",
+"		     : SAT ## long_long_ ## NAME ## _type_node;",
+"",
+"#define C_COMMON_FIXED_MODE_TYPES(SAT,NAME) \\",
+"  if (type1 == SAT ## NAME ## _type_node \\",
+"      || type1 == SAT ## u ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## u ## NAME ## _type_node \\",
+"		     : SAT ## NAME ## _type_node;",
+"",
+"  C_COMMON_FIXED_TYPES (, fract);",
+"  C_COMMON_FIXED_TYPES (sat_, fract);",
+"  C_COMMON_FIXED_TYPES (, accum);",
+"  C_COMMON_FIXED_TYPES (sat_, accum);",
+"",
+"  C_COMMON_FIXED_MODE_TYPES (, qq);",
+"  C_COMMON_FIXED_MODE_TYPES (, hq);",
+"  C_COMMON_FIXED_MODE_TYPES (, sq);",
+"  C_COMMON_FIXED_MODE_TYPES (, dq);",
+"  C_COMMON_FIXED_MODE_TYPES (, tq);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, qq);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, hq);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, sq);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, dq);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, tq);",
+"  C_COMMON_FIXED_MODE_TYPES (, ha);",
+"  C_COMMON_FIXED_MODE_TYPES (, sa);",
+"  C_COMMON_FIXED_MODE_TYPES (, da);",
+"  C_COMMON_FIXED_MODE_TYPES (, ta);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, ha);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, sa);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, da);",
+"  C_COMMON_FIXED_MODE_TYPES (sat_, ta);",
+""], [
+"",
+"#define C_COMMON_FIXED_TYPES1(NAME) \\",
+"  if (type1 == short_ ## NAME ## _type_node \\",
+"      || type1 == unsigned_short_ ## NAME ## _type_node) \\",
+"    return unsignedp ? unsigned_short_ ## NAME ## _type_node \\",
+"		     : short_ ## NAME ## _type_node; \\",
+"  if (type1 == NAME ## _type_node \\",
+"      || type1 == unsigned_ ## NAME ## _type_node) \\",
+"    return unsignedp ? unsigned_ ## NAME ## _type_node \\",
+"		     : NAME ## _type_node; \\",
+"  if (type1 == long_ ## NAME ## _type_node \\",
+"      || type1 == unsigned_long_ ## NAME ## _type_node) \\",
+"    return unsignedp ? unsigned_long_ ## NAME ## _type_node \\",
+"		     : long_ ## NAME ## _type_node; \\",
+"  if (type1 == long_long_ ## NAME ## _type_node \\",
+"      || type1 == unsigned_long_long_ ## NAME ## _type_node) \\",
+"    return unsignedp ? unsigned_long_long_ ## NAME ## _type_node \\",
+"		     : long_long_ ## NAME ## _type_node;",
+"",
+"#define C_COMMON_FIXED_MODE_TYPES1(NAME) \\",
+"  if (type1 == NAME ## _type_node \\",
+"      || type1 == u ## NAME ## _type_node) \\",
+"    return unsignedp ? u ## NAME ## _type_node \\",
+"		     : NAME ## _type_node;",
+"",
+"#define C_COMMON_FIXED_TYPES2(SAT,NAME) \\",
+"  if (type1 == SAT ## short_ ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_short_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_short_ ## NAME ## _type_node \\",
+"		     : SAT ## short_ ## NAME ## _type_node; \\",
+"  if (type1 == SAT ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_ ## NAME ## _type_node \\",
+"		     : SAT ## NAME ## _type_node; \\",
+"  if (type1 == SAT ## long_ ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_long_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_long_ ## NAME ## _type_node \\",
+"		     : SAT ## long_ ## NAME ## _type_node; \\",
+"  if (type1 == SAT ## long_long_ ## NAME ## _type_node \\",
+"      || type1 == SAT ## unsigned_long_long_ ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## unsigned_long_long_ ## NAME ## _type_node \\",
+"		     : SAT ## long_long_ ## NAME ## _type_node;",
+"",
+"#define C_COMMON_FIXED_MODE_TYPES2(SAT,NAME) \\",
+"  if (type1 == SAT ## NAME ## _type_node \\",
+"      || type1 == SAT ## u ## NAME ## _type_node) \\",
+"    return unsignedp ? SAT ## u ## NAME ## _type_node \\",
+"		     : SAT ## NAME ## _type_node;",
+"",
+"  C_COMMON_FIXED_TYPES1 (fract);",
+"  C_COMMON_FIXED_TYPES2 (sat_, fract);",
+"  C_COMMON_FIXED_TYPES1 (accum);",
+"  C_COMMON_FIXED_TYPES2 (sat_, accum);",
+"",
+"  C_COMMON_FIXED_MODE_TYPES1 (qq);",
+"  C_COMMON_FIXED_MODE_TYPES1 (hq);",
+"  C_COMMON_FIXED_MODE_TYPES1 (sq);",
+"  C_COMMON_FIXED_MODE_TYPES1 (dq);",
+"  C_COMMON_FIXED_MODE_TYPES1 (tq);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, qq);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, hq);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, sq);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, dq);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, tq);",
+"  C_COMMON_FIXED_MODE_TYPES1 (ha);",
+"  C_COMMON_FIXED_MODE_TYPES1 (sa);",
+"  C_COMMON_FIXED_MODE_TYPES1 (da);",
+"  C_COMMON_FIXED_MODE_TYPES1 (ta);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, ha);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, sa);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, da);",
+"  C_COMMON_FIXED_MODE_TYPES2 (sat_, ta);",
+""],
+        ["gcc/c-common.c"]);
+
 def RemoveCplusplusComments(Files):
     for FilePath in Files:
         FilePath = Source + "/" + FilePath
@@ -1870,7 +2005,9 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     # Workaround Canadian fixincludes not understanding sysroot of the cross compiler used to build it.
     # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37036
     #
+    DisableFixIncludes = False
     if (Host == Target) and (Host != Build):
+        DisableFixIncludes = True
         ExtraConfig += " -with-build-sysroot=" + DefaultSysroot
         #ExtraConfig += " -with-sysroot=/"
         # -with-sysroot breaks using native Sun ld, so come up with another way
@@ -1934,6 +2071,14 @@ def DoBuild(Host = None, Target = None, ExtraConfig = " "):
     else:
         print("installing " + Host + "/" + Target)
         # Run(Obj, Make + " install-gcc " + ExtraInstall + Environ)
+
+        if DisableFixIncludes:
+            if os.path.isfile(Obj + "/gcc/Makefile"):
+                ChangeLine(
+                    "INSTALL_HEADERS=install-headers install-mkheaders",
+                    "disabled_INSTALL_HEADERS=install-headers install-mkheaders\nINSTALL_HEADERS=",
+                    Obj + "/gcc/Makefile")
+
         Run(Obj, Make + " install " + ExtraInstall + Environ)
         if DestDir:
             print("Success; copy " + DestDir + " to your " + Host + " machine")
