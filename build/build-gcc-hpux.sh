@@ -13,14 +13,14 @@ PREFIX=/usr/local
 OBJ=/obj
 SOURCE=/src
 
-#
-# set some defaults
-# they don't initially make sense but will later
-#
+PATH=${PREFIX}/bin:${PREFIX}/32/bin:${PREFIX}/64/bin:$PATH
+export PATH
 
-MAKE=${PREFIX}/bin/gmake
+#MAKE=${PREFIX}/bin/gmake
+MAKE=gmake
 
-CC=${PREFIX}/32/bin/gcc
+#CC=${PREFIX}/32/bin/gcc
+CC=gcc
 export CC
 
 #
@@ -30,24 +30,24 @@ export CC
 # rm -rf ${OBJ}/* || true
 # rm -rf ${SOURCE}/*[0-9] || true
 
-rm -rf ${PREFIX}/* || true
+# rm -rf ${PREFIX}/* || true
 
-rm -f ${PREFIX}/bin/*gcc* || true
-rm -f ${PREFIX}/bin/*gcj* || true
-rm -f ${PREFIX}/bin/*as || true
-rm -f ${PREFIX}/bin/*g++ || true
-rm -f ${PREFIX}/bin/*c++ || true
-rm -f ${PREFIX}/bin/hppa* || true
-rm -f ${PREFIX}/bin/cpp || true
-rm -f ${PREFIX}/bin/jv-* || true
-rm -f ${PREFIX}/bin/jcf-* || true
+# rm -f ${PREFIX}/bin/*gcc* || true
+# rm -f ${PREFIX}/bin/*gcj* || true
+# rm -f ${PREFIX}/bin/*as || true
+# rm -f ${PREFIX}/bin/*g++ || true
+# rm -f ${PREFIX}/bin/*c++ || true
+# rm -f ${PREFIX}/bin/hppa* || true
+# rm -f ${PREFIX}/bin/cpp || true
+# rm -f ${PREFIX}/bin/jv-* || true
+# rm -f ${PREFIX}/bin/jcf-* || true
 
-rm -rf ${PREFIX}/hppa* || true
-rm -rf ${PREFIX}/lib/gcc-lib || true
+# rm -rf ${PREFIX}/hppa* || true
+# rm -rf ${PREFIX}/lib/gcc-lib || true
 
-rm -rf ${OBJ}/binut* || true
-rm -rf ${OBJ}/gcc* || true
-rm -rf ${OBJ}/* || true
+# rm -rf ${OBJ}/binut* || true
+# rm -rf ${OBJ}/gcc* || true
+# rm -rf ${OBJ}/* || true
 
 #
 # Bundled cc is K&R.
@@ -219,9 +219,9 @@ ${MAKE}
 ${MAKE} install
 
 
-# Now move up to gcc 4.0.4 and include C++
+# Now move up to gcc 4.3.3 and include C++
 
-GCC_VERSION=4.0.4
+GCC_VERSION=4.3.3
 
 cd ${SOURCE}
 rm -rf gcc-${GCC_VERSION} || true
@@ -235,10 +235,19 @@ for BITS in 32 64; do
     mkdir -p ${OBJ}/gcc-${GCC_VERSION}/gcc${BITS}
     cd ${OBJ}/gcc-${GCC_VERSION}/gcc${BITS}
     rm -rf * || true
-    CC=${PREFIX}/${BITS}/bin/gcc ${SOURCE}/gcc-${GCC_VERSION}/configure -disable-bootstrap -disable-nls -verbose -prefix=${PREFIX}/${BITS} -with-as=${PREFIX}/${BITS}/bin/gas -with-gnu-as
+    PATH=${PREFIX}/${BITS}/bin:$PATH CC=gcc ${SOURCE}/gcc-${GCC_VERSION}/configure -disable-nls -verbose -prefix=${PREFIX}/${BITS}
     RemoveDebug # quash warnings, build faster
     RemoveOptimization # build faster
     ${MAKE}
     ${MAKE} install
 
 done
+
+
+#
+# proceed..
+# if we are to run the gcc tests, we need tcl and expect
+# if we are to work on our source, we need cvs, and (open)ssh
+# ssh requires ssl and zlib
+# our scripts require python
+#
