@@ -6,8 +6,7 @@
 
 long
 jk_getlastwin32error(
-	void
-	)
+	void)
 {
 	long e = GetLastError();
 	if (e == 0)
@@ -20,8 +19,7 @@ jk_getlastwin32error(
 static
 void
 jk_win_cleanup_display(
-	jk_display_t* d
-	)
+	jk_display_t* d)
 {
 	if (d->Win.DciSurface)
 		DCIDestroy(d->Win.DciSurface);
@@ -33,8 +31,7 @@ jk_win_cleanup_display(
 static
 long
 jk_win_display_begin_access(
-	jk_display_t *d
-	)
+	jk_display_t *d)
 {
 	DCIBeginAccess(d->Win.DciSurface);
 	d->
@@ -71,16 +68,14 @@ jk_win_display_begin_access(
 static
 long
 jk_win_display_end_access(
-	jk_display_t *d
-	)
+	jk_display_t *d)
 {
 	DCIEndAccess(d->Win.DciSurface);
 }
 
 long
 jk_win_get_main_display(
-	jk_display_t* d
-	)
+	jk_display_t* d)
 {
 	long er = -1;
 	
@@ -110,4 +105,3 @@ Exit:
 	}
 	return er;
 }
-
