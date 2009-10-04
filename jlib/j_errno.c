@@ -3,13 +3,12 @@
 
 long
 jk_get_errno(
-	void
-	)
+    void)
 {
-	long err = errno;
-	if (err == 0)
-		err = -1;
-	else if (err > 0)
-		err = -err;
-	return err;
+    long err = errno;
+    if (err == 0)
+        err = -1;
+    else if (err > 0)
+        err = -err;
+    return err;
 }

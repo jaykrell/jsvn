@@ -1,7 +1,7 @@
 
 #ifdef _WIN32
 
-//#include <windows.h>
+/*#include <windows.h>*/
 #include <wtypes.h>
 #include <dciman.h>
 
