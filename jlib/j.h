@@ -391,54 +391,46 @@ typedef struct jk_globals_t jk_globals_t;
 void
 jk_reverse_memory_byte_count(
     void* void_p,
-    size_t count
-    );
+    size_t count);
 
 void
 jk_reverse_memory_range_inclusive(
     void* void_start,
-    void* void_end
-    );
+    void* void_end);
 
 void
 jk_reverse_memory_range_exclusive(
     void* void_start,
-    void* void_end
-    );
+    void* void_end);
 
 void
 jk_move_memory(
     void* to,
     const void* from,
-    size_t count
-    );
+    size_t count);
 
 void
 jk_copy_memory(
     void* to,
     const void* from,
-    size_t count
-    );
+    size_t count);
 
 void
 jk_copy_memory_unsigned_char(
     unsigned char* to,
     const unsigned char* from,
-    size_t count
-    );
+    size_t count);
 
 void
 jk_copy_memory_reverse(
     unsigned char* to,
     const unsigned char* from,
-    size_t count
-    );
+    size_t count);
 
 void
 jk_zero_memory(
     void* p,
-    size_t n
-    );
+    size_t n);
 
 /* strongly typed, narrow, specific interface */
 size_t jk_get_dump_length_int(int data);
@@ -614,8 +606,7 @@ struct jk_type_t {
 long
 jk_type_get_size_function(
     jk_type_t* type,
-    size_t* size
-    );
+    size_t* size);
 #define jk_type_get_size(t,s) jk_type_get_size_macro(t,s)
 
 size_t jk_type_char_get_size(const jk_type_t *);
@@ -784,8 +775,7 @@ typedef struct jk_types_t {
 /* strawman abstraction for fetching dynamically defined types */
 jk_type_t *
 jk_get_type_by_name(
-    const char* s
-    );
+    const char* s);
 
 extern const jk_types_t jk_types;
     
@@ -793,86 +783,72 @@ long
 jk_array_init(
     jk_array_t* array,
     const jk_type_t* element_type,
-    jk_memory_allocator_t* allocator
-    );
+    jk_memory_allocator_t* allocator);
 
 long
 jk_array_get_element_type(
     jk_array_t* array,
-    const jk_type_t** element_type
-    );
+    const jk_type_t** element_type);
 
 long
 jk_array_free(
-    jk_array_t* array
-    );
+    jk_array_t* array);
 
 long
 jk_array_get_base(
     jk_array_t* array,
-    void **
-    );
+    void **);
 
 long
 jk_array_get_pointer_to_element_at(
     jk_array_t* array,
     size_t n,
-    void**
-    );
+    void**);
 
 long
 jk_array_get_size( /* std::vector::size() */
     jk_array_t* array,
-    size_t*
-    );
+    size_t*);
 
 long
 jk_array_set_size( /* std::vector::resize() */
     jk_array_t* array,
-    size_t new_size
-    );
+    size_t new_size);
 
 long
 jk_array_get_allocated_size( /* std::vector::capacity() */
     jk_array_t* array,
-    size_t*
-    );
+    size_t*);
 
 long
 jk_array_ensure_allocated_size( /* std::vector::reserve() */
     jk_array_t* array,
-    size_t new_size
-    );
+    size_t new_size);
  
 long
 jk_array_add_last_element(/* std::vector::push_back() */
     jk_array_t* array,
-    void* element
-    );
+    void* element);
 
 long
 jk_array_remove_last_element(/* std::vector::pop_back() */
-    jk_array_t* array
-    );
+    jk_array_t* array);
 
 long
 jk_array_get_first_element(/* std::vector::front() */
     jk_array_t* array,
-    void **
-    );
+    void **);
 
 long
 jk_array_get_last_element(/* std::vector::back() */
     jk_array_t* array,
-    void **
-    );
+    void **);
 
 long
 jk_array_set_element_at_index(
     jk_array_t* array,
     size_t n,
-    void* element
-    );
+    void* element);
     
 typedef struct jk_array_iterator_t {
     jk_array_t* array;
@@ -881,61 +857,51 @@ typedef struct jk_array_iterator_t {
 
 void
 jk_assert_iterator_assert_is_valid(
-    const jk_array_iterator_t* iterator
-    );
+    const jk_array_iterator_t* iterator);
 
 long
 jk_array_begin(
     jk_array_t* array,
-    jk_array_iterator_t* iterator
-    );
+    jk_array_iterator_t* iterator);
 
 long
 jk_array_end(
     jk_array_t* array,
-    jk_array_iterator_t* iterator
-    );
+    jk_array_iterator_t* iterator);
 
 long
 jk_array_iterator_increment(
-    jk_array_iterator_t* iterator
-    );
+    jk_array_iterator_t* iterator);
 
 long
 jk_array_iterator_decrement(
-    jk_array_iterator_t* iterator
-    );
+    jk_array_iterator_t* iterator);
 
 long
 jk_array_iterator_add_integer(
     jk_array_iterator_t* iterator,
-    size_t n
-    );
+    size_t n);
 
 long
 jk_array_iterator_subtract_integer(
     jk_array_iterator_t* iterator,
-    size_t n
-    );
+    size_t n);
 
 long
 jk_array_iterator_subtract_iterator(
     jk_array_iterator_t* iterator,
-    const jk_array_iterator_t* iterator_to_subtract
-    );
+    const jk_array_iterator_t* iterator_to_subtract);
     
 long
 jk_array_iterator_dereference(
     jk_array_iterator_t* iterator,
-    void **
-    );
+    void **);
 
 long
 jk_array_iterator_is_equal(
     const jk_array_iterator_t* iterator1,
     const jk_array_iterator_t* iterator2,
-    jk_boolean_t *
-    );
+    jk_boolean_t *);
 
 typedef struct jk_hashtable_element_t {
     size_t hash;
@@ -980,80 +946,67 @@ typedef struct jk_hashtable_t {
 long
 jk_hashtable_init(
     jk_hashtable_t* hashtable,
-    jk_hashtable_static_context_t* context
-    );
+    jk_hashtable_static_context_t* context);
 
 long
 jk_hashtable_free(
-    jk_hashtable_t* hashtable
-    );
+    jk_hashtable_t* hashtable);
     
 long
 jk_hashtable_get_memory_allocator(
     jk_hashtable_t* hashtable,
-    jk_memory_allocator_t** memory_allocator
-    );
+    jk_memory_allocator_t** memory_allocator);
 
 long
 jk_hashtable_get_size(
     jk_hashtable_t* hashtable,
-    size_t* size
-    );
+    size_t* size);
     
 long
 jk_hashtable_add_element(
     jk_hashtable_t* hashtable,
     const void* key,
-    void* value
-    );
+    void* value);
     
 long
 jk_hashtable_remove_key(
     jk_hashtable_t* hashtable,
-    const void* key
-    );
+    const void* key);
 
 long
 jk_hashtable_remove_all(
-    jk_hashtable_t* hashtable
-    );
+    jk_hashtable_t* hashtable);
 
 long
 jk_hashtable_search(
     jk_hashtable_t* hashtable,
     const void* key,
-    jk_hashtable_search_result_t* search_result
-    );
+    jk_hashtable_search_result_t* search_result);
 
 long
 jk_hashtable_remove_search_result(
     jk_hashtable_t* hashtable,
-    jk_hashtable_search_result_t* search_result
-    );
+    jk_hashtable_search_result_t* search_result);
     
 long
 jk_hashtable_iterator_init(
     jk_hashtable_t* hashtable,
     jk_hashtable_iterator_t* iterator,
-    bool_t* done
-    );
+    bool_t* done);
 
 long
 jk_hashtable_iterator_remove_and_next(
     jk_hashtable_iterator_t* iterator,
-    bool_t* done
-    );
+    bool_t* done);
     
 long
 jk_hashtable_iterator_next(
     jk_hashtable_iterator_t* iterator,
-    bool_t* done
-    );
+    bool_t* done);
 
 long
 jk_hashtable_iterator_free(
-    jk_hashtable_iterator_t* iterator
-    );
+    jk_hashtable_iterator_t* iterator);
     
 typedef struct jk_java_unresolved_constant_interface_member_ref_no_tag_t {
 	unsigned class_index;
@@ -1228,35 +1181,30 @@ long
 jk_file_open_for_read(
     const jk_globals_t* globals,
     jk_file_t* file,
-    const char* file_path
-    );
+    const char* file_path);
     
 long
 jk_file_read_copy(
     jk_file_t* file,
     void* buffer,
     size_t bytes_to_read,
-    size_t* bytes_read /* optional */
-    );
+    size_t* bytes_read /* optional */);
 
 long
 jk_file_read_get_buffer(
     jk_file_t* file,
     void** buffer,
     size_t bytes_to_read,
-    size_t* bytes_read /* optional */
-    );
+    size_t* bytes_read /* optional */);
 
 long
 jk_file_read_ahead(
     jk_file_t* b,
-    size_t bytes_to_read
-    );
+    size_t bytes_to_read);
     
 long
 jk_file_close(
-    jk_file_t* f
-    );
+    jk_file_t* f);
 
 typedef struct jk_java_constant_pool_t {
     unsigned      count;
@@ -1343,8 +1291,7 @@ jk_file_read_and_unpack(
     jk_struct_t* spec,
     size_t packed_buffer_size,
     void* unpacked_buffer,
-    size_t unpacked_buffer_size
-    );
+    size_t unpacked_buffer_size);
 
 long
 jk_file_read_and_unpack_array(
@@ -1352,8 +1299,7 @@ jk_file_read_and_unpack_array(
     jk_file_t* file,
     jk_array_t* array,
     size_t offset,
-    size_t size
-    );
+    size_t size);
 
 long
 jk_unpack(
@@ -1361,8 +1307,7 @@ jk_unpack(
     unsigned endian,
     const void* vpacked_buffer,
     void* vunpacked_buffer,
-    jk_struct_t* specs
-    );
+    jk_struct_t* specs);
 
 #define jk_min(x,y) (((x) < (y)) ? (x) : (y))
 #define jk_max(x,y) (((x) < (y)) ? (y) : (x))
@@ -1371,95 +1316,80 @@ long
 jk_compute_packed_or_unpacked_size(
     const jk_globals_t* globals,
     jk_struct_t* p,
-    unsigned packed_or_unpacked
-    );
+    unsigned packed_or_unpacked);
 
 long
 jk_compute_packed_size(
     const jk_globals_t* globals,
-    jk_struct_t* p
-    );
+    jk_struct_t* p);
 
 long
 jk_compute_unpacked_size(
     const jk_globals_t* globals,
-    jk_struct_t* p
-    );
+    jk_struct_t* p);
 
 size_t
 jk_align_integer(
-	size_t n
-	);
+	size_t n);
 
 long
 jk_file_open_for_read(
     const jk_globals_t* globals,
     jk_file_t* file,
-    const char* file_path
-    );
+    const char* file_path);
 
 long
 jk_file_close(
-    jk_file_t* file
-    );
+    jk_file_t* file);
 
 long
 jkp_file_read_direct(
     jk_file_t* file,
     void* buffer,
     size_t bytes_to_read,
-    size_t* bytes_read
-    );
+    size_t* bytes_read);
 
 long
 jk_dump_struct(
     const jk_globals_t* globals,
     const char* prefix,
     const void* vbase,
-    const jk_struct_t* desc
-    );
+    const jk_struct_t* desc);
 
 long
 jk_file_read_ahead(
     jk_file_t* file,
-    size_t n
-    );
+    size_t n);
 
 long
 jk_file_read_copy(
     jk_file_t* file,
     void* buffer,
     size_t bytes_to_read,
-    size_t* bytes_read
-    );
+    size_t* bytes_read);
     
 long
 jk_file_read_get_buffer(
     jk_file_t* file,
     void** out_buffer,
     size_t bytes_to_read,
-    size_t* out_bytes_read
-    );
+    size_t* out_bytes_read);
 
 unsigned
 jk_get_big_endian_u2(
-    const unsigned char* a
-    );
+    const unsigned char* a);
 
 unsigned long
 jk_get_big_endian_u4(
-    const unsigned char* a
-    );
+    const unsigned char* a);
 
 unsigned
 jk_get_little_endian_u2(
-    const unsigned char* a
-    );
+    const unsigned char* a);
     
 unsigned long
 jk_get_little_endian_u4(
-    const unsigned char* a
-    );
+    const unsigned char* a);
 
 extern const float jk_java_positive_infinity_float;
 extern const float jk_java_negative_infinity_float;
@@ -1471,53 +1401,44 @@ extern const double jk_java_nan_double;
 /*
 jk_ulonglong_t
 jk_longlong_to_ulonglong(
-    jk_longlong_t a
-    );
+    jk_longlong_t a);
 */
 
 jk_ulonglong_t*
 jk_longlong_to_ulonglong_pointer(
-    jk_longlong_t* a
-    );
+    jk_longlong_t* a);
 
 void
 jk_longlong_assign_zero(
-    jk_longlong_t* a
-    );
+    jk_longlong_t* a);
 
 void
 jk_longlong_from_long(
     jk_longlong_t* a,
-    long b
-    );
+    long b);
 
 void
 jk_longlong_from_ulong(
     jk_longlong_t* a,
-    unsigned long b
-    );
+    unsigned long b);
 
 void
 jk_ulonglong_assign_zero(
-    jk_ulonglong_t* a
-    );
+    jk_ulonglong_t* a);
 
 void
 jk_ulonglong_from_ulong(
     jk_ulonglong_t* a,
-    unsigned long b
-    );
+    unsigned long b);
 
 void
 jk_ulonglong_from_int64(
     jk_ulonglong_t* a,
-    __int64 b
-    );
+    __int64 b);
 
 long
 jk_carry_to_error(
-	unsigned carry
-	);
+	unsigned carry);
 
 typedef unsigned jk_carry_t;
 
@@ -1569,168 +1490,144 @@ void
 jk_longlong_add(
     jk_longlong_t* a,
     const jk_longlong_t* b,
-    const jk_longlong_t* c
-    );
+    const jk_longlong_t* c);
 
 void
-jk_ulonglong_add(jk_ulonglong_t* a, const jk_ulonglong_t* b, const jk_ulonglong_t* c);
+jk_ulonglong_add(
+    jk_ulonglong_t* a,
+    const jk_ulonglong_t* b,
+    const jk_ulonglong_t* c);
 
 void
 jk_ulonglong_bitwise_and(
     jk_ulonglong_t* a,
     const jk_ulonglong_t* b,
-    const jk_ulonglong_t* c
-    );
+    const jk_ulonglong_t* c);
 
 void
 jk_ulonglong_bitwise_or(
     jk_ulonglong_t* a,
     const jk_ulonglong_t* b,
-    const jk_ulonglong_t* c
-    );
+    const jk_ulonglong_t* c);
 
 void
 jk_longlong_bitwise_and(
     jk_longlong_t* a,
     const jk_longlong_t* b,
-    const jk_longlong_t* c
-    );
+    const jk_longlong_t* c);
 
 void
 jk_longlong_bitwise_or(
     jk_longlong_t* a,
     const jk_longlong_t* b,
-    const jk_longlong_t* c
-    );
+    const jk_longlong_t* c);
 
 unsigned
 jk_ulonglong_to_boolean(
-    const jk_ulonglong_t* a
-    );
+    const jk_ulonglong_t* a);
 
 unsigned
 jk_longlong_to_boolean(
-    const jk_longlong_t* a
-    );
+    const jk_longlong_t* a);
 
 unsigned
 jk_ulonglong_logical_and(
     const jk_ulonglong_t* a,
-    const jk_ulonglong_t* b
-    );
+    const jk_ulonglong_t* b);
 
 unsigned
 jk_ulonglong_logical_or(
     const jk_ulonglong_t* a,
-    const jk_ulonglong_t* b
-    );
+    const jk_ulonglong_t* b);
 
 unsigned
 jk_longlong_logical_and(
     const jk_longlong_t* a,
-    const jk_longlong_t* b
-    );
+    const jk_longlong_t* b);
 
 unsigned
 jk_longlong_logical_or(
     const jk_longlong_t* a,
-    const jk_longlong_t* b
-    );
+    const jk_longlong_t* b);
 
 void
 jk_ulonglong_bitwise_invert(
     jk_ulonglong_t* a,
-    const jk_ulonglong_t* b
-    );
+    const jk_ulonglong_t* b);
 
 void
 jk_longlong_bitwise_invert(
     jk_longlong_t* a,
-    const jk_longlong_t* b
-    );
+    const jk_longlong_t* b);
 
 unsigned
 jk_ulonglong_logical_not(
-    const jk_ulonglong_t* a
-    );
+    const jk_ulonglong_t* a);
 
 unsigned
 jk_longlong_logical_not(
-    const jk_longlong_t* a
-    );
+    const jk_longlong_t* a);
 
 void
 jk_ulonglong_left_shift(
     jk_ulonglong_t* a,
     const jk_ulonglong_t* b,
-    unsigned shift
-    );
+    unsigned shift);
 
 void
 jk_longlong_left_shift(
     jk_longlong_t* a,
     const jk_longlong_t* b,
-    unsigned shift
-    );
+    unsigned shift);
 
 void
 jk_ulonglong_right_shift(
     jk_ulonglong_t* a,
     const jk_ulonglong_t* b,
-    unsigned shift
-    );
+    unsigned shift);
 
 long
 jk_long_with_n_right_bits_clear(
-    unsigned n
-    );
+    unsigned n);
 
 long
 jk_long_with_n_right_bits_set(
-    unsigned n
-    );
+    unsigned n);
 
 long
 jk_long_with_n_left_bits_clear(
-    unsigned n
-    );
+    unsigned n);
 
 long
 jk_long_with_n_left_bits_set(
-    unsigned n
-    );
+    unsigned n);
 
 #define jk_bits_of(x) (sizeof(x)*8)
 
 unsigned long
 jk_ulong_one_fill_right_shift(
     unsigned long a,
-    unsigned shift
-    );
+    unsigned shift);
 
 unsigned long
 jk_ulong_zero_fill_right_shift(
     unsigned long a,
-    unsigned shift
-    );
+    unsigned shift);
 
 long
 jk_long_one_fill_right_shift(
     long a,
-    unsigned shift
-    );
+    unsigned shift);
 
 long
 jk_long_zero_fill_right_shift(
     long a,
-    unsigned shift
-    );
+    unsigned shift);
 
 long
 jk_long_sign_fill_right_shift(
     long a,
-    unsigned shift
-    );
+    unsigned shift);
 
 void
 jk_ulonglong_one_fill_right_shift(jk_ulonglong_t* a, const jk_ulonglong_t* b, unsigned shift);
@@ -1777,31 +1674,26 @@ jk_longlong_multiply(
 
 float
 jk_java_convert_java_float_to_native_float(
-    const unsigned char* bytes
-    );
+    const unsigned char* bytes);
 
 double
 jk_java_convert_java_double_to_native_double(
-    const unsigned char* bytes
-    );
+    const unsigned char* bytes);
 
 void
 jk_java_get_long(
     jk_longlong_t* i,
-    const unsigned char* p
-    );
+    const unsigned char* p);
 
 void
 jk_java_get_ulong(
     jk_ulonglong_t* i,
-    const unsigned char* p
-    );
+    const unsigned char* p);
 
 long
 jk_java_read_constant_pool(
     jk_file_t* file,
-    jk_java_constant_pool_t* constant_pool
-    );
+    jk_java_constant_pool_t* constant_pool);
 
 long
 jk_java_read_classfile(
@@ -1825,8 +1717,7 @@ jk_ulong_rotate_right(
 void
 jk_add_ulong_to_ulonglong_in_place(
     jk_ulonglong_t* a,
-    unsigned long b
-    );
+    unsigned long b);
 
 typedef union jkp_opaque_cookie_union_t {
 	unsigned i;
@@ -1872,64 +1763,54 @@ long
 jk_default_memory_allocator_allocate(
     jk_memory_allocator_t* state,
     size_t number_of_bytes,
-    jk_opaque_cookie_t* cookie
-    );
+    jk_opaque_cookie_t* cookie);
 
 long
 jk_default_memory_allocator_free(
     jk_memory_allocator_t* state,
-    jk_opaque_cookie_t* cookie
-    );
+    jk_opaque_cookie_t* cookie);
 
 long
 jk_default_memory_allocator_convert_cookie_to_pointer(
     jk_memory_allocator_t* state,
     jk_opaque_cookie_t cookie,
-    void** pointer
-    );
+    void** pointer);
 
 typedef struct jk_multiprecisioninteger_t jk_multiprecisioninteger_t;
 
 void
 jk_multiprecision_integer_trim_heap(
-    jk_multiprecisioninteger_t* m
-    );
+    jk_multiprecisioninteger_t* m);
 
 unsigned long *
 jk_multipleprecision_integer_get_value_array(
-    const jk_multiprecisioninteger_t* m
-    );
+    const jk_multiprecisioninteger_t* m);
     
 long
 jk_multiprecision_integer_from_long(
     jk_multiprecisioninteger_t* m,
-    long i
-    );
+    long i);
 
 long
 jk_multiprecision_integer_from_ulong(
     jk_multiprecisioninteger_t* m,
-    unsigned long i
-    );
+    unsigned long i);
 
 long
 jk_multiprecision_integer_from_ulong_and_sign(
     jk_multiprecisioninteger_t* m,
     unsigned long i,
-    int sign
-    );
+    int sign);
 
 long
 jk_multiprecision_integer_ensure_precision(
     jk_multiprecisioninteger_t* m,
-    unsigned n
-    );
+    unsigned n);
 
 long
 jk_multiprecision_integer_set_precision(
     jk_multiprecisioninteger_t* m,
-    unsigned n
-    );
+    unsigned n);
     
 void
 jk_ulonglong_add_in_place(
@@ -1941,8 +1822,7 @@ void
 jk_add_ulong_to_ulonglong(
     jk_ulonglong_t* a,
     const jk_ulonglong_t* c,
-    unsigned long b
-    );
+    unsigned long b);
 
 void
 jk_ulonglong_bitwise_exclusive_or(
@@ -2037,59 +1917,50 @@ void
 jk_signed_char_split_into_magnitude_and_sign(
     signed char i,
     unsigned char* magnitude,
-    int* sign
-    );
+    int* sign);
 
 void
 jk_short_split_into_magnitude_and_sign(
     short i,
     unsigned short* magnitude,
-    int* sign
-    );
+    int* sign);
 
 void
 jk_int_split_into_magnitude_and_sign(
     int i,
     unsigned* magnitude,
-    int* sign
-    );
+    int* sign);
 
 void
 jk_long_split_into_magnitude_and_sign(
     long i,
     unsigned long* magnitude,
-    int* sign
-    );
+    int* sign);
 
 unsigned long
 jkp_common_split_into_magnitude_and_sign(
     long i,
-    int* sign
-    );
+    int* sign);
 
 void
 jk_longlong_split_into_magnitude_and_sign(
 	const jk_longlong_t* i,
     jk_ulonglong_t* magnitude,
-    int* sign
-    );
+    int* sign);
 
 void
 jk_longlong_negate(
     jk_longlong_t* a,
-    const jk_longlong_t* b
-    );
+    const jk_longlong_t* b);
     
 void
 jk_longlong_negate_in_place(
-    jk_longlong_t* a
-    );
+    jk_longlong_t* a);
 
 void
 jk_longlong_add_in_place(
     jk_longlong_t* a,
-    const jk_longlong_t* b
-    );
+    const jk_longlong_t* b);
 
 long
 jk_java_init_constant_pool(
@@ -2103,18 +1974,15 @@ jk_java_init_classfile(
 	
 void
 jk_java_free_constant_pool(
-    jk_java_constant_pool_t* constant_pool
-    );
+    jk_java_constant_pool_t* constant_pool);
 	
 long
 jk_java_free_classfile(
-    jk_java_classfile_t* classfile
-    );
+    jk_java_classfile_t* classfile);
 
 void
 jk_profile_dump_function_call_counts(
-    void
-    );
+    void);
 
 typedef struct {
 	size_t value;
@@ -2177,46 +2045,39 @@ typedef struct jk_range_table_t {
 
 long
 jk_range_table_init(
-    jk_range_table_t* range_table
-    );
+    jk_range_table_t* range_table);
     
 long
 jk_range_table_add_value(
     jk_range_table_t* range_table,
-    size_t value
-    );
+    size_t value);
 
 long
 jk_range_table_remove_value(
     jk_range_table_t* range_table,
-    size_t value
-    );
+    size_t value);
     
 long
 jk_range_table_add_range(
     jk_range_table_t* range_table,
-    const jk_range_t* range
-    );
+    const jk_range_t* range);
 
 long
 jk_range_table_remove_range(
     jk_range_table_t* range_table,
-    const jk_range_t* range
-    );
+    const jk_range_t* range);
     
 long
 jk_range_table_contains_value(
     jk_range_table_t* range_table,
     size_t value,
-    jk_bool_t* contains_value
-    );
+    jk_bool_t* contains_value);
 
 long
 jk_range_table_find_range_with_value(
     jk_range_table_t* range_table,
     size_t value,
-    jk_range_t* range
-    );
+    jk_range_t* range);
 
 /*
 a special heap is
@@ -2248,39 +2109,33 @@ typedef struct jk_special_heap_t {
 long
 jk_special_heap_init(
     jk_special_heap_t* heap,
-    jk_memory_allocator_t* allocator
-    );
+    jk_memory_allocator_t* allocator);
 
 long
 jk_special_heap_destroy(
-    jk_special_heap_t* heap
-    );
+    jk_special_heap_t* heap);
 
 long
 jk_special_heap_alloc(
     jk_special_heap_t* heap,
     size_t number_of_bytes_to_allocate,
     unsigned long* sequence_number,
-    void** optional_out_unstable_pointer
-    );
+    void** optional_out_unstable_pointer);
 
 long
 jk_special_heap_get_pointer(
     jk_special_heap_t* heap,
     unsigned long sequence_number,
-    void** pointer
-    );
+    void** pointer);
 
 long
 jk_special_heap_free(
     jk_special_heap_t* heap,
-    unsigned long sequence_number
-    );
+    unsigned long sequence_number);
 
 long
 jk_undone(
-    void
-    );
+    void);
 
 void jk_unused(const void *);
 void jk_unused2(const void* a1, const void* a2);
@@ -2324,92 +2179,76 @@ jk_heap_free_memory(
 void
 jk_longlong_left_shift_in_place(
     jk_longlong_t* a,
-    unsigned shift
-    );
+    unsigned shift);
     
 long
 jk_long_safe_negate(
-    long i
-    );
+    long i);
 
 void
 jk_longlong_left_shift_in_place(
     jk_longlong_t* a,
-    unsigned shift
-    );
+    unsigned shift);
 
 unsigned
 jk_ulonglong_is_greater_or_equal(
     const jk_ulonglong_t* i,
-    const jk_ulonglong_t* j
-    );
+    const jk_ulonglong_t* j);
 
 unsigned
 jk_ulonglong_is_greater(
     const jk_ulonglong_t* i,
-    const jk_ulonglong_t* j
-    );
+    const jk_ulonglong_t* j);
 
 unsigned
 jk_ulonglong_is_less(
     const jk_ulonglong_t* i,
-    const jk_ulonglong_t* j
-    );
+    const jk_ulonglong_t* j);
 
 unsigned
 jk_ulonglong_is_less_or_equal(
     const jk_ulonglong_t* i,
-    const jk_ulonglong_t* j
-    );
+    const jk_ulonglong_t* j);
 
 unsigned
 jk_ulonglong_is_equal(
     const jk_ulonglong_t* i,
-    const jk_ulonglong_t* j
-    );
+    const jk_ulonglong_t* j);
 
 unsigned
 jk_ulonglong_is_not_equal(
     const jk_ulonglong_t* i,
-    const jk_ulonglong_t* j
-    );
-
+    const jk_ulonglong_t* j);
 
 unsigned
 jk_longlong_is_greater_or_equal(
     const jk_longlong_t* i,
-    const jk_longlong_t* j
-    );
+    const jk_longlong_t* j);
 
 unsigned
 jk_longlong_is_greater(
     const jk_longlong_t* i,
-    const jk_longlong_t* j
-    );
+    const jk_longlong_t* j);
 
 unsigned
 jk_longlong_is_less(
     const jk_longlong_t* i,
-    const jk_longlong_t* j
-    );
+    const jk_longlong_t* j);
 
 unsigned
 jk_longlong_is_less_or_equal(
     const jk_longlong_t* i,
-    const jk_longlong_t* j
-    );
+    const jk_longlong_t* j);
 
 unsigned
 jk_longlong_is_equal(
     const jk_longlong_t* i,
-    const jk_longlong_t* j
-    );
+    const jk_longlong_t* j);
 
 unsigned
 jk_longlong_is_not_equal(
     const jk_longlong_t* i,
-    const jk_longlong_t* j
-    );
+    const jk_longlong_t* j);
 
 #define jk_swap_primtive(T,x,y) do { T t = x; x = y; y = t; } while(0)
 #define jk_integer_compare_tristate(x,y) ((x == y) ? 0 : (x < y) ? -1 : +1)
@@ -2418,225 +2257,188 @@ unsigned
 jk_ulonglong_is_in_ordered_range_inclusive(
     const jk_ulonglong_t* i,
     const jk_ulonglong_t* low,
-    const jk_ulonglong_t* high
-    );
+    const jk_ulonglong_t* high);
 
 unsigned
 jk_longlong_is_in_ordered_range_inclusive(
     const jk_longlong_t* i,
     const jk_longlong_t* low,
-    const jk_longlong_t* high
-    );
+    const jk_longlong_t* high);
 
 void
 jk_ulonglong_order_range(
     const jk_ulonglong_t** low,
-    const jk_ulonglong_t** high
-    );
+    const jk_ulonglong_t** high);
 
 void
 jk_longlong_order_range(
     const jk_longlong_t** low,
-    const jk_longlong_t** high
-    );
+    const jk_longlong_t** high);
 
 unsigned
 jk_ulonglong_is_in_unordered_range_inclusive(
     const jk_ulonglong_t* i,
     const jk_ulonglong_t* j,
-    const jk_ulonglong_t* k
-    );
+    const jk_ulonglong_t* k);
 
 unsigned
 jk_longlong_is_in_unordered_range_inclusive(
     const jk_longlong_t* i,
     const jk_longlong_t* j,
-    const jk_longlong_t* k
-    );
+    const jk_longlong_t* k);
 
 unsigned
 jk_ulonglong_is_in_ordered_range_exclusive(
     const jk_ulonglong_t* i,
     const jk_ulonglong_t* low,
-    const jk_ulonglong_t* high
-    );
+    const jk_ulonglong_t* high);
 
 unsigned
 jk_longlong_is_in_ordered_range_exclusive(
     const jk_longlong_t* i,
     const jk_longlong_t* low,
-    const jk_longlong_t* high
-    );
+    const jk_longlong_t* high);
 
 unsigned
 jk_ulonglong_is_in_unordered_range_exclusive(
     const jk_ulonglong_t* i,
     const jk_ulonglong_t* j,
-    const jk_ulonglong_t* k
-    );
+    const jk_ulonglong_t* k);
 
 unsigned
 jk_longlong_is_in_unordered_range_exclusive(
     const jk_longlong_t* i,
     const jk_longlong_t* j,
-    const jk_longlong_t* k
-    );
+    const jk_longlong_t* k);
  
 void
 jk_copy_ulonglong_to_longlong(
     jk_longlong_t* to,
-    const jk_ulonglong_t* from
-    );
+    const jk_ulonglong_t* from);
 
 void
 jk_copy_longlong_to_ulonglong(
     jk_ulonglong_t* to,
-    const jk_longlong_t* from
-    );
+    const jk_longlong_t* from);
     
 void
 jk_ulonglong_from_long(
     jk_ulonglong_t* a,
-    long b
-    );
+    long b);
 
 unsigned
 jk_multiprecision_integer_to_boolean(
-    const jk_multiprecisioninteger_t* m
-    );
+    const jk_multiprecisioninteger_t* m);
 
 unsigned
 jk_multiprecision_integer_logical_not(
-    const jk_multiprecisioninteger_t* m
-    );
+    const jk_multiprecisioninteger_t* m);
 
 unsigned
 jk_multiprecision_integer_logical_and(
     const jk_multiprecisioninteger_t* m,
-    const jk_multiprecisioninteger_t* n
-    );
+    const jk_multiprecisioninteger_t* n);
 
 unsigned
 jk_multiprecision_integer_logical_or(
     const jk_multiprecisioninteger_t* m,
-    const jk_multiprecisioninteger_t* n
-    );
+    const jk_multiprecisioninteger_t* n);
 
 long
 jk_multiprecision_integer_bitwise_invert(
-    jk_multiprecisioninteger_t* m
-    );
+    jk_multiprecisioninteger_t* m);
 
 long
 jk_multiprecision_integer_bitwise_and(
     jk_multiprecisioninteger_t* m,
-    const jk_multiprecisioninteger_t* n
-    );
+    const jk_multiprecisioninteger_t* n);
  
 long
 jk_multiprecision_integer_reduce_precision_due_to_leading_zeros(
-    jk_multiprecisioninteger_t* m
-    );
+    jk_multiprecisioninteger_t* m);
 
 long
 jk_multiprecision_integer_bitwise_or(
     jk_multiprecisioninteger_t* m,
-    const jk_multiprecisioninteger_t* n
-    );
+    const jk_multiprecisioninteger_t* n);
     
 void
 jk_ulonglong_add_one_in_place(
-    jk_ulonglong_t* a
-    );
+    jk_ulonglong_t* a);
 
 void
 jk_longlong_add_one_in_place(
-    jk_longlong_t* a
-    );
+    jk_longlong_t* a);
 
 void
 jk_ulonglong_add_one(
     jk_ulonglong_t* a,
-    const jk_ulonglong_t* b
-    );
+    const jk_ulonglong_t* b);
 
 void
 jk_longlong_add_one(
     jk_longlong_t* a,
-    const jk_longlong_t* b
-    );
+    const jk_longlong_t* b);
     
 void
 jk_ulonglong_negate(
     jk_ulonglong_t* a,
-    const jk_ulonglong_t* b
-    );
+    const jk_ulonglong_t* b);
 
 void
 jk_ulonglong_negate_in_place(
-    jk_ulonglong_t* a
-    );
+    jk_ulonglong_t* a);
 
 void
 jk_ulonglong_bitwise_and_with_ulong_in_place(
     jk_ulonglong_t* a,
-    unsigned long b
-    );
+    unsigned long b);
 
 unsigned
 jk_assert_failed(
     const char* x,
     const char* file,
-    long line
-    );
+    long line);
 
 void
 jk_ulonglong_from_high_low_32bit_ulongs(
     jk_ulonglong_t* i,
     unsigned long high,
-    unsigned long low
-    );
+    unsigned long low);
 
 void
 jk_ulonglong_bitwise_or_in_place(
     jk_ulonglong_t* a,
-    const jk_ulonglong_t* b
-    );
+    const jk_ulonglong_t* b);
     
 void
 jk_ulonglong_right_shift_in_place(
     jk_ulonglong_t* a,
-    unsigned shift
-    );
+    unsigned shift);
 
 void
 jk_utoa(
     unsigned u,
-    char* a
-    );
+    char* a);
     
 void
 jk_itoa(
     int i,
-    char* a
-    );
+    char* a);
 
 void
 jk_ultoa(
     unsigned long u,
-    char* a
-    );
+    char* a);
     
 void
 jk_ltoa(
     long i,
-    char* a
-    );
+    char* a);
 
 unsigned
 jk_unsigned_times_10(
-    unsigned u
-    );
+    unsigned u);
 
 #define jkp_preprocessor_paste(x,y) x##y
 #define jk_preprocessor_paste(x,y)  jkp_preprocessor_paste(x,y)
@@ -2829,8 +2631,7 @@ typedef struct jk_mspecoff_optional_header_t {
 
 void
 jk_dump_environment_variablese(
-    const jk_globals_t* globals
-    );
+    const jk_globals_t* globals);
 
 struct jk_globals_t {
     const jk_fields_t* fields;
@@ -2852,26 +2653,22 @@ extern const jk_memory_allocator_t jk_default_memory_allocator;
 
 jk_memory_allocator_t *
 jk_get_default_memory_allocator(
-    void
-    );
+    void);
 
 void
 jk_init_platforms(
-    void
-    );
+    void);
 
 void
 jk_init_constant_string(
     jk_constant_string_t* s,
     const char* t,
-    size_t length
-    );
+    size_t length);
 
 long
 jk_report_bad_parameter(
     const jk_constant_string_t* function,
-    const char* expression
-    );
+    const char* expression);
 
 typedef struct jk_unpacked_msdos_exe_header_t {
 	unsigned char signature[2];
@@ -4302,8 +4099,7 @@ jk_get_keyboard_state(
 
 void
 jk_dump_environment_variables(
-    const jk_globals_t * globals
-    );
+    const jk_globals_t * globals);
 
 unsigned
 jk_appleiigs_init_memory_bank(
@@ -4864,14 +4660,12 @@ typedef struct {
 void
 JWinGetVolumeInformation(
     PCWSTR RootPath,
-    JWinVolumeInformation_t* Info
-    );
+    JWinVolumeInformation_t* Info);
 
 BOOL
 JWinVolumeInformationEqual(
     const JWinVolumeInformation_t* a,
-    const JWinVolumeInformation_t* b
-    );
+    const JWinVolumeInformation_t* b);
 
 typedef struct DirHandle_t {
 	void* p;
