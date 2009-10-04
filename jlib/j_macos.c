@@ -15,7 +15,7 @@ long
 jk_macos_cleanup_display(
     jk_display_t* d)
 {
-    long err = 0;
+    long err = { 0 };
     jk_display_t e = { 0 };
     *d = e;
     return err;
@@ -31,10 +31,10 @@ jk_macos_display_update_metadata(
     const PixMapHandle pmh = gdp->gdPMap;
     const PixMapPtr pmp = *pmh;
     const Rect r = pmp->bounds;
-    long err = 0;
-    unsigned bits_per_pixel;
-    unsigned bits_per_pixel_even_rounded_up;
-    unsigned bits_per_pixel_even_rounded_down;
+    long err = { 0 };
+    unsigned bits_per_pixel = { 0 };
+    unsigned bits_per_pixel_even_rounded_up = { 0 };
+    unsigned bits_per_pixel_even_rounded_down = { 0 };
 
     err = jk_convert_long_to_unsigned_int(pmp->packSize, &d->macos.packing_size);
     if (err < 0)
@@ -82,7 +82,7 @@ long
 jk_macos_display_end_access(
     jk_display_t *d)
 {
-    long err = 0;
+    long err = { 0 };
     jk_unused(d);
     return err;
 }
@@ -92,7 +92,7 @@ jk_macos_get_main_display(
     jk_display_t *d)
 {
     jk_display_t e = { 0 };
-    long err = 0;
+    long err = { 0 };
 
     e.opaque_handle = GetMainDevice();
     e.is_macos = 1;
