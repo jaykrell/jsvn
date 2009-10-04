@@ -28,20 +28,17 @@ size_t Name(const T * s); size_t Name(const T * s) { const T* t = s; for ( ; *s 
 
 jkp_get_null_terminated_string_length_generic(
 	jk_get_null_terminated_string_length_a,
-	char
-	)
+	char)
 
 typedef unsigned short jk_wchar_t;
 
 jkp_get_null_terminated_string_length_generic(
 	jk_get_null_terminated_string_length_w,
-	jk_wchar_t
-	)
+	jk_wchar_t)
 
 char
 jk_lowercase_ascii_char(
-	char ch
-	)
+	char ch)
 {
 #if 0
 	return (ch | ((ch >= 0x41 && ch <= 0x5A) ? 0x20 : 0));
