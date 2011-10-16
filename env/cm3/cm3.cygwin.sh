@@ -10,4 +10,4 @@ export CM3_TARGET=
 export OMIT_GCC=
 export CM3_ROOT=/dev2/cm3.2
 export CM3_INSTALL=/cm3
-export M3CONFIG=
+export M3CONFIG=/dev2/cm3/m3-sys/cminstall/src/config-no-install/NT386GNU
